@@ -1,0 +1,12 @@
+{% block content %}
+<h2>تاریخچه تغییرات: {{ article.title_fa }}</h2>
+<ul>
+    {% for rev in revisions %}
+    <li>
+        نسخه شماره {{ rev.revision_no }} - تغییر در {{ rev.created_at|date:"Y-m-d H:i" }}
+        <p><i>یادداشت: {{ rev.change_note }}</i></p>
+        <hr>
+    </li>
+    {% endfor %}
+</ul>
+{% endblock %}

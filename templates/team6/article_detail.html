@@ -1,0 +1,24 @@
+{% block content %}
+<h1>{{ article.title_fa }}</h1>
+<div class="meta">تعداد بازدید: {{ article.view_count }} | دسته: {{ article.category.title_fa }}</div>
+
+<div id="ai-summary-box" style="background: #f0f8ff; padding: 10px;">
+    <button onclick="loadSummary('{{ article.id_article }}')">تولید خلاصه با هوش مصنوعی</button>
+    <p id="summary-text">{{ article.summary }}</p>
+</div>
+
+<div class="body">{{ article.body_fa|linebreaks }}</div>
+
+<div class="actions">
+    <a href="{% url 'article_edit' article.slug %}">ویرایش مقاله</a>
+    <a href="{% url 'article_revisions' article.slug %}">تاریخچه نسخه‌ها</a>
+    <button onclick="showReportModal()">گزارش تخلف</button>
+</div>
+
+<script>
+function loadSummary(id) {
+    fetch(`/team6/article/${id}/ai-summary/`).then(res => res.json())
+    .then(data => document.getElementById('summary-text').innerText = data.summary);
+}
+</script>
+{% endblock %}

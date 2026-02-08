@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}سرویس ویکی - تیم ۶{% endblock %}</title>
+    <style>
+        body { font-family: Tahoma, Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }
+        nav { background: #333; color: #fff; padding: 10px; margin-bottom: 20px; border-radius: 5px; }
+        nav a { color: white; text-decoration: none; margin-left: 15px; }
+        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .search-section { margin-bottom: 20px; border-bottom: 1px solid #ddd; padding-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <nav>
+        <strong>Wiki Service (Group Nullterminated)</strong>
+        <a href="/team6/">لیست مقالات</a>
+        <a href="/admin/">پنل مدیریت</a>
+    </nav>
+
+    <div class="container">
+        {% block content %}
+        {% endblock %}
+    </div>
+</body>
+</html>

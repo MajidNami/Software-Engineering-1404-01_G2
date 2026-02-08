@@ -1,0 +1,23 @@
+{% extends "team6/base.html" %}
+{% block content %}
+<div class="search-section">
+    <form method="GET">
+        <input type="text" name="q" placeholder="جستجوی کلمه یا جمله..." value="{{ request.GET.q }}">
+        <select name="category">
+            <option value="">همه دسته‌ها</option>
+            {% for cat in categories %}<option value="{{ cat.slug }}">{{ cat.title_fa }}</option>{% endfor %}
+        </select>
+        <button type="submit">جستجو</button>
+    </form>
+</div>
+
+<div class="articles-grid">
+    {% for article in articles %}
+    <div class="card">
+        <h3>{{ article.title_fa }}</h3>
+        <p>{{ article.summary|truncatewords:20 }}</p>
+        <a href="{% url 'article_detail' article.slug %}">مشاهده جزئیات</a>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
