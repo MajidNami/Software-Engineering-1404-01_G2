@@ -6,29 +6,36 @@
 
 <form method="GET" class="row g-3 mb-4 p-3 bg-light rounded">
     <div class="col-md-5">
-        <input type="text" name="q" class="form-control" placeholder="جستجوی مقالات..." 
+        <input type="text" name="q" class="form-control"
+               placeholder="جستجوی مقالات..."
                value="{{ request.GET.q }}">
     </div>
+
     <div class="col-md-3">
         <select name="category" class="form-select">
             <option value="">همه دسته‌ها</option>
             {% for cat in categories %}
-            <option value="{{ cat.slug }}" {% if request.GET.category == cat.slug %}selected{% endif %}>
-                {{ cat.title_fa }}
-            </option>
+                <option value="{{ cat.slug }}"
+                    {% if request.GET.category == cat.slug %}selected{% endif %}>
+                    {{ cat.title_fa }}
+                </option>
             {% endfor %}
         </select>
     </div>
+
     <div class="col-md-2">
         <select name="search_type" class="form-select">
-            <option value="direct" {% if request.GET.search_type == "direct" %}selected{% endif %}>
+            <option value="direct"
+                {% if request.GET.search_type == "direct" %}selected{% endif %}>
                 جستجوی مستقیم
             </option>
-            <option value="semantic" {% if request.GET.search_type == "semantic" %}selected{% endif %}>
+            <option value="semantic"
+                {% if request.GET.search_type == "semantic" %}selected{% endif %}>
                 جستجوی معنایی
             </option>
         </select>
     </div>
+
     <div class="col-md-2">
         <button type="submit" class="btn btn-primary w-100">
             <i class="fa-solid fa-search"></i> جستجو
@@ -43,44 +50,64 @@
         <div class="card h-100 shadow-sm">
             <div class="card-body">
                 <h5 class="card-title">{{ article.title_fa }}</h5>
+
                 <p class="card-text text-muted">
-                    {{ article.summary|truncatewords:30|default:"خلاصه‌ای موجود نیست" }}
+                    {{ article.body_fa|truncatewords:25 }}
                 </p>
+
                 <div class="mb-2">
                     <small class="text-muted">
-                        <i class="fa-solid fa-folder"></i> {{ article.category.title_fa }}
-                        | <i class="fa-solid fa-eye"></i> {{ article.view_count|default:0 }}
+                        <i class="fa-solid fa-folder"></i>
+                        {{ article.category.title_fa }}
+                        |
+                        <i class="fa-solid fa-eye"></i>
+                        {{ article.view_count|default:0 }}
                     </small>
                 </div>
             </div>
-            <div class="card-footer bg-transparent">
-                <a href="{% url 'team6:article_detail' article.slug %}" 
-                   class="btn btn-outline-primary btn-sm w-100">
-                    <i class="fa-solid fa-book-open"></i> مطالعه مقاله
+
+            <div class="card-footer bg-transparent d-flex gap-2">
+                <a href="{% url 'team6:article_detail' article.slug %}"
+                   class="btn btn-outline-primary btn-sm flex-fill">
+                    <i class="fa-solid fa-book-open"></i> مطالعه
                 </a>
+
+                {% if request.user.is_authenticated %}
+                <a href="{% url 'team6:article_edit' article.slug %}"
+                   class="btn btn-outline-warning btn-sm flex-fill">
+                    <i class="fa-solid fa-pen"></i> ویرایش
+                </a>
+                {% endif %}
             </div>
         </div>
     </div>
     {% endfor %}
 </div>
 
-<!-- صفحه‌بندی (اگر نیاز باشد) -->
 {% if is_paginated %}
 <nav aria-label="صفحه‌بندی مقالات">
     <ul class="pagination justify-content-center">
         {% if page_obj.has_previous %}
         <li class="page-item">
-            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">قبلی</a>
+            <a class="page-link"
+               href="?page={{ page_obj.previous_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                قبلی
+            </a>
         </li>
         {% endif %}
-        
+
         <li class="page-item disabled">
-            <span class="page-link">صفحه {{ page_obj.number }} از {{ page_obj.paginator.num_pages }}</span>
+            <span class="page-link">
+                صفحه {{ page_obj.number }} از {{ page_obj.paginator.num_pages }}
+            </span>
         </li>
-        
+
         {% if page_obj.has_next %}
         <li class="page-item">
-            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">بعدی</a>
+            <a class="page-link"
+               href="?page={{ page_obj.next_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                بعدی
+            </a>
         </li>
         {% endif %}
     </ul>
@@ -92,7 +119,9 @@
     <i class="fa-solid fa-info-circle fa-2x mb-3"></i>
     <h4>مقاله‌ای یافت نشد</h4>
     <p>هیچ مقاله‌ای با معیارهای جستجوی شما مطابقت ندارد.</p>
-    <a href="{% url 'team6:index' %}" class="btn btn-primary">مشاهده همه مقالات</a>
+    <a href="{% url 'team6:index' %}" class="btn btn-primary">
+        مشاهده همه مقالات
+    </a>
 </div>
 {% endif %}
 {% endblock %}

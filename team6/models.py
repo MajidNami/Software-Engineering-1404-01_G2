@@ -36,7 +36,7 @@ class WikiTag(models.Model):
 class WikiArticle(models.Model):
     id_article = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
-    place_name = models.CharField(null=True,max_length=255)   # اسم مکان (سی و سه پل)
+    place_name = models.CharField(null=True,max_length=255, blank = True)
 
     slug = models.SlugField(null=True,unique=True)  # مثلا: si-o-se-pol
 

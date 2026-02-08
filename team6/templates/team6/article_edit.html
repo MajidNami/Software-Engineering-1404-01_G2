@@ -1,0 +1,112 @@
+{% extends "team6/base.html" %}
+{% load static %}
+
+{% block title %}ویرایش مقاله: {{ article.title_fa }}{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm border-0">
+    <div class="card-header py-3" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white;">
+        <div class="d-flex justify-content-between align-items-center">
+            <!-- دکمه بازگشت در سمت راست (چون RTL است) -->
+            <a href="{% url 'team6:article_detail' article.slug %}" class="btn btn-light btn-sm">
+                <i class="fa-solid fa-arrow-right me-1"></i> بازگشت به مقاله
+            </a>
+            
+            <!-- عنوان در وسط -->
+            <h4 class="mb-0 text-center flex-grow-1 mx-3">
+                <i class="fa-solid fa-edit"></i> ویرایش مقاله
+            </h4>
+            
+            <!-- می‌توانید یک دکمه یا آیتم دیگر در سمت چپ اضافه کنید -->
+            <div style="width: 70px;"></div> <!-- فضای خالی برای بالانس -->
+        </div>
+    </div>
+    <div class="card-body p-4">
+        <form method="POST">
+            {% csrf_token %}
+
+            <!-- عنوان و نام مکان -->
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="title_fa" class="form-label fw-bold">
+                        <i class="fa-solid fa-heading"></i> عنوان مقاله
+                    </label>
+                    <input type="text" name="title_fa" id="title_fa" 
+                           class="form-control" value="{{ article.title_fa }}" required>
+                </div>
+                <div class="col-md-6">
+                    <label for="place_name" class="form-label fw-bold">
+                        <i class="fa-solid fa-location-dot"></i> نام مکان <span class="text-muted">(اختیاری)</span>
+                    </label>
+                    <input type="text" name="place_name" id="place_name" 
+                           class="form-control" value="{{ article.place_name|default:'' }}">
+                </div>
+            </div>
+
+            <!-- دسته‌بندی -->
+            <div class="mb-3">
+                <label for="category" class="form-label fw-bold">
+                    <i class="fa-solid fa-folder"></i> دسته‌بندی
+                </label>
+                <select name="category" id="category" class="form-select" required>
+                    <option value="">انتخاب دسته‌بندی</option>
+                    {% for cat in categories %}
+                        <option value="{{ cat.id_category }}" 
+                                {% if article.category.id_category == cat.id_category %}selected{% endif %}>
+                            {{ cat.title_fa }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- خلاصه مقاله -->
+            <div class="mb-3">
+                <label for="summary" class="form-label fw-bold">
+                    <i class="fa-solid fa-file-lines"></i> خلاصه مقاله
+                </label>
+                <textarea name="summary" id="summary" class="form-control" rows="3">{{ article.summary|default:'' }}</textarea>
+            </div>
+
+            <!-- متن کامل مقاله -->
+            <div class="mb-4">
+                <label for="body_fa" class="form-label fw-bold">
+                    <i class="fa-solid fa-file-text"></i> متن کامل مقاله
+                </label>
+                <textarea name="body_fa" id="body_fa" class="form-control" rows="15" required>{{ article.body_fa }}</textarea>
+            </div>
+
+            <!-- یادداشت تغییرات -->
+            <div class="mb-3">
+                <label for="change_note" class="form-label fw-bold">
+                    <i class="fa-solid fa-sticky-note"></i> یادداشت تغییرات
+                </label>
+                <input type="text" name="change_note" class="form-control" 
+                       placeholder="توضیحی برای ویرایش خود وارد کنید..." required>
+            </div>
+
+            <!-- دکمه‌ها -->
+            <div class="d-flex gap-2 mt-4 pt-3 border-top">
+                <button type="submit" class="btn btn-success px-4">
+                    <i class="fa-solid fa-floppy-disk"></i> ذخیره تغییرات
+                </button>
+                <a href="{% url 'team6:article_detail' article.slug %}" class="btn btn-outline-secondary">
+                    <i class="fa-solid fa-times"></i> انصراف
+                </a>
+                <a href="{% url 'team6:article_revisions' article.slug %}" class="btn btn-outline-info">
+                    <i class="fa-solid fa-history"></i> مشاهده تاریخچه
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .form-control, .form-select { 
+        border-radius: 8px; 
+        padding: 10px 15px; 
+    }
+    #body_fa { 
+        min-height: 400px;
+    }
+</style>
+{% endblock %}

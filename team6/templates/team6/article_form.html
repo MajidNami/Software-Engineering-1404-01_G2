@@ -1,34 +1,112 @@
 {% extends "team6/base.html" %}
 {% load static %}
 
-{% block title %}
-    {% if article %}{{ article.title_fa }}{% else %}ایجاد مقاله{% endif %}
-{% endblock %}
+{% block title %}ایجاد مقاله جدید{% endblock %}
 
 {% block content %}
-<h2>
-    {% if article %}{{ article.title_fa }}{% else %}ایجاد مقاله{% endif %}
-</h2>
-<form method="POST">
-    {% csrf_token %}
-    <div class="mb-3">
-        {{ form.title_fa.label_tag }} {{ form.title_fa }}
+<div class="card shadow-sm border-0">
+    <div class="card-header py-3" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white;">
+        <h4 class="mb-0">
+            <i class="fa-solid fa-plus-circle"></i> ایجاد مقاله جدید
+        </h4>
     </div>
-    <div class="mb-3">
-        {{ form.place_name.label_tag }} {{ form.place_name }}
+    
+    <div class="card-body p-4">
+        <form method="POST">
+            {% csrf_token %}
+            
+            <!-- عنوان و نام مکان -->
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="title_fa" class="form-label fw-bold">
+                        <i class="fa-solid fa-heading"></i> عنوان مقاله <span class="text-danger">*</span>
+                    </label>
+                    <input type="text" name="title_fa" id="title_fa" 
+                           class="form-control" 
+                           placeholder="مثال: سی و سه پل اصفهان"
+                           required>
+                    <small class="form-text text-muted">عنوان فارسی مقاله را وارد کنید</small>
+                </div>
+                <div class="col-md-6">
+                    <label for="place_name" class="form-label fw-bold">
+                        <i class="fa-solid fa-location-dot"></i> نام مکان <span class="text-muted">(اختیاری)</span>
+                    </label>
+                    <input type="text" name="place_name" id="place_name" 
+                           class="form-control"
+                           placeholder="مثال: اصفهان، خیابان چهارباغ">
+                </div>
+            </div>
+
+            <!-- دسته‌بندی -->
+            <div class="mb-3">
+                <label for="category" class="form-label fw-bold">
+                    <i class="fa-solid fa-folder"></i> دسته‌بندی <span class="text-danger">*</span>
+                </label>
+                <select name="category" id="category" class="form-select" required>
+                    <option value="">-- لطفاً یک دسته‌بندی انتخاب کنید --</option>
+                    {% for cat in categories %}
+                        <option value="{{ cat.id_category }}">
+                            {{ cat.title_fa }}
+                        </option>
+                    {% endfor %}
+                </select>
+                <small class="form-text text-muted">دسته‌بندی مرتبط با مقاله را انتخاب کنید</small>
+            </div>
+
+            <!-- خلاصه مقاله -->
+            <div class="mb-3">
+                <label for="summary" class="form-label fw-bold">
+                    <i class="fa-solid fa-file-lines"></i> خلاصه مقاله <span class="text-muted">(اختیاری)</span>
+                </label>
+                <textarea name="summary" id="summary" class="form-control" rows="3"
+                          placeholder="خلاصه کوتاهی از مقاله در 2-3 خط"></textarea>
+            </div>
+
+            <!-- متن کامل مقاله -->
+            <div class="mb-4">
+                <label for="body_fa" class="form-label fw-bold">
+                    <i class="fa-solid fa-file-text"></i> متن کامل مقاله <span class="text-danger">*</span>
+                </label>
+                <textarea name="body_fa" id="body_fa" class="form-control" rows="12" required
+                          placeholder="متن کامل مقاله را اینجا وارد کنید..."></textarea>
+            </div>
+
+            <!-- دکمه ایجاد -->
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-success px-4">
+                    <i class="fa-solid fa-plus-circle"></i> ایجاد مقاله
+                </button>
+                <a href="{% url 'team6:index' %}" class="btn btn-outline-secondary">
+                    <i class="fa-solid fa-times"></i> انصراف
+                </a>
+            </div>
+        </form>
     </div>
-    <div class="mb-3">
-        {{ form.slug.label_tag }} {{ form.slug }}
+</div>
+
+<!-- راهنمای ایجاد مقاله -->
+<div class="card mt-4 border-info">
+    <div class="card-header bg-info text-white">
+        <i class="fa-solid fa-circle-info"></i> راهنمای ایجاد مقاله
     </div>
-    <div class="mb-3">
-        {{ form.category.label_tag }} {{ form.category }}
+    <div class="card-body">
+        <ul class="list-unstyled mb-0">
+            <li><i class="fa-solid fa-check text-success"></i> عنوان مقاله باید واضح و توصیفی باشد</li>
+            <li><i class="fa-solid fa-check text-success"></i> متن کامل را با جزئیات و ساختار مناسب وارد کنید</li>
+        </ul>
     </div>
-    <div class="mb-3">
-        {{ form.summary.label_tag }} {{ form.summary }}
-    </div>
-    <div class="mb-3">
-        {{ form.body_fa.label_tag }} {{ form.body_fa }}
-    </div>
-    <button type="submit" class="btn btn-success">ذخیره</button>
-</form>
+</div>
+
+<style>
+    .form-control, .form-select { 
+        border-radius: 8px; 
+        padding: 10px 15px; 
+    }
+    #body_fa { 
+        min-height: 300px;
+    }
+    .form-text {
+        font-size: 0.85rem;
+    }
+</style>
 {% endblock %}
