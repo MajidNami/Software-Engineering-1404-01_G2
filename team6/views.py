@@ -314,6 +314,19 @@ def article_detail(request, slug):
         print(f"Error: {e}") 
         return render(request, 'team6/errors/500.html', status=500)
 
+def calculate_article_score(article):
+    """
+    تابع مستقل برای محاسبه امتیاز مقاله.
+    فعلاً فقط بر اساس بازدید، اما قابل گسترش به پارامترهای دیگر.
+    """
+    views = article.view_count or 0
+    #میشه لگاریتمی یا مدل دیگه هم انجام داد
+    score = views
+    
+    # می‌توانی اینجا شرط‌های دیگری هم اضافه کنی
+        
+    return round(score, 2)
+
 # API برای محتوای ویکی
 def get_wiki_content(request):
     place_query = request.GET.get('place', None)
@@ -321,31 +334,34 @@ def get_wiki_content(request):
     if not place_query:
         return JsonResponse({"error": "پارامتر place الزامی است"}, status=400)
     
-    # جستجو بر اساس نام مکان یا عنوان
-    article = WikiArticle.objects.filter(
+    # ۱. پیدا کردن تمام مقالات مرتبط
+    articles = WikiArticle.objects.filter(
         Q(place_name__icontains=place_query) | 
-        Q(title_fa__icontains=place_query)
-    ).first()
+        Q(title_fa__icontains=place_query),
+        status='published'
+    )
 
-    if not article:
+    if not articles.exists():
         return JsonResponse({"message": "محتوایی برای این مکان یافت نشد"}, status=404)
 
+    # ما لیست را بر اساس تابع امتیازدهی سورت می‌کنیم
+    best_article = max(articles, key=lambda x: calculate_article_score(x))
     # ساخت خروجی
     data = {
-        "id": str(article.id) if hasattr(article, 'id') else str(article.slug),
-        "title": article.title_fa,
-        "place_name": article.place_name,
-        "category": article.category.title_fa if article.category else "",
-        "tags": list(article.tags.values_list('title_fa', flat=True)) if hasattr(article, 'tags') else [],
-        "summary": article.summary if hasattr(article, 'summary') else "",
-        "description": article.body_fa,
-        "url": f"/team6/article/{article.slug}/",
-        "updated_at": article.updated_at.isoformat() if hasattr(article, 'updated_at') else ""
+        "id": str(best_article.id) if hasattr(best_article, 'id') else str(best_article.slug),
+        "title": best_article.title_fa,
+        "place_name": best_article.place_name,
+        "category": best_article.category.title_fa if best_article.category else "",
+        "tags": list(best_article.tags.values_list('title_fa', flat=True)) if hasattr(best_article, 'tags') else [],
+        "summary": best_article.summary if hasattr(best_article, 'summary') else "",
+        "description": best_article.body_fa,
+        "url": f"/team6/best_article/{best_article.slug}/",
+        "updated_at": best_article.updated_at.isoformat() if hasattr(best_article, 'updated_at') else ""
     }
     
     # اضافه کردن تصویر اگر وجود دارد
-    if hasattr(article, 'featured_image_url') and article.featured_image_url:
-        data["images"] = [article.featured_image_url]
+    # if hasattr(article, 'featured_image_url') and article.featured_image_url:
+    #     data["images"] = [article.featured_image_url]
     
     return JsonResponse(data)
 
