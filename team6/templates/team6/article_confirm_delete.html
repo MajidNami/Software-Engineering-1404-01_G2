@@ -1,0 +1,30 @@
+{% extends "team6/base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card border-danger shadow">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0">تایید نهایی حذف</h4>
+                </div>
+                <div class="card-body text-center">
+                    <i class="fa-solid fa-triangle-exclamation fa-4x text-danger mb-3"></i>
+                    <h3>آیا از حذف این مقاله مطمئن هستید؟</h3>
+                    <p class="text-muted">مقاله: <strong>{{ article.title_fa }}</strong></p>
+                    <div class="alert alert-warning">
+                        توجه: این عمل غیرقابل بازگشت است و تمام تاریخچه ویرایش‌های این مقاله نیز پاک خواهد شد.
+                    </div>
+                </div>
+                <div class="card-footer d-flex justify-content-between">
+                    <a href="{% url 'team6:article_detail' article.slug %}" class="btn btn-secondary">انصراف</a>
+                    <form method="POST">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger">بله، کاملاً مطمئنم</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
