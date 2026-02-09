@@ -1,6 +1,6 @@
 from django.contrib import admin
 from team4.models import (
-    Province, City, Category, Amenity,
+    Province, City, Village, Category, Amenity,
     Facility, FacilityAmenity, Pricing, Image
 )
 
@@ -8,6 +8,11 @@ from team4.models import (
 # =====================================================
 # Inline Admins
 # =====================================================
+
+class VillageInline(admin.TabularInline):
+    model = Village
+    extra = 1
+    fields = ['name_fa', 'name_en', 'location']
 
 class PricingInline(admin.TabularInline):
     model = Pricing
@@ -43,6 +48,14 @@ class CityAdmin(admin.ModelAdmin):
     search_fields = ['name_fa', 'name_en']
     list_filter = ['province', 'created_at']
     autocomplete_fields = ['province']
+    inlines = [VillageInline]
+
+@admin.register(Village)
+class VillageAdmin(admin.ModelAdmin):
+    list_display = ['village_id', 'name_fa', 'city', 'latitude', 'longitude', 'created_at']
+    search_fields = ['name_fa', 'name_en']
+    list_filter = ['city', 'created_at']
+    autocomplete_fields = ['city'] # Enables search for City in dropdowns
 
 
 @admin.register(Category)
