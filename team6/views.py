@@ -16,6 +16,8 @@ from django.http import JsonResponse
 import json
 from django.views.decorators.csrf import csrf_exempt
 from .services.llm_service import FreeAIService
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 TEAM_NAME = "team6"
 
@@ -35,24 +37,78 @@ class ArticleListView(ListView):
     context_object_name = 'articles'
 
     def get_queryset(self):
-        queryset = WikiArticle.objects.filter(status='published')
-        q = self.request.GET.get('q')
+        # queryset = WikiArticle.objects.filter(status='published')
+        # q = self.request.GET.get('q')
         cat = self.request.GET.get('category')
+        # search_type = self.request.GET.get('search_type', 'direct')
+
+        # if q:  # جستجوی مستقیم یا معنایی
+        #     if search_type == 'semantic':
+        #         queryset = queryset.filter(
+        #             Q(title_fa__icontains=q) | 
+        #             Q(body_fa__icontains=q) |
+        #             Q(summary__icontains=q)
+        #         ).distinct()
+        #     else:  # جستجوی مستقیم
+        #         queryset = queryset.filter(
+        #             Q(title_fa__icontains=q) | 
+        #             Q(body_fa__icontains=q)
+        #         )
+        queryset = WikiArticle.objects.filter(status='published')
+
+        q = self.request.GET.get('q')
         search_type = self.request.GET.get('search_type', 'direct')
 
-        if q:  # جستجوی مستقیم یا معنایی
-            if search_type == 'semantic':
-                queryset = queryset.filter(
-                    Q(title_fa__icontains=q) | 
-                    Q(body_fa__icontains=q) |
-                    Q(summary__icontains=q)
-                ).distinct()
-            else:  # جستجوی مستقیم
-                queryset = queryset.filter(
-                    Q(title_fa__icontains=q) | 
-                    Q(body_fa__icontains=q)
-                )
-        
+        # ---------- سرچ معنایی ----------
+        if q and search_type == 'semantic':
+            articles = list(queryset)
+
+            if not articles:
+                return queryset.none()
+
+            # 1️⃣ ساخت متن هر مقاله
+            documents = [
+                f"{a.title_fa} {a.body_fa} {a.summary or ''}"
+                for a in articles
+            ]
+
+            # 2️⃣ TF-IDF
+            vectorizer = TfidfVectorizer(
+                ngram_range=(1, 2),
+                max_features=5000
+            )
+            tfidf_matrix = vectorizer.fit_transform(documents)
+
+            # 3️⃣ بردار کوئری
+            query_vec = vectorizer.transform([q])
+
+            # 4️⃣ cosine similarity
+            similarity_scores = cosine_similarity(query_vec, tfidf_matrix)[0]
+
+            # 5️⃣ الصاق نمره به مقاله
+            scored_articles = list(zip(articles, similarity_scores))
+
+            # 6️⃣ فیلتر + سورت
+            scored_articles = [
+                (article, score)
+                for article, score in scored_articles
+                if score > 0.00
+            ]
+
+            scored_articles.sort(key=lambda x: x[1], reverse=True)
+
+            # فقط خود مقاله‌ها
+            return [article for article, _ in scored_articles]
+
+        # ---------- سرچ مستقیم ----------
+        if q:
+            queryset = queryset.filter(
+                Q(title_fa__icontains=q) |
+                Q(body_fa__icontains=q)
+            )
+
+        # return queryset
+            
         if cat:  # فیلتر دسته‌بندی
             queryset = queryset.filter(category__slug=cat)
             
