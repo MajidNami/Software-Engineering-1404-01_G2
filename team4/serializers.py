@@ -2,7 +2,8 @@ from rest_framework import serializers
 from .fields import Point
 from team4.models import (
     Province, City, Category, Amenity, Village,
-    Facility, FacilityAmenity, Pricing, Image
+    Facility, FacilityAmenity, Pricing, Image,
+    Favorite, Review
 )
 
 
@@ -234,4 +235,117 @@ class RegionSearchResultSerializer(serializers.Serializer):
     name = serializers.CharField()
     parent_region_id = serializers.CharField(allow_null=True)
     parent_region_name = serializers.CharField(allow_null=True)
+
+
+# =====================================================
+# Favorite & Review Serializers
+# =====================================================
+
+class FavoriteSerializer(serializers.ModelSerializer):
+    """سریالایزر برای علاقه‌مندی‌ها"""
+    facility_detail = FacilityListSerializer(source='facility', read_only=True)
+    user_email = serializers.EmailField(source='user.email', read_only=True)
+    
+    class Meta:
+        model = Favorite
+        fields = [
+            'favorite_id', 'user', 'user_email',
+            'facility', 'facility_detail',
+            'created_at'
+        ]
+        read_only_fields = ['favorite_id', 'user', 'created_at']
+    
+    def create(self, validated_data):
+        # کاربر از request گرفته می‌شود
+        user = self.context['request'].user
+        facility = validated_data.get('facility')
+        
+        # بررسی وجود قبلی
+        favorite, created = Favorite.objects.get_or_create(
+            user=user,
+            facility=facility
+        )
+        
+        if not created:
+            raise serializers.ValidationError({
+                'detail': 'این مکان قبلاً به علاقه‌مندی‌های شما اضافه شده است.'
+            })
+        
+        return favorite
+
+
+class ReviewSerializer(serializers.ModelSerializer):
+    """سریالایزر برای نظرات"""
+    user_email = serializers.EmailField(source='user.email', read_only=True)
+    user_name = serializers.SerializerMethodField()
+    facility_name = serializers.CharField(source='facility.name_fa', read_only=True)
+    
+    class Meta:
+        model = Review
+        fields = [
+            'review_id', 'user', 'user_email', 'user_name',
+            'facility', 'facility_name',
+            'rating', 'comment',
+            'is_approved', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['review_id', 'user', 'is_approved', 'created_at', 'updated_at']
+    
+    def get_user_name(self, obj):
+        if obj.user.first_name or obj.user.last_name:
+            return f"{obj.user.first_name} {obj.user.last_name}".strip()
+        return obj.user.email.split('@')[0]
+    
+    def validate_rating(self, value):
+        if value < 1 or value > 5:
+            raise serializers.ValidationError('امتیاز باید بین 1 تا 5 باشد.')
+        return value
+    
+    def create(self, validated_data):
+        # کاربر از request گرفته می‌شود
+        user = self.context['request'].user
+        facility = validated_data.get('facility')
+        
+        # بررسی وجود نظر قبلی
+        if Review.objects.filter(user=user, facility=facility).exists():
+            raise serializers.ValidationError({
+                'detail': 'شما قبلاً برای این مکان نظر ثبت کرده‌اید. می‌توانید نظر خود را ویرایش کنید.'
+            })
+        
+        validated_data['user'] = user
+        return super().create(validated_data)
+    
+    def update(self, instance, validated_data):
+        # فقط کاربر صاحب نظر می‌تواند آن را ویرایش کند
+        if instance.user != self.context['request'].user:
+            raise serializers.ValidationError({
+                'detail': 'شما مجاز به ویرایش این نظر نیستید.'
+            })
+        
+        return super().update(instance, validated_data)
+
+
+class ReviewCreateSerializer(serializers.ModelSerializer):
+    """سریالایزر برای ایجاد نظر جدید"""
+    class Meta:
+        model = Review
+        fields = ['facility', 'rating', 'comment']
+    
+    def validate_rating(self, value):
+        if value < 1 or value > 5:
+            raise serializers.ValidationError('امتیاز باید بین 1 تا 5 باشد.')
+        return value
+    
+    def create(self, validated_data):
+        user = self.context['request'].user
+        facility = validated_data.get('facility')
+        
+        # بررسی وجود نظر قبلی
+        if Review.objects.filter(user=user, facility=facility).exists():
+            raise serializers.ValidationError({
+                'detail': 'شما قبلاً برای این مکان نظر ثبت کرده‌اید.'
+            })
+        
+        validated_data['user'] = user
+        return Review.objects.create(**validated_data)
+
 

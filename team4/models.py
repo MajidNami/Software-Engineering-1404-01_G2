@@ -1,6 +1,7 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator, EmailValidator
 from django.core.exceptions import ValidationError
+from django.conf import settings
 from .fields import PointField, Point
 import math
 
@@ -392,3 +393,110 @@ class Image(models.Model):
     def clean(self):
         if not self.image_url:
             raise ValidationError("URL تصویر نمی‌تواند خالی باشد")
+
+
+class Favorite(models.Model):
+    """مدل علاقه‌مندی‌ها - ذخیره مکان‌های مورد علاقه کاربران"""
+    favorite_id = models.BigAutoField(primary_key=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='favorites',
+        verbose_name="کاربر"
+    )
+    facility = models.ForeignKey(
+        Facility,
+        on_delete=models.CASCADE,
+        related_name='favorited_by',
+        verbose_name="مکان"
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاریخ افزودن")
+
+    class Meta:
+        db_table = 'facilities_favorite'
+        verbose_name = "علاقه‌مندی"
+        verbose_name_plural = "علاقه‌مندی‌ها"
+        unique_together = [['user', 'facility']]
+        indexes = [
+            models.Index(fields=['user'], name='idx_favorite_user'),
+            models.Index(fields=['facility'], name='idx_favorite_facility'),
+            models.Index(fields=['-created_at'], name='idx_favorite_created'),
+        ]
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.email} - {self.facility.name_fa}"
+
+
+class Review(models.Model):
+    """مدل نظرات - نظرات و امتیازات کاربران برای مکان‌ها"""
+    review_id = models.BigAutoField(primary_key=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='reviews',
+        verbose_name="کاربر"
+    )
+    facility = models.ForeignKey(
+        Facility,
+        on_delete=models.CASCADE,
+        related_name='reviews',
+        verbose_name="مکان"
+    )
+    rating = models.IntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        verbose_name="امتیاز"
+    )
+    comment = models.TextField(blank=True, verbose_name="نظر")
+    is_approved = models.BooleanField(default=True, verbose_name="تایید شده")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاریخ ایجاد")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="تاریخ بروزرسانی")
+
+    class Meta:
+        db_table = 'facilities_review'
+        verbose_name = "نظر"
+        verbose_name_plural = "نظرات"
+        unique_together = [['user', 'facility']]
+        indexes = [
+            models.Index(fields=['user'], name='idx_review_user'),
+            models.Index(fields=['facility'], name='idx_review_facility'),
+            models.Index(fields=['-created_at'], name='idx_review_created'),
+            models.Index(fields=['is_approved'], name='idx_review_approved'),
+        ]
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.email} - {self.facility.name_fa} ({self.rating}★)"
+
+    def clean(self):
+        if self.rating < 1 or self.rating > 5:
+            raise ValidationError("امتیاز باید بین 1 تا 5 باشد")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+        # بروزرسانی امتیاز میانگین و تعداد نظرات مکان
+        self.update_facility_rating()
+
+    def delete(self, *args, **kwargs):
+        super().delete(*args, **kwargs)
+        # بروزرسانی امتیاز میانگین و تعداد نظرات مکان
+        self.update_facility_rating()
+
+    def update_facility_rating(self):
+        """بروزرسانی امتیاز میانگین و تعداد نظرات مکان"""
+        from django.db.models import Avg, Count
+        
+        # محاسبه امتیاز میانگین و تعداد نظرات تایید شده
+        stats = Review.objects.filter(
+            facility=self.facility,
+            is_approved=True
+        ).aggregate(
+            avg_rating=Avg('rating'),
+            review_count=Count('review_id')
+        )
+        
+        # بروزرسانی مکان
+        self.facility.avg_rating = stats['avg_rating'] or 0.00
+        self.facility.review_count = stats['review_count'] or 0
+        self.facility.save(update_fields=['avg_rating', 'review_count'])

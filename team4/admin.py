@@ -1,7 +1,8 @@
 from django.contrib import admin
 from team4.models import (
     Province, City, Category, Amenity,
-    Facility, FacilityAmenity, Pricing, Image
+    Facility, FacilityAmenity, Pricing, Image,
+    Favorite, Review
 )
 
 
@@ -108,3 +109,54 @@ class ImageAdmin(admin.ModelAdmin):
     search_fields = ['facility__name_fa', 'alt_text']
     list_filter = ['is_primary', 'uploaded_at']
     autocomplete_fields = ['facility']
+
+
+@admin.register(Favorite)
+class FavoriteAdmin(admin.ModelAdmin):
+    list_display = ['favorite_id', 'user', 'facility', 'created_at']
+    search_fields = ['user__email', 'facility__name_fa', 'facility__name_en']
+    list_filter = ['created_at']
+    autocomplete_fields = ['facility']
+    date_hierarchy = 'created_at'
+    
+    def get_readonly_fields(self, request, obj=None):
+        if obj:  # editing an existing object
+            return ['user', 'facility', 'created_at']
+        return ['created_at']
+
+
+@admin.register(Review)
+class ReviewAdmin(admin.ModelAdmin):
+    list_display = ['review_id', 'user', 'facility', 'rating', 'is_approved', 'created_at']
+    search_fields = ['user__email', 'facility__name_fa', 'facility__name_en', 'comment']
+    list_filter = ['rating', 'is_approved', 'created_at']
+    autocomplete_fields = ['facility']
+    date_hierarchy = 'created_at'
+    readonly_fields = ['created_at', 'updated_at']
+    
+    fieldsets = (
+        ('اطلاعات اصلی', {
+            'fields': ('user', 'facility', 'rating')
+        }),
+        ('نظر', {
+            'fields': ('comment', 'is_approved')
+        }),
+        ('تاریخ', {
+            'fields': ('created_at', 'updated_at')
+        }),
+    )
+    
+    actions = ['approve_reviews', 'disapprove_reviews']
+    
+    def approve_reviews(self, request, queryset):
+        queryset.update(is_approved=True)
+        for review in queryset:
+            review.update_facility_rating()
+    approve_reviews.short_description = "تایید نظرات انتخاب شده"
+    
+    def disapprove_reviews(self, request, queryset):
+        queryset.update(is_approved=False)
+        for review in queryset:
+            review.update_facility_rating()
+    disapprove_reviews.short_description = "رد نظرات انتخاب شده"
+
