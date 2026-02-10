@@ -5,7 +5,7 @@ from protos import trip_pb2_grpc as pb2_grpc
 
 
 def run():
-    channel = grpc.insecure_channel("localhost:9151")
+    channel = grpc.insecure_channel("localhost:9151/grpc/")
     stub = pb2_grpc.TripServiceStub(channel)
 
     destination = "Paris"

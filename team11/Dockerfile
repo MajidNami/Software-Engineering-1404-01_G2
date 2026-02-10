@@ -16,5 +16,6 @@ CMD ["bash", "-c", "\
 python manage.py migrate && \
 python presentation/grpc/server/grpc_server.py & \
 python -m http.server 2022 & \
+python manage.py runserver 0.0.0.0:2004 & \
 wait \
 "]
