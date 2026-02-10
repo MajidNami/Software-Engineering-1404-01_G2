@@ -1,7 +1,3 @@
--- Sample provinces data (Major Iranian provinces)
-INSERT INTO provinces (name, name_en, region) VALUES
-    ('تهران', 'Tehran', 'Central'),
-    ('اصفهان', 'Isfahan', 'Central'),
 -- Sample provinces data (All 31 Iranian provinces)
 INSERT INTO provinces (name, name_en) VALUES
     ('تهران', 'Tehran'),

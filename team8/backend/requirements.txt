@@ -1,11 +1,25 @@
-Django==4.2.27
-djangorestframework==3.14.0
-djangorestframework-gis==1.0
+# Django & Extensions
+django==4.2.7
 django-environ==0.11.2
 django-cors-headers==4.3.1
-psycopg2-binary==2.9.9
-gunicorn==21.2.0
-requests==2.31.0
-Pillow==10.2.0
 django-filter==23.5
 
+# REST Framework
+djangorestframework==3.14.0
+djangorestframework-gis==1.0
+
+# Database (psycopg3 for Python 3.13 compatibility)
+psycopg[binary]>=3.2.2
+
+# Auth
+bcrypt==4.2.1
+PyJWT==2.9.0
+
+# S3/MinIO
+boto3==1.35.0
+
+# HTTP Requests
+requests==2.31.0
+
+# Production server
+gunicorn==21.2.0

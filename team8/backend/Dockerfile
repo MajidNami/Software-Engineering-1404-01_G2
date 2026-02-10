@@ -28,6 +28,8 @@ COPY . /app
 
 EXPOSE 8002
 
+CMD ["sh", "-c", "python manage.py migrate && gunicorn wsgi:application --bind 0.0.0.0:8002 --workers 2"]
+
 # DB is ready because compose uses depends_on healthcheck
 CMD sh -c "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn wsgi:application --bind 0.0.0.0:8002 --workers 2 --timeout 120"
 

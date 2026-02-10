@@ -1,10 +1,13 @@
 import environ
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 env = environ.Env(DEBUG=(bool, True))
-env_file = BASE_DIR.parent / ".env"
+# First try backend/.env, then fall back to team8/.env
+env_file = BASE_DIR / ".env"
+if not env_file.exists():
+    env_file = BASE_DIR.parent / ".env"
 if env_file.exists():
     environ.Env.read_env(env_file)
 
@@ -20,7 +23,7 @@ INSTALLED_APPS = [
     "rest_framework_gis",  # DRF GIS support
     "corsheaders",
     "django_filters",
-    "backend",
+    "tourism",  # Our app
 ]
 
 MIDDLEWARE = [
@@ -28,19 +31,35 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
 ]
 
-ROOT_URLCONF = "urls"
-WSGI_APPLICATION = "wsgi.application"
+ROOT_URLCONF = "config.urls"
+
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [BASE_DIR / 'templates'],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+            ],
+        },
+    },
+]
+
+WSGI_APPLICATION = "config.wsgi.application"
 
 DATABASES = {
-    # Team8 tables - Your PostgreSQL
+    # Team8 tables - Your PostgreSQL with PostGIS
     "default": env.db(
         "TEAM8_DATABASE_URL",
-        default="postgresql://team8_user:team8_pass@postgres:5432/team8_db"
+        default="postgresql://team8_user:team8_pass@postgres:5432/team8_db",
+        engine="django.contrib.gis.db.backends.postgis"
     )
 }
 
-# No AUTH_USER_MODEL - we store user_id as UUID, not ForeignKey
-AUTH_USER_MODEL = None
+# No custom AUTH_USER_MODEL - we store user_id as UUID, not ForeignKey
+# AUTH_USER_MODEL = None  # Removed - causes issues with makemigrations
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
@@ -59,8 +78,8 @@ REST_FRAMEWORK = {
         "rest_framework.filters.SearchFilter",
         "rest_framework.filters.OrderingFilter",
     ],
-    "DEFAULT_PERMISSION_CLASSES": ["permissions.IsAuthenticatedViaCookie"],
-    "EXCEPTION_HANDLER": "utils.custom_exception_handler",
+    "DEFAULT_PERMISSION_CLASSES": ["tourism.permissions.IsAuthenticated"],
+    "EXCEPTION_HANDLER": "tourism.utils.custom_exception_handler",
 }
 
 CORS_ALLOW_CREDENTIALS = True
@@ -69,14 +88,18 @@ if DEBUG:
 else:
     CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 
-CORE_BASE_URL = env("CORE_BASE_URL", default="http://core:8000")
-AI_SERVICE_URL = env("AI_SERVICE_URL", default="http://ai-service:8001")
+# JWT
+JWT_SECRET = SECRET_KEY
+JWT_ALGORITHM = "HS256"
+JWT_EXP_DAYS = 30
 
+# S3 / MinIO
+S3_ENDPOINT_URL = env("S3_ENDPOINT_URL", default="http://localhost:9000")
+S3_ACCESS_KEY = env("S3_ACCESS_KEY", default="minioadmin")
+S3_SECRET_KEY = env("S3_SECRET_KEY", default="minioadmin123")
 S3_BUCKET_NAME = env("S3_BUCKET_NAME", default="team8-media")
-S3_ENDPOINT_URL = env("S3_ENDPOINT_URL", default="")
-S3_ACCESS_KEY = env("S3_ACCESS_KEY", default="")
-S3_SECRET_KEY = env("S3_SECRET_KEY", default="")
 
-MAX_UPLOAD_SIZE = 10 * 1024 * 1024
+# Upload limits
+MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10 MB
 ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"]
 ALLOWED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"]

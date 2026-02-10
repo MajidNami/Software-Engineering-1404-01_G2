@@ -48,6 +48,31 @@ services:
     build:
       context: ./ai-service
       dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      AI_DATABASE_URL: "${AI_DATABASE_URL}"
+    depends_on:
+      ai-postgres:
+        condition: service_healthy
+    networks:
+      - app404
+
+  # AI service database (separate from backend)
+  ai-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${AI_POSTGRES_DB}
+      POSTGRES_USER: ${AI_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${AI_POSTGRES_PASSWORD}
+    volumes:
+      - ai-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AI_POSTGRES_USER} -d ${AI_POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
     networks:
       - app404
 
@@ -112,4 +137,5 @@ networks:
 volumes:
   minio-data:
   team8-pgdata:
+  ai-pgdata:
 
