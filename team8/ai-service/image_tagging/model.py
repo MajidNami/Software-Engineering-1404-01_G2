@@ -6,7 +6,7 @@ from utils.labels import image_classifier_locations as IMAGE_LABELS
 
 
 class ImageTagger:
-    def __init__(self, weights_path, device):
+    def __init__(self, weights_path = "convnext_iranian_landmarksTop136.pth", device="cpu"):
         self.device = device
         self.num_classes = len(IMAGE_LABELS)
 
@@ -16,7 +16,10 @@ class ImageTagger:
             self.num_classes,
         )
 
-        model.load_state_dict(torch.load(weights_path, map_location=device))
+        if torch.cuda.is_available():
+            model.load_state_dict(torch.load(weights_path))
+        else:
+            model.load_state_dict(torch.load(weights_path, map_location=torch.device('cpu')))
         model.eval()
         self.model = model.to(device)
 
