@@ -1,6 +1,6 @@
 import bcrypt
 import jwt
-from datetime import datetime, timedelta
+from datetime import timedelta, timezone, datetime
 from django.conf import settings
 from django.db import IntegrityError
 from rest_framework import status
@@ -24,8 +24,8 @@ def generate_jwt(user_id: int, email: str, username: str) -> str:
         'user_id': user_id,
         'email': email,
         'username': username,
-        'exp': datetime.utcnow() + timedelta(days=settings.JWT_EXP_DAYS),
-        'iat': datetime.utcnow(),
+        'exp': datetime.now(timezone.utc) + timedelta(days=settings.JWT_EXP_DAYS),
+        'iat': datetime.now(timezone.utc),
     }
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 

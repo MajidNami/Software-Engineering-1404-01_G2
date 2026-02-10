@@ -42,10 +42,8 @@ class MinIOStorage:
             logger.info("Created bucket %s", self.bucket)
         self._bucket_ensured = True
 
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
 
+    # Public API
     def upload_file(self, file, folder: str = "uploads") -> dict:
         """Upload a Django UploadedFile to MinIO. Returns storage metadata."""
         self._ensure_bucket()

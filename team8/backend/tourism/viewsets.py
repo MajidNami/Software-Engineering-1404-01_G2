@@ -23,7 +23,7 @@ from .storage import storage
 from .utils import log_activity, notify_post_owner, create_notification
 
 
-# ── Read-only reference data ────────────────────────────────────────
+# Read-only reference data
 
 class ProvinceViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Province.objects.all()
@@ -49,7 +49,7 @@ class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = None
 
 
-# ── Places ──────────────────────────────────────────────────────────
+# Places
 
 class PlaceViewSet(viewsets.ModelViewSet):
     queryset = Place.objects.select_related('city', 'category')
@@ -105,7 +105,7 @@ class PlaceViewSet(viewsets.ModelViewSet):
         })
 
 
-# ── Media ───────────────────────────────────────────────────────────
+# Media
 
 class MediaViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
@@ -146,7 +146,7 @@ class MediaViewSet(viewsets.ModelViewSet):
         log_activity(self.request.user, 'MEDIA_DELETED', target_id=str(instance.media_id))
 
 
-# ── Posts ───────────────────────────────────────────────────────────
+# Posts
 
 class PostViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
@@ -239,7 +239,7 @@ class PostViewSet(viewsets.ModelViewSet):
         return self.get_paginated_response(serializer.data) if page else Response(serializer.data)
 
 
-# ── Ratings ─────────────────────────────────────────────────────────
+# Ratings 
 
 class RatingViewSet(
     mixins.CreateModelMixin,
@@ -285,7 +285,7 @@ class RatingViewSet(
         return Response(serializer.data)
 
 
-# ── Notifications ───────────────────────────────────────────────────
+# Notifications
 
 class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = NotificationSerializer
@@ -312,7 +312,7 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
         return Response({'unread': count})
 
 
-# ── Reports ─────────────────────────────────────────────────────────
+# Reports
 
 class ReportViewSet(
     mixins.CreateModelMixin,
