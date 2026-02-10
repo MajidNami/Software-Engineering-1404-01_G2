@@ -2,6 +2,11 @@ from django.urls import path, re_path
 from . import views
 from .views import error_404, error_500, error_403, error_400 # ایمپورت ویوهای خطا
 app_name = "team6"
+from .views import (
+    follow_article, toggle_notification, notifications_list,
+    mark_notification_read, archive_notification, mark_all_read,
+    archive_all_notifications
+)
 
 urlpatterns = [
     # صفحه اصلی تیم 6 (لیست مقالات)
@@ -39,6 +44,13 @@ urlpatterns = [
 ),
     # re_path(r'^article/(?P<slug>[^/]+)/generate-ai/$', views.generate_ai_content_api, name='generate_ai'),
     path("api/preview-ai/", views.preview_ai_content, name='preview_ai'),
+    re_path(r'^article/(?P<slug>[^/]+)/follow/$', follow_article, name="article_follow"),
+    re_path(r'^article/(?P<slug>[^/]+)/toggle-notify/$', toggle_notification, name="toggle_notify"),
+    path("notifications/", notifications_list, name="notifications_list"),
+    path("notifications/<uuid:notification_id>/read/", mark_notification_read, name="mark_notification_read"),
+    path("notifications/<uuid:notification_id>/archive/", archive_notification, name="archive_notification"),
+    path("notifications/mark-all-read/", mark_all_read, name="mark_all_read"),
+    path("notifications/archive-all/", archive_all_notifications, name="archive_all_notifications"),
 ]
 
 

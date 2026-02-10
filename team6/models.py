@@ -138,3 +138,39 @@ class WikiArticleReports(models.Model):
         indexes = [
             models.Index(fields=['status', 'created_at']),
         ]
+
+class ArticleFollow(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user_id = models.UUIDField()
+    article = models.ForeignKey('WikiArticle', on_delete=models.CASCADE)
+    notify = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'article_follows'
+        unique_together = ('user_id', 'article')
+
+class ArticleNotification(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user_id = models.UUIDField()
+    article = models.ForeignKey('WikiArticle', on_delete=models.CASCADE)
+    notification_type = models.CharField(
+        max_length=50,
+        choices=[
+            ('edit', 'ویرایش متن'),
+            ('image', 'افزودن/تغییر تصویر'),
+            ('tags', 'تغییر برچسب'),
+            ('category', 'تغییر دسته'),
+            ('new', 'مقاله جدید')
+        ]
+    )
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'article_notifications'
+        indexes = [
+            models.Index(fields=['user_id', 'is_read', 'created_at']),
+        ]

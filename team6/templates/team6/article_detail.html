@@ -1,4 +1,4 @@
-{% extends "team6/base.html" %}
+{% extends "team6/base.html" %}{% load notification_tags %}
 {% block title %}{{ article.title_fa }}{% endblock %}
 
 {% block content %}
@@ -57,6 +57,43 @@
     <a href="{% url 'team6:article_report' article.slug %}" class="btn btn-outline-danger">
         <i class="fa-solid fa-flag"></i> گزارش تخلف
     </a>
+    
+    {% if request.user.is_authenticated %}
+        {% with is_following=article|is_user_following:request.user notify_status=article|get_notify_status:request.user %}
+            
+            {% if is_following %}
+                <form method="POST" action="{% url 'team6:toggle_notify' article.slug %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn {% if notify_status %}btn-warning{% else %}btn-outline-success{% endif %}">
+                        <i class="fa-solid fa-bell{% if not notify_status %}-slash{% endif %}"></i>
+                        {% if notify_status %}
+                            غیرفعال کردن اعلان‌ها
+                        {% else %}
+                            فعال کردن اعلان‌ها
+                        {% endif %}
+                    </button>
+                </form>
+                
+                <form method="POST" action="{% url 'team6:article_follow' article.slug %}" class="d-inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="unfollow">
+                    <button type="submit" class="btn btn-outline-secondary">
+                        <i class="fa-solid fa-user-minus"></i> لغو دنبال کردن
+                    </button>
+                </form>
+                
+            {% else %}
+                <form method="POST" action="{% url 'team6:article_follow' article.slug %}" class="d-inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="follow">
+                    <button type="submit" class="btn btn-outline-success">
+                        <i class="fa-solid fa-user-plus"></i> دنبال کردن مقاله
+                    </button>
+                </form>
+            {% endif %}
+            
+        {% endwith %}
+    {% endif %}
 </div>
 
 <hr class="my-4">

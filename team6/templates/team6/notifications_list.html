@@ -1,0 +1,106 @@
+{% extends "team6/base.html" %}
+{% block title %}اعلان‌های من{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fa-solid fa-bell"></i> اعلان‌های من</h2>
+    
+    <div class="btn-group">
+        {% if notifications %}
+            <a href="{% url 'team6:mark_all_read' %}" class="btn btn-outline-success btn-sm">
+                <i class="fa-solid fa-check-double"></i> خواندن همه
+            </a>
+            <!-- دکمه آرشیو همه -->
+            <a href="{% url 'team6:archive_all_notifications' %}" class="btn btn-outline-warning btn-sm">
+                <i class="fa-solid fa-archive"></i> آرشیو همه
+            </a>
+        {% endif %}
+        <a href="{% url 'team6:index' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="fa-solid fa-arrow-left"></i> بازگشت
+        </a>
+    </div>
+</div>
+
+{% if notifications %}
+    <div class="list-group">
+        {% for notification in notifications %}
+            <div class="list-group-item {% if not notification.is_read %}list-group-item-warning{% endif %}">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div style="flex: 1;">
+                        <h6 class="mb-1">
+                            {% if notification.notification_type == 'edit' %}
+                                <i class="fa-solid fa-edit text-primary"></i>
+                            {% elif notification.notification_type == 'image' %}
+                                <i class="fa-solid fa-image text-info"></i>
+                            {% elif notification.notification_type == 'tags' %}
+                                <i class="fa-solid fa-tags text-success"></i>
+                            {% elif notification.notification_type == 'category' %}
+                                <i class="fa-solid fa-folder text-warning"></i>
+                            {% else %}
+                                <i class="fa-solid fa-bell text-secondary"></i>
+                            {% endif %}
+                            {{ notification.message }}
+                        </h6>
+                        <small class="text-muted">
+                            <i class="fa-solid fa-clock"></i> {{ notification.created_at|date:"Y/m/d H:i" }}
+                        </small>
+                        
+                        {% if notification.article %}
+                            <div class="mt-2">
+                                <a href="{% url 'team6:article_detail' notification.article.slug %}" 
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="fa-solid fa-external-link-alt"></i> مشاهده مقاله
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="btn-group btn-group-sm">
+                        {% if not notification.is_read %}
+                            <a href="{% url 'team6:mark_notification_read' notification.id %}" 
+                               class="btn btn-outline-success" title="علامت به عنوان خوانده شده">
+                                <i class="fa-solid fa-check"></i>
+                            </a>
+                        {% endif %}
+                        <a href="{% url 'team6:archive_notification' notification.id %}" 
+                           class="btn btn-outline-danger" title="آرشیو">
+                            <i class="fa-solid fa-archive"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+    
+    <!-- صفحه‌بندی -->
+    {% if is_paginated %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">قبلی</a>
+            </li>
+            {% endif %}
+            
+            <li class="page-item disabled">
+                <span class="page-link">صفحه {{ page_obj.number }} از {{ paginator.num_pages }}</span>
+            </li>
+            
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">بعدی</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+    
+{% else %}
+    <div class="alert alert-info text-center py-5">
+        <i class="fa-solid fa-bell-slash fa-3x mb-3"></i>
+        <h4>هیچ اعلانی ندارید</h4>
+        <p class="mb-0">وقتی مقالاتی را دنبال کنید یا تغییراتی ایجاد شود، اعلان‌ها اینجا نمایش داده می‌شوند.</p>
+    </div>
+{% endif %}
+
+{% endblock %}

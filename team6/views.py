@@ -26,7 +26,7 @@ from .services.semantic_search import SemanticSearchService
 from bs4 import BeautifulSoup
 from .models import WikiArticle, WikiArticleLink
 from django.utils.text import slugify
-
+from .models import ArticleFollow, ArticleNotification
 
 def sync_internal_links(article):
     """
@@ -254,6 +254,7 @@ class ArticleCreateView(CreateView):
             # messages.warning(self.request, "مقاله ذخیره شد، اما سیستم هوش مصنوعی برای تولید خلاصه در دسترس نبود.")
         
         article.save()
+        
         sync_internal_links(article)
         WikiArticleRevision.objects.create(
             article=article,
@@ -291,11 +292,9 @@ def edit_article(request, slug):
             'message': '✋ فقط نویسنده‌ی مقاله می‌تواند مقاله را ویرایشش کند'
         })
     
-    # این متغیر را باید از خود مقاله بگیریم
-    current_rev = WikiArticleRevision.objects.filter(article=article).count() + 1
-
     if request.method == "POST":
         # ذخیره نسخه قبلی در تاریخچه
+        current_rev = WikiArticleRevision.objects.filter(article=article).count() + 1
         WikiArticleRevision.objects.create(
             article=article,
             revision_no=current_rev,
@@ -304,46 +303,55 @@ def edit_article(request, slug):
             change_note=request.POST.get('change_note', 'ویرایش بدون توضیح')
         )
 
-        # آپدیت مقادیر مقاله
+        # آپدیت مقادیر اصلی
         article.title_fa = request.POST.get('title_fa', article.title_fa)
         article.body_fa = request.POST.get('body_fa', article.body_fa)
         article.summary = request.POST.get('summary', article.summary)
         
-        # آپدیت دسته‌بندی اگر تغییر کرده
+        # آپدیت دسته‌بندی
         category_id = request.POST.get('category')
         if category_id:
             try:
                 article.category = WikiCategory.objects.get(id_category=category_id)
             except WikiCategory.DoesNotExist:
                 pass
+        
+        # **تگ‌ها: ساده و بدون سیگنال اضافی**
         tags_input = request.POST.get('tags', '')
-        article.tags.clear()
-        for tag_name in [t.strip() for t in tags_input.split(",") if t.strip()]:
-            tag, _ = WikiTag.objects.get_or_create(
-                title_fa=tag_name,
-                defaults={'slug': tag_name.replace(' ', '-').replace('‌', '-')[:50],
-                        'title_en': tag_name}
-            )
-            article.tags.add(tag)
+        if tags_input:
+            tag_names = [t.strip() for t in tags_input.split(",") if t.strip()]
+            article.tags.clear()  # حذف همه
+            for tag_name in tag_names:
+                tag, _ = WikiTag.objects.get_or_create(
+                    title_fa=tag_name,
+                    defaults={
+                        'slug': tag_name.replace(' ', '-').replace('‌', '-')[:50],
+                        'title_en': tag_name
+                    }
+                )
+                article.tags.add(tag)
         
         article.current_revision_no = current_rev + 1
         article.last_editor_user_id = request.user.id
-        # article.featured_image_url = request.POST.get('featured_image_url', article.featured_image_url)
-        article.save()
+        article.save()  # این باعث اجرای سیگنال می‌شود
+        
         sync_internal_links(article)
 
         messages.success(request, "✅ مقاله با موفقیت ویرایش شد")
         return redirect('team6:article_detail', slug=article.slug)
 
-    # برای GET، فرم و دسته‌بندی‌ها را به قالب می‌فرستیم
+    # برای GET
+    current_rev = WikiArticleRevision.objects.filter(article=article).count() + 1
     categories = WikiCategory.objects.all()
-    # all_articles = WikiArticle.objects.filter(status='published').values('title_fa', 'slug')
     all_articles = WikiArticle.objects.filter(status='published')
+    
     return render(request, 'team6/article_edit.html', {
         'article': article,
+        'current_rev': current_rev,
         'categories': categories,
-        'all_articles': all_articles, # اضافه شود
+        'all_articles': all_articles,
     })
+
 # گزارش مقاله 
 def article_revision_detail(request, slug, revision_no):
     article = get_object_or_404(WikiArticle, slug=slug)
@@ -593,5 +601,144 @@ def preview_ai_content(request):
             'error': f'خطا: {str(e)}'
         }, status=500)
 
+@login_required
+def follow_article(request, slug):
+    """دنبال کردن/لغو دنبال کردن مقاله"""
+    article = get_object_or_404(WikiArticle, slug=slug)
+    
+    if request.method == "POST":
+        action = request.POST.get('action', 'follow')
+        
+        if action == 'follow':
+            # بررسی آیا قبلاً دنبال کرده یا نه
+            follow, created = ArticleFollow.objects.get_or_create(
+                user_id=request.user.id,
+                article=article,
+                defaults={'notify': True}
+            )
+            
+            if created:
+                messages.success(request, f"✅ مقاله '{article.title_fa}' با موفقیت دنبال شد.")
+            else:
+                follow.notify = True
+                follow.save()
+                messages.info(request, f"✅ اعلان‌های مقاله '{article.title_fa}' فعال شد.")
+                
+        elif action == 'unfollow':
+            ArticleFollow.objects.filter(
+                user_id=request.user.id,
+                article=article
+            ).delete()
+            messages.success(request, f"✅ دنبال‌کردن مقاله '{article.title_fa}' لغو شد.")
+        
+        return redirect('team6:article_detail', slug=slug)
+    
+    # برای GET درخواست
+    is_following = ArticleFollow.objects.filter(
+        user_id=request.user.id,
+        article=article
+    ).exists()
+    
+    return JsonResponse({
+        'is_following': is_following,
+        'article_title': article.title_fa
+    })
+
+@login_required
+def toggle_notification(request, slug):
+    article = get_object_or_404(WikiArticle, slug=slug)
+
+    follow, created = ArticleFollow.objects.get_or_create(
+        user_id=request.user.id,
+        article=article,
+        defaults={'notify': True}
+    )
+
+    if not created:
+        follow.notify = not follow.notify
+        follow.save()
+
+    status = "فعال" if follow.notify else "غیرفعال"
+    messages.success(
+        request,
+        f"🔔 اعلان‌های مقاله «{article.title_fa}» {status} شد."
+    )
+
+    return redirect('team6:article_detail', slug=slug)
 
 
+@login_required
+def notifications_list(request):
+    """لیست اعلان‌های کاربر"""
+    notifications = ArticleNotification.objects.filter(
+        user_id=request.user.id,
+        is_active=True
+    ).order_by('-created_at').select_related('article')
+    
+    return render(request, 'team6/notifications_list.html', {
+        'notifications': notifications
+    })
+
+@login_required
+def mark_notification_read(request, notification_id):
+    """علامت‌گذاری اعلان به عنوان خوانده شده"""
+    try:
+        notification = ArticleNotification.objects.get(
+            id=notification_id,
+            user_id=request.user.id
+        )
+        notification.is_read = True
+        notification.save()
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': True})
+            
+    except ArticleNotification.DoesNotExist:
+        pass
+    
+    return redirect('team6:notifications_list')
+
+@login_required
+def archive_notification(request, notification_id):
+    """آرشیو کردن اعلان"""
+    try:
+        notification = ArticleNotification.objects.get(
+            id=notification_id,
+            user_id=request.user.id
+        )
+        notification.is_active = False
+        notification.save()
+        
+        messages.success(request, "اعلان آرشیو شد.")
+    except ArticleNotification.DoesNotExist:
+        messages.error(request, "اعلان پیدا نشد.")
+    
+    return redirect('team6:notifications_list')
+
+@login_required
+def mark_all_read(request):
+    """علامت‌گذاری همه اعلان‌ها به عنوان خوانده شده"""
+    ArticleNotification.objects.filter(
+        user_id=request.user.id,
+        is_read=False,
+        is_active=True
+    ).update(is_read=True)
+    
+    messages.success(request, "همه اعلان‌ها خوانده شدند.")
+    return redirect('team6:notifications_list')
+@login_required
+def archive_all_notifications(request):
+    """آرشیو کردن همه اعلان‌های کاربر"""
+    try:
+        # آرشیو کردن همه اعلان‌های فعال کاربر
+        updated_count = ArticleNotification.objects.filter(
+            user_id=request.user.id,
+            is_active=True
+        ).update(is_active=False)
+        
+        messages.success(request, f"✅ همه اعلان‌ها ({updated_count} عدد) آرشیو شدند.")
+        
+    except Exception as e:
+        messages.error(request, f"خطا در آرشیو کردن اعلان‌ها: {e}")
+    
+    return redirect('team6:notifications_list')
