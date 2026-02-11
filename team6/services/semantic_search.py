@@ -97,10 +97,13 @@ class SemanticSearchService:
             metadatas = []
             
             for a in articles:
-                text = f"{a.title_fa} {a.summary or ''} {a.body_fa[:400]}"
-                translated_text = GoogleTranslator(source='fa', target='en').translate(text)
+                print("debug -1")
+                print(f"title is{a.title_en}, body is {a.body_en}")
+                text = f"{a.title_en or ''} {a.body_en or ''}"
+                print("debug0")
+                # translated_text = GoogleTranslator(source='fa', target='en').translate(text)
                 
-                documents.append(translated_text)
+                documents.append(text)
                 # ذخیره ID مقاله در متادیتا (این بخش در فایل قبلی شما نبود)
                 metadatas.append({"id": a.id_article})
                 print("debug1")
