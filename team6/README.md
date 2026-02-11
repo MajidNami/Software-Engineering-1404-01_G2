@@ -10,8 +10,10 @@
 - [Project Structure](#project-structure)
 - [How to Run](#how-to-run)
 - [URL Structure](#url-structure)
-- [Features](#features)
+- [API Overview](#api-overview)
 - [Database](#database)
+- [Core Data Models](#core-data-models)
+- [Features](#features)
 - [Integration with Core](#integration-with-core)
 - [Notes for Developers](#notes-for-developers)
 
