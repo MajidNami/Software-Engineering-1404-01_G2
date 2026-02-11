@@ -13,7 +13,7 @@ class VersionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Version
-        fields = ['name', 'article', 'content', 'summary', 'editor_id', 'status', 'tags']
+        fields = ['name', 'article', 'content', 'summary', 'editor_id', 'tags']
         read_only_fields = ['editor_id']
 
 
