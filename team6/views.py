@@ -16,8 +16,8 @@ from django.http import JsonResponse
 import json
 from django.views.decorators.csrf import csrf_exempt
 from .services.llm_service import FreeAIService
-# from sklearn.feature_extraction.text import TfidfVectorizer
-# from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 import logging
 from django.http import Http404
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -27,6 +27,7 @@ from bs4 import BeautifulSoup
 from .models import WikiArticle, WikiArticleLink
 from django.utils.text import slugify
 from .models import ArticleFollow, ArticleNotification
+import numpy as np
 
 def sync_internal_links(article):
     """
@@ -121,6 +122,48 @@ class ArticleListView(ListView):
 
             # فقط خود مقاله‌ها به ترتیب شباهت معنایی
             return [article for article, score in ranked_articles]
+            all_articles = list(queryset)
+            if not all_articles:
+                return queryset.none()
+
+            # ۱. آماده‌سازی متن مقالات (Corpus)
+            corpus = []
+            for art in all_articles:
+                # ترکیب فیلدها برای جستجوی دقیق‌تر
+                combined_text = f"{art.place_name or ''} {art.title_fa} {art.summary or ''} {art.body_fa}"
+                corpus.append(combined_text)
+
+            # ۲. اضافه کردن کوئری کاربر به انتهای لیست برای بردارسازی
+            corpus.append(q)
+
+            # ۳. تبدیل متون به بردار (Vectorization)
+            vectorizer = TfidfVectorizer()
+            tfidf_matrix = vectorizer.fit_transform(corpus)
+
+            # ۴. محاسبه شباهت کسینوسی کوئری (آخرین عنصر) با تک‌تک مقالات
+            # خروجی یک لیست از اعداد بین 0 و 1 است
+            cosine_sim = cosine_similarity(tfidf_matrix[-1], tfidf_matrix[:-1])[0]
+
+            # ۵. فیلتر کردن بر اساس حد آستانه (Threshold)
+            # عدد 0.1 معمولاً مناسب است؛ اگر نتایج خیلی بی‌ربط هستند عدد را بزرگتر کن (مثلاً 0.15)
+            THRESHOLD = 0.1 
+            
+            scored_articles = []
+            for idx, score in enumerate(cosine_sim):
+                if score >= THRESHOLD:
+                    scored_articles.append({
+                        'article': all_articles[idx],
+                        'score': score
+                    })
+
+            # ۶. مرتب‌سازی نتایج بر اساس امتیاز (نزولی)
+            scored_articles.sort(key=lambda x: x['score'], reverse=True)
+
+            # ۷. استخراج مقالات نهایی برای نمایش
+            final_list = [item['article'] for item in scored_articles]
+            
+            # برگرداندن نتایج فیلتر شده و مرتب شده
+            return final_list
             # ---------- سرچ مستقیم ----------
         if q:
             queryset = queryset.filter(
@@ -452,42 +495,71 @@ def calculate_article_score(article):
 
 # API برای محتوای ویکی
 def get_wiki_content(request):
+    print("Received request for wiki content with params:", request.GET)
     place_query = request.GET.get('place', None)
-    
     if not place_query:
         return JsonResponse({"error": "پارامتر place الزامی است"}, status=400)
-    
-    # ۱. پیدا کردن تمام مقالات مرتبط
-    articles = WikiArticle.objects.filter(
-        Q(place_name__icontains=place_query) | 
-        Q(title_fa__icontains=place_query),
+
+    # ۱. تلاش برای پیدا کردن تطابق دقیق (Exact Match)
+    # ابتدا در place_name و سپس در slug
+    exact_match = WikiArticle.objects.filter(
         status='published'
+    ).filter(
+        Q(place_name__iexact=place_query) | 
+        Q(slug__iexact=place_query) |
+        Q(title_fa__iexact=place_query)
     )
 
-    if not articles.exists():
-        return JsonResponse({"message": "محتوایی برای این مکان یافت نشد"}, status=404)
+    if exact_match.exists():
+        # return JsonResponse(serialize_article(exact_match), json_dumps_params={'ensure_ascii': False})
+        best_exact = max(exact_match, key=lambda x: calculate_article_score(x))
+        return JsonResponse(serialize_article(best_exact), json_dumps_params={'ensure_ascii': False})
 
-    # ما لیست را بر اساس تابع امتیازدهی سورت می‌کنیم
-    best_article = max(articles, key=lambda x: calculate_article_score(x))
-    # ساخت خروجی
-    data = {
-        "id": str(best_article.id) if hasattr(best_article, 'id') else str(best_article.slug),
-        "title": best_article.title_fa,
-        "place_name": best_article.place_name,
-        "category": best_article.category.title_fa if best_article.category else "",
-        "tags": list(best_article.tags.values_list('title_fa', flat=True)) if hasattr(best_article, 'tags') else [],
-        "summary": best_article.summary if hasattr(best_article, 'summary') else "",
-        "description": best_article.body_fa,
-        "url": f"/team6/best_article/{best_article.slug}/",
-        "updated_at": best_article.updated_at.isoformat() if hasattr(best_article, 'updated_at') else ""
+    # ۲. اگر تطابق دقیق پیدا نشد: استفاده از TF-IDF و Cosine Similarity
+    all_articles = list(WikiArticle.objects.filter(status='published'))
+    
+    if not all_articles:
+        return JsonResponse({"message": "هیچ مقاله‌ای در سیستم موجود نیست"}, status=404)
+
+    # ساختن بدنه متن برای بردارسازی (ترکیب عنوان، نام مکان و خلاصه)
+    corpus = []
+    for art in all_articles:
+        combined_text = f"{art.place_name or ''} {art.title_fa} {art.summary or ''} {art.body_fa[:200]}"
+        corpus.append(combined_text)
+
+    # اضافه کردن کوئری کاربر به انتهای لیست برای بردارسازی همزمان
+    corpus.append(place_query)
+
+    # بردارسازی
+    vectorizer = TfidfVectorizer()
+    tfidf_matrix = vectorizer.fit_transform(corpus)
+
+    # محاسبه شباهت کسینوسی بین "آخرین عنصر" (کوئری) و بقیه (مقالات)
+    cosine_sim = cosine_similarity(tfidf_matrix[-1], tfidf_matrix[:-1])
+    
+    # پیدا کردن ایندکس بهترین شباهت
+    best_index = np.argmax(cosine_sim)
+    max_similarity = cosine_sim[0][best_index]
+
+    # تعیین یک حد آستانه (Threshold) برای جلوگیری از نتایج کاملاً بی‌ربط
+    if max_similarity < -1: # این عدد را می‌توانی با تست‌های بیشتر تنظیم کنید
+        return JsonResponse({"message": "محتوایی با شباهت کافی یافت نشد"}, status=404)
+
+    best_article = all_articles[best_index]
+    return JsonResponse(serialize_article(best_article), json_dumps_params={'ensure_ascii': False})
+
+
+def serialize_article(article):
+    """تابع کمکی برای تبدیل مدل به فرمت JSON مورد توافق"""
+    return {
+        "category": article.category.title_fa if article.category else "تاریخی",
+        "tags": list(article.tags.values_list('title_fa', flat=True)),
+        "summary": article.summary or "",
+        "description": article.body_fa,
+        "images": [article.featured_image_url] if article.featured_image_url else [],
+        "url": article.url,
+        "updated_at": article.updated_at.isoformat()
     }
-    
-    # اضافه کردن تصویر اگر وجود دارد
-    # if hasattr(article, 'featured_image_url') and article.featured_image_url:
-    #     data["images"] = [article.featured_image_url]
-    
-    return JsonResponse(data)
-
 
 
 @login_required

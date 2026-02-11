@@ -20,7 +20,7 @@ class WikiCategory(models.Model):
 
 class WikiTag(models.Model):
     id_tag = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    slug = models.SlugField(unique=True)
+    slug = models.SlugField()
     title_fa = models.TextField()
     title_en = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
