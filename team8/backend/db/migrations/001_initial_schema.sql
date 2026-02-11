@@ -51,7 +51,8 @@ CREATE TABLE places (
     title VARCHAR(150) NOT NULL,
     description TEXT,
     city_id INT NOT NULL REFERENCES cities(city_id) ON DELETE CASCADE,
-    location GEOGRAPHY(POINT, 4326),
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION,
     category_id INT REFERENCES categories(category_id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );

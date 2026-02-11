@@ -1,3 +1,5 @@
+import math
+
 from rest_framework import viewsets, status, mixins
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -81,15 +83,34 @@ class PlaceViewSet(viewsets.ModelViewSet):
     def nearby(self, request):
         lat = request.query_params.get('lat')
         lng = request.query_params.get('lng')
-        radius = float(request.query_params.get('radius', 10))
-        if not lat or not lng:
+        radius_km = float(request.query_params.get('radius', 10))
+
+        if lat is None or lng is None:
             return Response({'error': 'lat and lng required'}, status=status.HTTP_400_BAD_REQUEST)
-        from django.contrib.gis.geos import Point
-        from django.contrib.gis.measure import D
-        point = Point(float(lng), float(lat), srid=4326)
-        qs = self.get_queryset().filter(location__distance_lte=(point, D(km=radius)))
+
+        lat = float(lat)
+        lng = float(lng)
+
+        def haversine(lat1, lon1, lat2, lon2):
+            R = 6371.0  # Earth radius in km
+            phi1, phi2 = math.radians(lat1), math.radians(lat2)
+            delta_phi = math.radians(lat2 - lat1)
+            delta_lambda = math.radians(lon2 - lon1)
+
+            a = math.sin(delta_phi / 2) ** 2 + \
+                math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2
+
+            return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+        qs = []
+        for place in self.get_queryset():
+            if place.latitude is None or place.longitude is None:
+                continue
+            if haversine(lat, lng, place.latitude, place.longitude) <= radius_km:
+                qs.append(place)
+
         page = self.paginate_queryset(qs)
-        serializer = PlaceListSerializer(page or qs, many=True, context=self.get_serializer_context())
+        serializer = PlaceListSerializer(page or qs, many=True)
         return self.get_paginated_response(serializer.data) if page else Response(serializer.data)
 
     @action(detail=True, methods=['get'])

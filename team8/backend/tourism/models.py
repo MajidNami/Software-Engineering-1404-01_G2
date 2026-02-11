@@ -1,5 +1,4 @@
 import uuid
-from django.contrib.gis.db import models as gis_models
 from django.db import models
 from django.db.models import Avg
 
@@ -81,7 +80,10 @@ class Place(models.Model):
         related_name="places",
         db_column="city_id"
     )
-    location = gis_models.PointField(geography=True, srid=4326, null=True, blank=True)
+
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+
     category = models.ForeignKey(
         Category,
         on_delete=models.SET_NULL,

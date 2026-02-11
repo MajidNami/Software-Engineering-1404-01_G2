@@ -13,14 +13,14 @@ if env_file.exists():
 
 DEBUG = env("DEBUG")
 SECRET_KEY = env("DJANGO_SECRET_KEY", default="team8-dev-secret-change-me")
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1", "backend"])
+ALLOWED_HOSTS = env.get_value("ALLOWED_HOSTS", default=["localhost", "127.0.0.1", "backend", "0.0.0.0"])
 
 INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.staticfiles",
-    "django.contrib.gis",  # GeoDjango for PostGIS
+    # "django.contrib.gis",  # GeoDjango for PostGIS
     "rest_framework",
-    "rest_framework_gis",  # DRF GIS support
+    # "rest_framework_gis",  # DRF GIS support
     "corsheaders",
     "django_filters",
     "tourism",  # Our app
@@ -54,7 +54,7 @@ DATABASES = {
     "default": env.db(
         "TEAM8_DATABASE_URL",
         default="postgresql://team8_user:team8_pass@postgres:5432/team8_db",
-        engine="django.contrib.gis.db.backends.postgis"
+        # engine="django.contrib.gis.db.backends.postgis"
     )
 }
 

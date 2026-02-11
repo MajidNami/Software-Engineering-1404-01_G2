@@ -1,5 +1,4 @@
 from rest_framework import serializers
-from rest_framework_gis.serializers import GeoFeatureModelSerializer
 from django.conf import settings
 from .models import (
     User, Province, City, Category, Place, Media, Post, Rating,
@@ -39,7 +38,7 @@ class CategorySerializer(serializers.ModelSerializer):
 
 # Place
 
-class PlaceListSerializer(GeoFeatureModelSerializer):
+class PlaceListSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
     city_name = serializers.CharField(source='city.name', read_only=True)
     average_rating = serializers.ReadOnlyField()
@@ -47,12 +46,21 @@ class PlaceListSerializer(GeoFeatureModelSerializer):
 
     class Meta:
         model = Place
-        geo_field = 'location'
         fields = [
-            'place_id', 'title', 'description', 'city', 'city_name',
-            'category', 'category_name', 'average_rating', 'rating_count',
+            'place_id',
+            'title',
+            'description',
+            'city',
+            'city_name',
+            'category',
+            'category_name',
+            'latitude',
+            'longitude',
+            'average_rating',
+            'rating_count',
             'created_at',
         ]
+
 
 
 class PlaceDetailSerializer(PlaceListSerializer):
@@ -74,20 +82,19 @@ class PlaceDetailSerializer(PlaceListSerializer):
 
 
 class PlaceCreateSerializer(serializers.ModelSerializer):
-    latitude = serializers.FloatField(write_only=True, required=False)
-    longitude = serializers.FloatField(write_only=True, required=False)
+    latitude = serializers.FloatField(required=False)
+    longitude = serializers.FloatField(required=False)
 
     class Meta:
         model = Place
-        fields = ['title', 'description', 'city', 'category', 'latitude', 'longitude']
-
-    def create(self, validated_data):
-        lat = validated_data.pop('latitude', None)
-        lng = validated_data.pop('longitude', None)
-        if lat is not None and lng is not None:
-            from django.contrib.gis.geos import Point
-            validated_data['location'] = Point(lng, lat, srid=4326)
-        return super().create(validated_data)
+        fields = [
+            'title',
+            'description',
+            'city',
+            'category',
+            'latitude',
+            'longitude',
+        ]
 
 
 # Media
