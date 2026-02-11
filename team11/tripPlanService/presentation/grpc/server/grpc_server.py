@@ -11,7 +11,7 @@ from presentation.grpc.services.TripServicer import TripServicer
 import grpc
 from concurrent import futures
 
-from presentation.grpc.protos import trip_pb2_grpc as pb2_grpc
+from infrastructure.grpc_clients import trip_pb2_grpc as pb2_grpc
 
 
 

@@ -5,7 +5,7 @@ import sys
 
 import grpc
 
-from presentation.grpc.protos import trip_pb2 as trip__pb2
+from infrastructure.grpc_clients import trip_pb2 as trip__pb2
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

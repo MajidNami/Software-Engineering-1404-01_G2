@@ -1,7 +1,7 @@
 import os
 
-from presentation.grpc.protos import trip_pb2 as pb2
-from presentation.grpc.protos import trip_pb2_grpc as pb2_grpc
+from infrastructure.grpc_clients import trip_pb2 as pb2
+from infrastructure.grpc_clients import trip_pb2_grpc as pb2_grpc
 from business.services import TripService
 from externalServices.rest.TripPlanClient import TripPlanClient
 

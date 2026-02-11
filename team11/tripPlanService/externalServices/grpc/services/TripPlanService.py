@@ -1,5 +1,5 @@
 from externalServices.grpc.client.Clients import Clients
-from presentation.grpc.protos import trip_pb2 as pb2
+from infrastructure.grpc_clients import trip_pb2 as pb2
 
 
 class TripPlanService:
