@@ -184,3 +184,12 @@ while sharing the same runtime environment and infrastructure
 as the rest of the system.
 
 ## Notes for Developers
+
+- The Wiki Service follows Django best practices for modular application design.
+- Business logic is separated from routing and presentation layers.
+- URL routing is defined within the Team6 module and mounted by the Core system.
+- Schema changes must be handled through Django migrations.
+- The service is designed to be extendable without affecting the Core infrastructure.
+
+Future enhancements can be implemented within the existing modular structure
+without requiring architectural changes to the overall system.
