@@ -6,3 +6,5 @@ mysqlclient
 PyMySQL
 gunicorn
 whitenoise
+djangorestframework>=3.14.0
+drf-spectacular>=0.27.0

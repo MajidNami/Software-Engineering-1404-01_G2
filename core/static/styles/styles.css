@@ -119,6 +119,10 @@ body {
     transform: translateY(-2px);
 }
 
+.btn-api-docs {
+    margin-left: 10px;
+}
+
 .btn-signup {
     background: var(--persian-gold);
     box-shadow: 0 4px 12px rgba(255, 179, 0, 0.4);
