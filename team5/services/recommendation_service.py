@@ -13,6 +13,17 @@ from .contracts import (
 )
 from .data_provider import DataProvider
 from team5.models import Team5MediaRating
+<<<<<<< Updated upstream
+=======
+try:
+    from .ml.recommender_model import RecommenderModel
+    from team5.exceptions.not_trained_yet_exception import NotTrainedYetException
+except Exception:  # pragma: no cover - optional ML dependencies
+    RecommenderModel = None
+
+    class NotTrainedYetException(Exception):
+        pass
+>>>>>>> Stashed changes
 
 
 class RecommendationService:
@@ -28,6 +39,13 @@ class RecommendationService:
         self.popular_min_overall_rate = popular_min_overall_rate
         self.popular_min_votes = popular_min_votes
         self.personalized_min_user_rate = personalized_min_user_rate
+<<<<<<< Updated upstream
+=======
+        self._ml_enabled = RecommenderModel is not None
+        self.personalized_place_recommender_model = RecommenderModel((0, 5)) if self._ml_enabled else None
+        self.personalized_media_recommender_model = RecommenderModel((0, 5)) if self._ml_enabled else None
+        self._models_ready = False
+>>>>>>> Stashed changes
 
     def get_popular(
         self,
@@ -50,11 +68,19 @@ class RecommendationService:
         self,
         city_id: str,
         limit: int = DEFAULT_LIMIT,
+<<<<<<< Updated upstream
+=======
+        user_id: str | None = None,
+>>>>>>> Stashed changes
         excluded_media_ids: set[str] | None = None,
     ) -> list[MediaRecord]:
         place_by_id = {place["placeId"]: place for place in self.provider.get_all_places()}
         items: list[dict] = []
         excluded = excluded_media_ids or set()
+<<<<<<< Updated upstream
+=======
+        user_key = str(user_id).strip() if user_id else ""
+>>>>>>> Stashed changes
 
         for media in self.provider.get_media():
             if media["mediaId"] in excluded:
@@ -66,7 +92,19 @@ class RecommendationService:
             item["matchReason"] = "your_nearest"
             items.append(item)
 
-        items.sort(key=lambda item: (float(item["overallRate"]), int(item["ratingsCount"])), reverse=True)
+        # Re-rank nearest items by ML prediction score when user id is available.
+        if items and user_key:
+            ml_scores = self._get_ml_prediction_scores_for_media(
+                user_id=user_key,
+                media_ids=[item["mediaId"] for item in items],
+            )
+            for item in items:
+                if item["mediaId"] in ml_scores:
+                    item["mlScore"] = round(float(ml_scores[item["mediaId"]]), 3)
+            items.sort(key=lambda item: (float(item["overallRate"]), int(item["ratingsCount"])), reverse=True)
+            items.sort(key=lambda item: float(item.get("mlScore", -1)), reverse=True)
+        else:
+            items.sort(key=lambda item: (float(item["overallRate"]), int(item["ratingsCount"])), reverse=True)
         return items[:limit]
 
     def get_personalized(
@@ -79,10 +117,19 @@ class RecommendationService:
         media_by_id = {item["mediaId"]: item for item in media}
         scored: list[tuple[float, float, int, dict]] = []
         ratings_by_media = self._get_db_ratings_by_media(user_id)
+<<<<<<< Updated upstream
         blocked = excluded_media_ids or set()
 
         for item in media_by_id.values():
             if item["mediaId"] in blocked:
+=======
+        excluded = excluded_media_ids or set()
+        if not ratings_by_media:
+            return []
+
+        for item in media_by_id.values():
+            if item["mediaId"] in excluded:
+>>>>>>> Stashed changes
                 continue
             user_rate = ratings_by_media.get(item["mediaId"])
             if user_rate is None or user_rate < self.personalized_min_user_rate:
@@ -92,16 +139,32 @@ class RecommendationService:
             scored.append((user_rate, float(item["overallRate"]), int(item["ratingsCount"]), item))
 
         scored.sort(key=lambda data: (data[0], data[1], data[2]), reverse=True)
-        base_items = [entry[3] for entry in scored[:limit]]
+        base_limit = max(1, int(limit * 0.6))
+        base_items = [entry[3] for entry in scored[:base_limit]]
 
         similar_items = self.get_similar_items(
             user_id=user_id,
             based_on_items=base_items,
+<<<<<<< Updated upstream
             excluded_media_ids={item["mediaId"] for item in base_items}.union(blocked),
+=======
+            excluded_media_ids={item["mediaId"] for item in base_items}.union(excluded),
+>>>>>>> Stashed changes
             limit=max(1, min(limit, 10)),
         )
 
+        ml_items = self._get_ml_personalized_items(
+            user_id=user_id,
+            media_by_id=media_by_id,
+            excluded_media_ids={item["mediaId"] for item in base_items}.union(excluded),
+            limit=max(1, min(limit - len(base_items), limit)),
+        )
+
         merged = list(base_items)
+        for item in ml_items:
+            if len(merged) >= limit:
+                break
+            merged.append(item)
         for item in similar_items:
             if len(merged) >= limit:
                 break
@@ -248,6 +311,181 @@ class RecommendationService:
             item.media_id: float(item.rate)
             for item in Team5MediaRating.objects.filter(user_id=user_uuid)
         }
+<<<<<<< Updated upstream
+=======
+    
+    def train(self):
+        if not self._ml_enabled:
+            self._models_ready = False
+            return False
+        self._train_personalized_place_recommender_model()
+        self._train_personalized_media_recommender_model()
+        return self._models_ready
+
+    def _train_personalized_place_recommender_model(self):
+        if self.personalized_place_recommender_model is None:
+            return
+        try:
+            user_place_ratings = self._to_training_triples(
+                rows=self.provider.get_all_place_ratings(),
+                user_key="userId",
+                item_key="placeId",
+                rating_key="rate",
+            )
+            if user_place_ratings:
+                self.personalized_place_recommender_model.train(user_place_ratings)
+        except Exception:
+            # Place model is optional for now; keep service available.
+            return
+
+    def _train_personalized_media_recommender_model(self):
+        if self.personalized_media_recommender_model is None:
+            self._models_ready = False
+            return
+        user_media_ratings = self._to_training_triples(
+            rows=self.provider.get_all_media_ratings(),
+            user_key="userId",
+            item_key="mediaId",
+            rating_key="rate",
+        )
+        if user_media_ratings:
+            self.personalized_media_recommender_model.train(user_media_ratings)
+            self._models_ready = True
+        else:
+            self._models_ready = False
+
+    def _ensure_models_ready(self) -> bool:
+        if not self._ml_enabled or self.personalized_media_recommender_model is None:
+            return False
+        if self._models_ready:
+            return True
+        try:
+            return bool(self.train())
+        except Exception:
+            self._models_ready = False
+            return False
+
+    def _get_ml_personalized_items(
+        self,
+        *,
+        user_id: str,
+        media_by_id: dict[str, dict],
+        excluded_media_ids: set[str],
+        limit: int,
+    ) -> list[dict]:
+        if limit <= 0:
+            return []
+        user_key = str(user_id).strip()
+        if not user_key or not self._ensure_models_ready():
+            return []
+
+        try:
+            predictions = self.personalized_media_recommender_model.recommend(
+                user_key,
+                top_n=max(limit * 3, limit),
+                show_already_seen_items=False,
+            )
+        except NotTrainedYetException:
+            return []
+        except Exception:
+            return []
+
+        output: list[dict] = []
+        for media_id, pred_score in predictions:
+            media_key = str(media_id)
+            if media_key in excluded_media_ids:
+                continue
+            media = media_by_id.get(media_key)
+            if not media:
+                continue
+            item = dict(media)
+            item["matchReason"] = "ml_personalized"
+            item["mlScore"] = round(float(pred_score), 3)
+            output.append(item)
+            if len(output) >= limit:
+                break
+        return output
+
+    def _get_ml_prediction_scores_for_media(
+        self,
+        *,
+        user_id: str,
+        media_ids: list[str],
+    ) -> dict[str, float]:
+        if not media_ids:
+            return {}
+        if not user_id or not self._ensure_models_ready():
+            return {}
+        if self.personalized_media_recommender_model is None:
+            return {}
+
+        scores: dict[str, float] = {}
+        for media_id in media_ids:
+            try:
+                prediction = self.personalized_media_recommender_model.predict_rating(user_id, media_id)
+                scores[media_id] = float(prediction.est)
+            except NotTrainedYetException:
+                return {}
+            except Exception:
+                continue
+        return scores
+
+    def _to_training_triples(
+        self,
+        *,
+        rows: list[dict],
+        user_key: str,
+        item_key: str,
+        rating_key: str,
+    ) -> list[tuple[str, str, float]]:
+        output: list[tuple[str, str, float]] = []
+        for row in rows:
+            user_id = str(row.get(user_key, "")).strip()
+            item_id = str(row.get(item_key, "")).strip()
+            if not user_id or not item_id:
+                continue
+            try:
+                rating = float(row.get(rating_key))
+            except (TypeError, ValueError):
+                continue
+            output.append((user_id, item_id, rating))
+        return output
+
+    def get_ml_status(self) -> dict:
+        media_samples = 0
+        place_samples = 0
+        try:
+            media_samples = len(self.provider.get_all_media_ratings())
+        except Exception:
+            media_samples = 0
+        try:
+            place_samples = len(self.provider.get_all_place_ratings())
+        except Exception:
+            place_samples = 0
+
+        media_model_users = 0
+        media_model_items = 0
+        place_model_users = 0
+        place_model_items = 0
+
+        if self.personalized_media_recommender_model is not None:
+            media_model_items = len(self.personalized_media_recommender_model.items)
+            media_model_users = len(self.personalized_media_recommender_model.user_item_rating_matrix.index)
+        if self.personalized_place_recommender_model is not None:
+            place_model_items = len(self.personalized_place_recommender_model.items)
+            place_model_users = len(self.personalized_place_recommender_model.user_item_rating_matrix.index)
+
+        return {
+            "mlEnabled": bool(self._ml_enabled),
+            "modelsReady": bool(self._models_ready),
+            "mediaRatingsSamples": media_samples,
+            "placeRatingsSamples": place_samples,
+            "mediaModelUsers": media_model_users,
+            "mediaModelItems": media_model_items,
+            "placeModelUsers": place_model_users,
+            "placeModelItems": place_model_items,
+        }
+>>>>>>> Stashed changes
 
 
 def _parse_uuid(value: str) -> UUID | None:

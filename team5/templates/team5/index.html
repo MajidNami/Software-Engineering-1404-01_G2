@@ -50,6 +50,7 @@
         "user-ratings": "User Ratings",
       };
 
+<<<<<<< Updated upstream
       const REASON_LABELS = {
         high_user_rating: "به خاطر امتیاز بالای کاربر",
         your_nearest: "نزدیک‌ترین پیشنهاد براساس موقعیت شما",
@@ -58,11 +59,22 @@
         similar: "پیشنهاد مشابه",
       };
       const FEEDBACK_ACTIONS = new Set(["popular", "personalized", "nearest"]);
+=======
+        const REASON_LABELS = {
+            high_user_rating: "به خاطر امتیاز بالای کاربر",
+            your_nearest: "نزدیک‌ترین پیشنهاد براساس موقعیت شما",
+            ml_personalized: "پیشنهاد شخصی‌سازی‌شده با مدل ML",
+            similar_topic: "پیشنهاد مشابه موضوعی",
+            same_city: "پیشنهاد مشابه در همان شهر",
+            similar: "پیشنهاد مشابه"
+        };
+>>>>>>> Stashed changes
 
       function api(path) {
         return `${API_BASE}${path}`;
       }
 
+<<<<<<< Updated upstream
       function App() {
         const [userId, setUserId] = useState("");
         const [cityId, setCityId] = useState("tehran");
@@ -77,6 +89,20 @@
         const [feedbackMessage, setFeedbackMessage] = useState("");
         const [shineCards, setShineCards] = useState(false);
         const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+=======
+        function App() {
+            const [userId, setUserId] = useState("");
+            const [cityId, setCityId] = useState("tehran");
+            const [limit, setLimit] = useState(5);
+            const [users, setUsers] = useState([]);
+            const [jsonOutput, setJsonOutput] = useState("در حال بارگذاری...");
+            const [cardsPayload, setCardsPayload] = useState(null);
+            const [lastAction, setLastAction] = useState("popular");
+            const [placesById, setPlacesById] = useState({});
+            const [citiesById, setCitiesById] = useState({});
+            const [isTraining, setIsTraining] = useState(false);
+            const [trainingMessage, setTrainingMessage] = useState("");
+>>>>>>> Stashed changes
 
         const safeLimit = useMemo(() => {
           const parsed = Number(limit);
@@ -141,7 +167,192 @@
                     });
                   }
                 } catch (_) {}
+<<<<<<< Updated upstream
               }),
+=======
+            }
+
+            async function loadUsers() {
+                const endpoint = api("/team5/api/users/");
+                try {
+                    const res = await fetch(endpoint, { credentials: "same-origin" });
+                    const data = await res.json();
+                    const list = Array.isArray(data.items) ? data.items : [];
+                    setUsers(list);
+                    if (!userId && list.length) {
+                        setUserId(list[0].userId);
+                    }
+                } catch (error) {
+                    setJsonOutput(JSON.stringify({ status: "network_error", endpoint, error: String(error) }, null, 2));
+                }
+            }
+
+            function endpointByAction(action) {
+                const encodedUser = encodeURIComponent(userId.trim());
+                const encodedCity = encodeURIComponent(cityId.trim());
+                switch (action) {
+                    case "cities":
+                        return api("/team5/api/cities/");
+                    case "places":
+                        return api(`/team5/api/places/city/${encodedCity}/`);
+                    case "media":
+                        return api(`/team5/api/media/?userId=${encodedUser}`);
+                    case "users":
+                        return api("/team5/api/users/");
+                    case "user-ratings":
+                        return api(`/team5/api/users/${encodedUser}/ratings/`);
+                    case "popular":
+                        return api(`/team5/api/recommendations/popular/?limit=${safeLimit}`);
+                    case "nearest":
+                        return api(`/team5/api/recommendations/nearest/?limit=${safeLimit}&cityId=${encodedCity}&userId=${encodedUser}`);
+                    case "personalized":
+                        return api(`/team5/api/recommendations/personalized/?userId=${encodedUser}&limit=${safeLimit}`);
+                    case "interests":
+                        return api(`/team5/api/users/${encodedUser}/interests/`);
+                    case "ping":
+                        return api("/team5/ping/");
+                    default:
+                        return null;
+                }
+            }
+
+            async function callAction(action) {
+                const endpoint = endpointByAction(action);
+                if (!endpoint) return;
+                setLastAction(action);
+                try {
+                    const res = await fetch(endpoint, { credentials: "same-origin" });
+                    const text = await res.text();
+                    let payload = text;
+                    try {
+                        payload = JSON.parse(text);
+                    } catch (_) {}
+                    setCardsPayload(payload);
+                    setJsonOutput(JSON.stringify({ status: res.status, endpoint, data: payload }, null, 2));
+                } catch (error) {
+                    setCardsPayload(null);
+                    setJsonOutput(JSON.stringify({ status: "network_error", endpoint, error: String(error) }, null, 2));
+                }
+            }
+
+            async function trainModel() {
+                setIsTraining(true);
+                setTrainingMessage("Training started...");
+                const endpoint = api("/team5/api/train");
+                try {
+                    const res = await fetch(endpoint, {
+                        method: "POST",
+                        credentials: "same-origin"
+                    });
+                    const payload = await res.json();
+                    const statusRes = await fetch(api("/team5/api/ml/status"), { credentials: "same-origin" });
+                    const statusPayload = await statusRes.json();
+                    setTrainingMessage(
+                        `Train: ${payload.trained ? "OK" : "FAILED"} | modelsReady=${statusPayload.modelsReady} | mediaSamples=${statusPayload.mediaRatingsSamples}`
+                    );
+                    setJsonOutput(
+                        JSON.stringify(
+                            {
+                                status: res.status,
+                                endpoint,
+                                train: payload,
+                                mlStatus: statusPayload
+                            },
+                            null,
+                            2
+                        )
+                    );
+                } catch (error) {
+                    setTrainingMessage(`Train error: ${String(error)}`);
+                } finally {
+                    setIsTraining(false);
+                }
+            }
+
+            return (
+                <main className="container">
+                    <header className="page-header page-header-modern">
+                        <h1>Team5 Recommendation Service</h1>
+                        <p>نسخه React - پیشنهادهای Popular, Personalized و Your Nearest براساس IP</p>
+                    </header>
+
+                    <section className="panel">
+                        <h2>تنظیمات</h2>
+                        <div className="form-grid">
+                            <label>
+                                انتخاب کاربر
+                                <select value={userId} onChange={(e) => setUserId(e.target.value)}>
+                                    <option value="">-- انتخاب کن --</option>
+                                    {users.map((user) => {
+                                        const fullName = `${user.firstName || ""} ${user.lastName || ""}`.trim();
+                                        return (
+                                            <option key={user.userId} value={user.userId}>
+                                                {fullName ? `${fullName} - ${user.email}` : `${user.email} - ${user.userId}`}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+                            </label>
+                            <label>
+                                User ID
+                                <input value={userId} onChange={(e) => setUserId(e.target.value)} placeholder="UUID user id" />
+                            </label>
+                            <label>
+                                City ID
+                                <input value={cityId} onChange={(e) => setCityId(e.target.value)} placeholder="tehran" />
+                            </label>
+                            <label>
+                                Limit
+                                <input type="number" min="1" max="100" value={limit} onChange={(e) => setLimit(e.target.value)} />
+                            </label>
+                        </div>
+                    </section>
+
+                    <section className="panel">
+                        <h2>اکشن‌ها</h2>
+                        <div className="actions">
+                            <button type="button" onClick={loadUsers}>Load Users Dropdown</button>
+                            <button type="button" onClick={trainModel} disabled={isTraining}>
+                                {isTraining ? "Training..." : "Train Model"}
+                            </button>
+                            {Object.keys(ACTION_LABELS).map((action) => (
+                                <button key={action} type="button" onClick={() => callAction(action)}>
+                                    {ACTION_LABELS[action]}
+                                </button>
+                            ))}
+                        </div>
+                        {trainingMessage ? <p className="reason">{trainingMessage}</p> : null}
+                    </section>
+
+                    <section className="panel">
+                        <h2>خروجی JSON</h2>
+                        <pre>{jsonOutput}</pre>
+                    </section>
+
+                    <section className="panel">
+                        <h2>نمایش کارت‌ها</h2>
+                        <CardsView
+                            payload={cardsPayload}
+                            lastAction={lastAction}
+                            placesById={placesById}
+                            citiesById={citiesById}
+                        />
+                    </section>
+
+                    <section className="panel panel-note">
+                        <h2>راهنما</h2>
+                        <ul>
+                            <li>برای Personalized و Interests مقدار <code>User ID</code> را تنظیم کن.</li>
+                            <li>در <code>Your Nearest</code> ابتدا IP بررسی می‌شود؛ اگر resolve نشد از <code>City ID</code> استفاده می‌شود.</li>
+                            <li>برای Places by City مقدار <code>City ID</code> را تنظیم کن (مثل: tehran, shiraz).</li>
+                        </ul>
+                    </section>
+
+                    <div className="footer">
+                        <a href="/" className="back-btn">بازگشت به داشبورد اصلی</a>
+                    </div>
+                </main>
+>>>>>>> Stashed changes
             );
             setPlacesById(placeMap);
           } catch (_) {}

@@ -14,4 +14,9 @@ urlpatterns = [
     path("api/recommendations/personalized/", views.get_personalized_recommendations),
     path("api/recommendations/feedback/", views.submit_recommendation_feedback),
     path("api/users/<str:user_id>/interests/", views.get_user_interests),
+<<<<<<< Updated upstream
+=======
+    path("api/train", views.train),
+    path("api/ml/status", views.ml_status),
+>>>>>>> Stashed changes
 ]
