@@ -133,9 +133,8 @@ REST_FRAMEWORK = {
 
 # drf-spectacular Settings
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'Iran Explorer API - سامانه جامع گردشگری ایران',
-    'DESCRIPTION': 'Comprehensive tourism and geography service system for Iran\n\n'
-                   'سامانه جامع خدمات گردشگری، جغرافیا و ایران‌شناسی',
+    'TITLE': 'Iran Explorer API',
+    'DESCRIPTION': 'Comprehensive tourism and geography service system for Iran',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_REQUEST': True,
@@ -157,6 +156,10 @@ SPECTACULAR_SETTINGS = {
         {'name': 'Authentication', 'description': 'User authentication and authorization'},
         {'name': 'Geography', 'description': 'Provinces, cities and geographic data'},
         {'name': 'Facilities', 'description': 'Hotels, restaurants, hospitals and other facilities'},
+        {'name': 'Categories', 'description': 'Facility categories management'},
+        {'name': 'Reviews', 'description': 'User reviews and ratings'},
+        {'name': 'Favorites', 'description': 'User favorites management'},
+        {'name': 'Regions', 'description': 'Region search and location services'},
         {'name': 'Wiki', 'description': 'Encyclopedia and knowledge base'},
         {'name': 'Media', 'description': 'Photos and reviews'},
         {'name': 'Recommendations', 'description': 'Smart destination recommendations'},

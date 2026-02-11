@@ -6,6 +6,7 @@ from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
 from django.core.exceptions import ObjectDoesNotExist
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from .fields import Point
 
 from core.auth import api_login_required
@@ -15,7 +16,8 @@ from team4.serializers import (
     FacilityNearbySerializer, FacilityComparisonSerializer,
     CategorySerializer, CitySerializer, AmenitySerializer,
     FacilityCreateSerializer, RegionSearchResultSerializer,
-    FavoriteSerializer, ReviewSerializer, ReviewCreateSerializer
+    FavoriteSerializer, ReviewSerializer, ReviewCreateSerializer,
+    FacilityFilterSerializer
 )
 from team4.services.facility_service import FacilityService
 from team4.services.region_service import RegionService
@@ -36,15 +38,35 @@ class StandardResultsSetPagination(PageNumberPagination):
 # ViewSets
 # =====================================================
 
+@extend_schema_view(
+    list=extend_schema(
+        tags=['Facilities'],
+        request=FacilityFilterSerializer,
+        responses={200: FacilityListSerializer(many=True)}
+    ),
+    retrieve=extend_schema(tags=['Facilities']),
+    create=extend_schema(
+        tags=['Facilities'],
+        request=FacilityCreateSerializer,
+        responses={201: FacilityDetailSerializer}
+    ),
+    update=extend_schema(tags=['Facilities']),
+    partial_update=extend_schema(tags=['Facilities']),
+    destroy=extend_schema(tags=['Facilities']),
+    search=extend_schema(
+        tags=['Facilities'],
+        request=FacilityFilterSerializer,
+        responses={200: FacilityListSerializer(many=True)},
+        description='Search facilities with filters (village, city, province, category, amenity)'
+    ),
+    nearby=extend_schema(tags=['Facilities']),
+    compare=extend_schema(tags=['Facilities']),
+    reviews=extend_schema(tags=['Facilities']),
+    emergency=extend_schema(tags=['Facilities']),
+)
 class FacilityViewSet(viewsets.ModelViewSet):
     """
-    ViewSet برای مدیریت امکانات
-    
-    APIs:
-    - GET /api/facilities/              → لیست امکانات با جستجو و فیلتر
-    - GET /api/facilities/{id}/         → جزئیات یک مکان
-    - GET /api/facilities/{id}/nearby/  → امکانات نزدیک
-    - POST /api/facilities/compare/     → مقایسه هتل‌ها
+    List facilities with search and filters
     """
     queryset = Facility.objects.filter(status=True)
     pagination_class = StandardResultsSetPagination
@@ -58,64 +80,279 @@ class FacilityViewSet(viewsets.ModelViewSet):
             return FacilityCreateSerializer
         return FacilityDetailSerializer
     
+    def _get_region_filter_from_data(self, data):
+        """
+        Extract and validate region filter from request data with priority: village > city > province
+        Returns tuple: (region_type, region_name)
+        """
+        village_name = data.get('village')
+        city_name = data.get('city')
+        province_name = data.get('province')
+        
+        if village_name:
+            return ('village', village_name)
+        elif city_name:
+            return ('city', city_name)
+        elif province_name:
+            return ('province', province_name)
+        return (None, None)
+    
+    def _validate_category(self, category_name):
+        """Validate if category exists"""
+        if not category_name:
+            return True
+        return Category.objects.filter(
+            Q(name_en__iexact=category_name) | Q(name_fa__iexact=category_name)
+        ).exists()
+    
+    def _validate_amenity(self, amenity_name):
+        """Validate if amenity exists"""
+        if not amenity_name:
+            return True
+        return Amenity.objects.filter(
+            Q(name_en__iexact=amenity_name) | Q(name_fa__iexact=amenity_name)
+        ).exists()
+    
+    def _apply_region_filter(self, queryset, region_type, region_name):
+        """Apply region-based filtering"""
+        if not region_name:
+            return queryset
+        
+        if region_type == 'village':
+            return queryset.filter(
+                Q(village__name_fa__icontains=region_name) |
+                Q(village__name_en__icontains=region_name)
+            )
+        elif region_type == 'city':
+            return queryset.filter(
+                Q(city__name_fa__icontains=region_name) |
+                Q(city__name_en__icontains=region_name)
+            )
+        elif region_type == 'province':
+            return queryset.filter(
+                Q(city__province__name_fa__icontains=region_name) |
+                Q(city__province__name_en__icontains=region_name)
+            )
+        return queryset
+    
+    def _apply_sorting(self, queryset, sort_by, region_name=None):
+        """Apply sorting to queryset"""
+        if sort_by == 'rating':
+            return queryset.order_by('-avg_rating', '-review_count')
+        elif sort_by == 'review_count':
+            return queryset.order_by('-review_count')
+        elif sort_by == 'distance' and region_name:
+            sorted_facilities = FacilityService.sort_by_city_distance(queryset, region_name)
+            return sorted_facilities if sorted_facilities else queryset.order_by('-avg_rating')
+        return queryset.order_by('-avg_rating')
+    
     def list(self, request):
-        # دریافت پارامترها
-        city_name = request.query_params.get('city')
-        category_name = request.query_params.get('category')
+        """
+        List facilities with advanced filtering and sorting.
+        
+        Request Body:
+        - village: Filter by village name (highest priority)
+        - city: Filter by city name (medium priority)
+        - province: Filter by province name (lowest priority)
+        - category: Filter by category name (must be valid)
+        - amenity: Filter by amenity name (must be valid)
+        
+        Query Parameters:
+        - min_price, max_price: Price range filters
+        - min_rating: Minimum rating filter
+        - is_24_hour: 24-hour operation filter
+        - sort: Sorting method (rating, review_count, distance)
+        """
+        # Validate request data
+        serializer = FacilityFilterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        
+        # Extract and validate region filter
+        region_type, region_name = self._get_region_filter_from_data(data)
+        
+        # Extract other parameters
+        category_name = data.get('category')
+        amenity_name = data.get('amenity')
         sort_by = request.query_params.get('sort', 'rating')
         
-        # جستجو
-        facilities = FacilityService.search_facilities(
-            city_name=city_name,
-            category_name=category_name
-        )
+        # Validate category
+        if category_name and not self._validate_category(category_name):
+            return Response(
+                {'error': f'Invalid category: {category_name}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
-        # فیلتر
+        # Validate amenity
+        if amenity_name and not self._validate_amenity(amenity_name):
+            return Response(
+                {'error': f'Invalid amenity: {amenity_name}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Start with base queryset
+        facilities = self.queryset
+        
+        # Apply region filter
+        facilities = self._apply_region_filter(facilities, region_type, region_name)
+        
+        # Apply category filter
+        if category_name:
+            facilities = facilities.filter(
+                Q(category__name_en__iexact=category_name) |
+                Q(category__name_fa__iexact=category_name)
+            )
+        
+        # Apply amenity filter
+        if amenity_name:
+            facilities = facilities.filter(
+                amenities__name_en__iexact=amenity_name
+            ) | facilities.filter(
+                amenities__name_fa__iexact=amenity_name
+            )
+        
+        # Apply additional filters
         filters = {
             'min_price': request.query_params.get('min_price'),
             'max_price': request.query_params.get('max_price'),
             'min_rating': request.query_params.get('min_rating'),
-            'amenities': request.query_params.get('amenities'),
             'is_24_hour': request.query_params.get('is_24_hour'),
         }
         
-        # حذف فیلترهای None
+        # Remove None values
         filters = {k: v for k, v in filters.items() if v is not None}
         
         if filters:
             facilities = FacilityService.filter_facilities(facilities, filters)
         
-        # مرتب‌سازی
-        if sort_by == 'rating':
-            facilities = facilities.order_by('-avg_rating', '-review_count')
-        elif sort_by == 'review_count':
-            facilities = facilities.order_by('-review_count')
-        elif sort_by == 'distance' and city_name:
-            # استفاده از Service برای مرتب‌سازی بر اساس فاصله
-            sorted_facilities = FacilityService.sort_by_city_distance(facilities, city_name)
-            
-            if sorted_facilities:
-                # استفاده از pagination
-                page = self.paginate_queryset([f['facility'] for f in sorted_facilities])
-                if page is not None:
-                    serializer = self.get_serializer(page, many=True)
-                    return self.get_paginated_response(serializer.data)
-                
-                serializer = self.get_serializer(
-                    [f['facility'] for f in sorted_facilities],
-                    many=True
-                )
-                return Response(serializer.data)
-            # اگر شهر یافت نشد، fallback به sorting معمولی
-            facilities = facilities.order_by('-avg_rating')
+        # Apply sorting
+        sorted_result = self._apply_sorting(facilities, sort_by, region_name)
         
-        # Pagination
-        page = self.paginate_queryset(facilities)
+        # Handle distance sorting special case
+        if sort_by == 'distance' and isinstance(sorted_result, list):
+            page = self.paginate_queryset([f['facility'] for f in sorted_result])
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+            
+            serializer = self.get_serializer(
+                [f['facility'] for f in sorted_result],
+                many=True
+            )
+            return Response(serializer.data)
+        
+        # Standard pagination
+        page = self.paginate_queryset(sorted_result)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
         
-        serializer = self.get_serializer(facilities, many=True)
+        serializer = self.get_serializer(sorted_result, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['post'])
+    def search(self, request):
+        """
+        Search facilities with advanced filtering and sorting.
+        
+        Request Body:
+        - village: Filter by village name (highest priority)
+        - city: Filter by city name (medium priority)
+        - province: Filter by province name (lowest priority)
+        - category: Filter by category name (must be valid)
+        - amenity: Filter by amenity name (must be valid)
+        
+        Query Parameters:
+        - min_price, max_price: Price range filters
+        - min_rating: Minimum rating filter
+        - is_24_hour: 24-hour operation filter
+        - sort: Sorting method (rating, review_count, distance)
+        """
+        # Validate request data
+        serializer = FacilityFilterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        
+        # Extract and validate region filter
+        region_type, region_name = self._get_region_filter_from_data(data)
+        
+        # Extract other parameters
+        category_name = data.get('category')
+        amenity_name = data.get('amenity')
+        sort_by = request.query_params.get('sort', 'rating')
+        
+        # Validate category
+        if category_name and not self._validate_category(category_name):
+            return Response(
+                {'error': f'Invalid category: {category_name}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Validate amenity
+        if amenity_name and not self._validate_amenity(amenity_name):
+            return Response(
+                {'error': f'Invalid amenity: {amenity_name}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Start with base queryset
+        facilities = self.queryset
+        
+        # Apply region filter
+        facilities = self._apply_region_filter(facilities, region_type, region_name)
+        
+        # Apply category filter
+        if category_name:
+            facilities = facilities.filter(
+                Q(category__name_en__iexact=category_name) |
+                Q(category__name_fa__iexact=category_name)
+            )
+        
+        # Apply amenity filter
+        if amenity_name:
+            facilities = facilities.filter(
+                amenities__name_en__iexact=amenity_name
+            ) | facilities.filter(
+                amenities__name_fa__iexact=amenity_name
+            )
+        
+        # Apply additional filters
+        filters = {
+            'min_price': request.query_params.get('min_price'),
+            'max_price': request.query_params.get('max_price'),
+            'min_rating': request.query_params.get('min_rating'),
+            'is_24_hour': request.query_params.get('is_24_hour'),
+        }
+        
+        # Remove None values
+        filters = {k: v for k, v in filters.items() if v is not None}
+        
+        if filters:
+            facilities = FacilityService.filter_facilities(facilities, filters)
+        
+        # Apply sorting
+        sorted_result = self._apply_sorting(facilities, sort_by, region_name)
+        
+        # Handle distance sorting special case
+        if sort_by == 'distance' and isinstance(sorted_result, list):
+            page = self.paginate_queryset([f['facility'] for f in sorted_result])
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+            
+            serializer = self.get_serializer(
+                [f['facility'] for f in sorted_result],
+                many=True
+            )
+            return Response(serializer.data)
+        
+        # Standard pagination
+        page = self.paginate_queryset(sorted_result)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = self.get_serializer(sorted_result, many=True)
         return Response(serializer.data)
     
     def retrieve(self, request, pk=None):
@@ -131,7 +368,7 @@ class FacilityViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['get'])
     def nearby(self, request, pk=None):
-        # Validation شعاع
+        # Validate radius parameter
         radius_param = request.query_params.get('radius', 5)
         is_valid, radius, error_msg = FacilityService.validate_radius(radius_param)
         
@@ -143,7 +380,7 @@ class FacilityViewSet(viewsets.ModelViewSet):
         
         category_name = request.query_params.get('category')
         
-        # دریافت امکانات نزدیک با center_facility
+        # Get nearby facilities with center facility
         center_facility, nearby_facilities = FacilityService.get_nearby_facilities(
             fac_id=pk,
             radius_km=radius,
@@ -175,12 +412,8 @@ class FacilityViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     def compare(self, request):
         """
-        FR-8: مقایسه هتل‌ها
-        
-        Body:
-            {
-                "facility_ids": [123, 125, 130]
-            }
+        Compare multiple facilities side by side.
+        Returns detailed comparison including prices, ratings, amenities, and distances.
         """
         facility_ids = request.data.get('facility_ids', [])
         
@@ -200,10 +433,8 @@ class FacilityViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'])
     def reviews(self, request, pk=None):
         """
-        دریافت نظرات یک مکان
-        
-        Query Parameters:
-        - rating: فیلتر بر اساس امتیاز (1-5)
+        Retrieve reviews for a specific facility.
+        Returns paginated list of approved reviews with user information.
         """
         try:
             facility = Facility.objects.get(fac_id=pk)
@@ -213,13 +444,13 @@ class FacilityViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        # دریافت نظرات تایید شده
+        # Get approved reviews
         reviews = Review.objects.filter(
             facility=facility,
             is_approved=True
         ).select_related('user').order_by('-created_at')
         
-        # فیلتر بر اساس امتیاز
+        # Filter by rating
         rating = request.query_params.get('rating')
         if rating:
             try:
@@ -251,18 +482,20 @@ class FacilityViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def emergency(self, request):
         """
-        دریافت لیست امکانات اضطراری
+        Get list of emergency facilities (hospitals, clinics, pharmacies).
         
         Query Parameters:
-        - city: نام شهر (اختیاری)
-        - lat: عرض جغرافیایی (اختیاری)
-        - lng: طول جغرافیایی (اختیاری)
-        - radius: شعاع جستجو به کیلومتر (پیش‌فرض: 10)
+        - city: City name (optional)
+        - lat: Latitude coordinate (optional)
+        - lng: Longitude coordinate (optional)
+        - radius: Search radius in kilometers (default: 10)
+        
+        When lat/lng provided, returns facilities sorted by distance.
         """
-        # فیلتر امکانات اضطراری
+        # Filter emergency facilities
         facilities = self.queryset.filter(category__is_emergency=True)
         
-        # فیلتر بر اساس شهر
+        # Filter by city
         city_name = request.query_params.get('city')
         if city_name:
             facilities = facilities.filter(
@@ -270,7 +503,7 @@ class FacilityViewSet(viewsets.ModelViewSet):
                 Q(city__name_en__icontains=city_name)
             )
         
-        # فیلتر بر اساس موقعیت جغرافیایی
+        # Filter by geographic location
         lat = request.query_params.get('lat')
         lng = request.query_params.get('lng')
         radius = request.query_params.get('radius', 10)
@@ -284,7 +517,7 @@ class FacilityViewSet(viewsets.ModelViewSet):
                 from .fields import Point
                 user_location = Point(lng, lat, srid=4326)
                 
-                # محاسبه فاصله و فیلتر
+                # Calculate distance and filter
                 facilities_with_distance = []
                 for facility in facilities:
                     distance = facility.calculate_distance_to(user_location)
@@ -294,13 +527,13 @@ class FacilityViewSet(viewsets.ModelViewSet):
                             'distance_km': round(distance, 2)
                         })
                 
-                # مرتب‌سازی بر اساس فاصله
+                # Sort by distance
                 facilities_with_distance.sort(key=lambda x: x['distance_km'])
                 
                 # Pagination
                 page = self.paginate_queryset([f['facility'] for f in facilities_with_distance])
                 if page is not None:
-                    # اضافه کردن فاصله به serializer data
+                    # Add distance to serializer data
                     serializer = self.get_serializer(page, many=True)
                     data = serializer.data
                     for i, item in enumerate(data):
@@ -325,7 +558,7 @@ class FacilityViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
         
-        # بدون فیلتر موقعیت
+        # Without location filter
         facilities = facilities.order_by('-avg_rating')
         
         # Pagination
@@ -341,28 +574,22 @@ class FacilityViewSet(viewsets.ModelViewSet):
         })
 
 
+@extend_schema_view(
+    list=extend_schema(tags=['Categories']),
+    retrieve=extend_schema(tags=['Categories']),
+)
 class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet for browsing facility categories.
+    
+    Endpoints:
+    - GET /api/categories/     → List all facility categories
+    - GET /api/categories/{id}/ → Retrieve category details
+    
+    Categories include hotels, restaurants, hospitals, museums, etc.
+    """
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-
-
-class CityViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = City.objects.select_related('province').all()
-    serializer_class = CitySerializer
-    
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        province = self.request.query_params.get('province')
-        
-        if province:
-            queryset = queryset.filter(province__name_fa__icontains=province)
-        
-        return queryset
-
-
-class AmenityViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Amenity.objects.all()
-    serializer_class = AmenitySerializer
 
 
 @api_login_required
@@ -378,38 +605,32 @@ def base(request):
 # Region Search API
 # =====================================================
 
+@extend_schema(
+    tags=['Regions'],
+    responses={200: RegionSearchResultSerializer(many=True)}
+)
 @api_view(['GET'])
 def search_regions(request):
     """
-    جستجوی مناطق (استان، شهر، روستا)
+    Search for regions (provinces, cities, villages) by name.
     
     Query Parameters:
-    - query: متن جستجو (الزامی)
-    - region_type: نوع منطقه - province, city, village (اختیاری)
+    - query: Search query string (required)
+    - region_type: Filter by type - 'province', 'city', or 'village' (optional)
     
-    Response:
-    {
-        "regions": [
-            {
-                "id": "string",
-                "name": "string",
-                "parent_region_id": "string",
-                "parent_region_name": "string"
-            }
-        ]
-    }
+    Returns matching regions with their type and geographic information.
     """
     query = request.query_params.get('query', '').strip()
     region_type = request.query_params.get('region_type', '').strip().lower()
     
-    # Validation
+    # Validate query parameter
     if not query:
         return Response(
             {'error': 'پارامتر query الزامی است'},
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    # اعتبارسنجی region_type
+    # Validate region_type
     is_valid, error_msg = RegionService.validate_region_type(region_type)
     if not is_valid:
         return Response(
@@ -417,10 +638,10 @@ def search_regions(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    # جستجو از طریق Service
+    # Search via Service
     results = RegionService.search_regions(query, region_type or None)
     
-    # سریالایز نتایج
+    # Serialize results
     serializer = RegionSearchResultSerializer(results, many=True)
     
     return Response({
@@ -433,20 +654,31 @@ def search_regions(request):
 # Favorite ViewSet
 # =====================================================
 
+@extend_schema_view(
+    list=extend_schema(tags=['Favorites']),
+    retrieve=extend_schema(tags=['Favorites']),
+    create=extend_schema(tags=['Favorites']),
+    update=extend_schema(tags=['Favorites']),
+    partial_update=extend_schema(tags=['Favorites']),
+    destroy=extend_schema(tags=['Favorites']),
+)
 class FavoriteViewSet(viewsets.ModelViewSet):
     """
-    ViewSet برای مدیریت علاقه‌مندی‌ها
+    ViewSet for managing user favorites.
     
-    APIs:
-    - GET /api/favorites/              → لیست علاقه‌مندی‌های کاربر
-    - POST /api/favorites/             → افزودن به علاقه‌مندی‌ها
-    - DELETE /api/favorites/{id}/      → حذف از علاقه‌مندی‌ها
+    Endpoints:
+    - GET /api/favorites/              → List user's favorite facilities
+    - POST /api/favorites/             → Add facility to favorites
+    - DELETE /api/favorites/{id}/      → Remove facility from favorites
+    - POST /api/favorites/toggle/      → Toggle favorite status
+    - GET /api/favorites/check/        → Check if facility is favorited
     """
     serializer_class = FavoriteSerializer
     pagination_class = StandardResultsSetPagination
+    lookup_field = 'favorite_id'
     
     def get_queryset(self):
-        # فقط علاقه‌مندی‌های کاربر جاری
+        # Only current user's favorites
         return Favorite.objects.filter(user=self.request.user).select_related(
             'facility',
             'facility__category',
@@ -455,7 +687,7 @@ class FavoriteViewSet(viewsets.ModelViewSet):
         )
     
     def create(self, request):
-        """افزودن مکان به علاقه‌مندی‌ها"""
+        """Add a facility to user's favorites."""
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -469,7 +701,7 @@ class FavoriteViewSet(viewsets.ModelViewSet):
         )
     
     def destroy(self, request, pk=None):
-        """حذف مکان از علاقه‌مندی‌ها"""
+        """Remove a facility from user's favorites."""
         try:
             favorite = self.get_queryset().get(favorite_id=pk)
             favorite.delete()
@@ -486,18 +718,22 @@ class FavoriteViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     def toggle(self, request):
         """
-        افزودن/حذف مکان از علاقه‌مندی‌ها
+        Toggle favorite status for a facility.
         
-        Body:
-            {
-                "facility": 123
-            }
+        Request Body:
+        ```json
+        {
+            "facility": 123
+        }
+        ```
         
         Response:
-            {
-                "message": "added" یا "removed",
-                "is_favorite": true/false
-            }
+        ```json
+        {
+            "message": "added" | "removed",
+            "is_favorite": true | false
+        }
+        ```
         """
         facility_id = request.data.get('facility')
         
@@ -521,14 +757,14 @@ class FavoriteViewSet(viewsets.ModelViewSet):
         ).first()
         
         if favorite:
-            # حذف از علاقه‌مندی‌ها
+            # Remove from favorites
             favorite.delete()
             return Response({
                 'message': 'removed',
                 'is_favorite': False
             })
         else:
-            # افزودن به علاقه‌مندی‌ها
+            # Add to favorites
             Favorite.objects.create(
                 user=request.user,
                 facility=facility
@@ -541,15 +777,18 @@ class FavoriteViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def check(self, request):
         """
-        بررسی وضعیت علاقه‌مندی یک مکان
+        Check if a facility is in user's favorites.
         
         Query Parameters:
-        - facility: شناسه مکان
+        - facility: Facility ID
         
         Response:
-            {
-                "is_favorite": true/false
-            }
+        ```json
+        {
+            "is_favorite": true | false,
+            "facility_id": "123"
+        }
+        ```
         """
         facility_id = request.query_params.get('facility')
         
@@ -574,19 +813,29 @@ class FavoriteViewSet(viewsets.ModelViewSet):
 # Review ViewSet
 # =====================================================
 
+@extend_schema_view(
+    list=extend_schema(tags=['Reviews']),
+    retrieve=extend_schema(tags=['Reviews']),
+    create=extend_schema(tags=['Reviews']),
+    update=extend_schema(tags=['Reviews']),
+    partial_update=extend_schema(tags=['Reviews']),
+    destroy=extend_schema(tags=['Reviews']),
+)
 class ReviewViewSet(viewsets.ModelViewSet):
     """
-    ViewSet برای مدیریت نظرات
+    ViewSet for managing facility reviews and ratings.
     
-    APIs:
-    - GET /api/reviews/                    → لیست همه نظرات (با فیلتر)
-    - GET /api/reviews/{id}/               → جزئیات یک نظر
-    - POST /api/reviews/                   → ثبت نظر جدید
-    - PUT/PATCH /api/reviews/{id}/         → ویرایش نظر
-    - DELETE /api/reviews/{id}/            → حذف نظر
-    - GET /api/facilities/{id}/reviews/    → نظرات یک مکان (در FacilityViewSet)
+    Endpoints:
+    - GET /api/reviews/                    → List all reviews (with filters)
+    - GET /api/reviews/{id}/               → Retrieve review details
+    - POST /api/reviews/                   → Create a new review
+    - PUT/PATCH /api/reviews/{id}/         → Update existing review
+    - DELETE /api/reviews/{id}/            → Delete a review
+    
+    Note: Users can only edit/delete their own reviews unless they are staff.
     """
     pagination_class = StandardResultsSetPagination
+    lookup_field = 'review_id'
     
     def get_serializer_class(self):
         if self.action == 'create':
@@ -601,17 +850,17 @@ class ReviewViewSet(viewsets.ModelViewSet):
             'facility__city'
         )
         
-        # فیلتر بر اساس مکان
+        # Filter by facility
         facility_id = self.request.query_params.get('facility')
         if facility_id:
             queryset = queryset.filter(facility_id=facility_id)
         
-        # فیلتر بر اساس کاربر
+        # Filter by user
         user_only = self.request.query_params.get('user_only')
         if user_only and self.request.user.is_authenticated:
             queryset = queryset.filter(user=self.request.user)
         
-        # فیلتر بر اساس امتیاز
+        # Filter by rating
         rating = self.request.query_params.get('rating')
         if rating:
             try:
@@ -620,14 +869,14 @@ class ReviewViewSet(viewsets.ModelViewSet):
             except ValueError:
                 pass
         
-        # فقط نظرات تایید شده برای کاربران عادی
+        # Only approved reviews for non-staff users
         if not self.request.user.is_staff:
             queryset = queryset.filter(is_approved=True)
         
         return queryset.order_by('-created_at')
     
     def create(self, request):
-        """ثبت نظر جدید"""
+        """Submit a new review for a facility."""
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -644,11 +893,11 @@ class ReviewViewSet(viewsets.ModelViewSet):
         )
     
     def update(self, request, pk=None, partial=False):
-        """ویرایش نظر"""
+        """Update an existing review. Users can only update their own reviews."""
         try:
             review = self.get_queryset().get(review_id=pk)
             
-            # بررسی مالکیت
+            # Check ownership
             if review.user != request.user and not request.user.is_staff:
                 return Response(
                     {'error': 'شما مجاز به ویرایش این نظر نیستید'},
@@ -675,11 +924,11 @@ class ReviewViewSet(viewsets.ModelViewSet):
             )
     
     def destroy(self, request, pk=None):
-        """حذف نظر"""
+        """Delete a review. Users can only delete their own reviews."""
         try:
             review = self.get_queryset().get(review_id=pk)
             
-            # بررسی مالکیت
+            # Check ownership
             if review.user != request.user and not request.user.is_staff:
                 return Response(
                     {'error': 'شما مجاز به حذف این نظر نیستید'},

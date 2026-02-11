@@ -1,4 +1,6 @@
 from rest_framework import serializers
+from drf_spectacular.utils import extend_schema_field
+from drf_spectacular.types import OpenApiTypes
 from .fields import Point
 from team4.models import (
     Province, City, Category, Amenity, Village,
@@ -24,6 +26,7 @@ class CitySerializer(serializers.ModelSerializer):
             'province', 'location'
         ]
     
+    @extend_schema_field(OpenApiTypes.OBJECT)
     def get_location(self, obj):
         return {
             'type': 'Point',
@@ -83,22 +86,26 @@ class FacilityListSerializer(serializers.ModelSerializer):
             'distance_from_center', 'is_24_hour'
         ]
     
+    @extend_schema_field(OpenApiTypes.OBJECT)
     def get_location(self, obj):
         if obj.location:
             return {
                 'type': 'Point',
-                'coordinates': [obj.location.x, obj.location.y]  # [lng, lat]
+                'coordinates': [obj.location.longitude, obj.location.latitude]  # [lng, lat]
             }
         return None
     
+    @extend_schema_field(OpenApiTypes.STR)
     def get_primary_image(self, obj):
         image = obj.get_primary_image()
         return image.image_url if image else None
     
+    @extend_schema_field(OpenApiTypes.FLOAT)
     def get_price_from(self, obj):
         min_price = obj.get_min_price()
         return float(min_price) if min_price else None
     
+    @extend_schema_field(OpenApiTypes.FLOAT)
     def get_distance_from_center(self, obj):
         try:
             if obj.city.location and obj.location:
@@ -130,11 +137,12 @@ class FacilityDetailSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at'
         ]
     
+    @extend_schema_field(OpenApiTypes.OBJECT)
     def get_location(self, obj):
         if obj.location:
             return {
                 'type': 'Point',
-                'coordinates': [obj.location.x, obj.location.y]  # [lng, lat]
+                'coordinates': [obj.location.longitude, obj.location.latitude]  # [lng, lat]
             }
         return None
 
@@ -220,6 +228,7 @@ class VillageSerializer(serializers.ModelSerializer):
             'city', 'location'
         ]
     
+    @extend_schema_field(OpenApiTypes.OBJECT)
     def get_location(self, obj):
         if obj.location:
             return {
@@ -290,6 +299,7 @@ class ReviewSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['review_id', 'user', 'is_approved', 'created_at', 'updated_at']
     
+    @extend_schema_field(OpenApiTypes.STR)
     def get_user_name(self, obj):
         if obj.user.first_name or obj.user.last_name:
             return f"{obj.user.first_name} {obj.user.last_name}".strip()
@@ -347,5 +357,13 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
         
         validated_data['user'] = user
         return Review.objects.create(**validated_data)
+
+
+class FacilityFilterSerializer(serializers.Serializer):
+    village = serializers.CharField(required=False, allow_blank=True)
+    city = serializers.CharField(required=False, allow_blank=True)
+    province = serializers.CharField(required=False, allow_blank=True)
+    category = serializers.CharField(required=False, allow_blank=True)
+    amenity = serializers.CharField(required=False, allow_blank=True)
 
 
