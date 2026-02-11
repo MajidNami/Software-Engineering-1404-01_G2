@@ -1,19 +1,29 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import HomePage from './pages/HomePage'
+import { AuthProvider } from './hooks/useAuth'
+import AdminPage from './pages/AdminPage'
 
-const queryClient = new QueryClient()
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60,
+      refetchOnWindowFocus: false,
+    },
+  },
+})
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <div style={{ padding: '2rem', textAlign: 'center' }}>
-          <h1>تیم 8 - سیستم نظرات، رسانه و امتیازدهی</h1>
-          <p style={{ marginTop: '1rem', color: '#666' }}>
-            در حال توسعه...
-          </p>
-        </div>
-      </BrowserRouter>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/*" element={<HomePage />} />
+            <Route path="/admin" element={<AdminPage />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
     </QueryClientProvider>
   )
 }

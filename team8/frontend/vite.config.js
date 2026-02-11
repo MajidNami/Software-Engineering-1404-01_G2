@@ -6,9 +6,11 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
+    strictPort: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:8002',  // Django backend
+        // Backend currently running on 8002 (see user note)
+        target: 'http://localhost:8002',
         changeOrigin: true,
       },
     },
