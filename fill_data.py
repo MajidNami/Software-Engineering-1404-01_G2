@@ -1,83 +1,88 @@
 import os
 import django
-import wikipediaapi
+import uuid
+import re
+from django.utils.text import slugify
+from django.utils.timezone import now
 
-# تنظیمات محیط جنگو
+# ۱. تنظیمات اولیه جنگو
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'app404.settings')
 django.setup()
 
-from team6.models import WikiArticle, WikiCategory
+import wikipediaapi
+from team6.models import (
+    WikiArticle, WikiCategory, WikiTag, 
+    WikiArticleLink, WikiArticleRef, WikiArticleRevision
+)
 
-def run_comprehensive_seeder():
-    # تنظیم ویکی‌پدیا با User-Agent اختصاصی
-    wiki = wikipediaapi.Wikipedia(
-        user_agent='TourismDataBot/1.0 (contact: your@email.com)',
+def run_advanced_seeder():
+    wiki_fa = wikipediaapi.Wikipedia(
+        user_agent='IsfahanFullProject/1.0 (contact: your@email.com)',
         language='fa'
     )
 
-    # تعریف دسته‌بندی‌های کلان برای پروژه
-    categories_map = {
-        "استان‌های ایران": "استان‌ها و جغرافیا",
-        "شهرهای ایران": "استان‌ها و جغرافیا",
-        "جاذبه‌های گردشگری ایران": "تفریحی و گردشگری",
-        "پارک‌ها در ایران": "تفریحی و گردشگری",
-        "مراکز خرید در ایران": "تجاری و مدرن",
-        "موزه‌های ایران": "فرهنگی",
-        "طبیعت ایران": "طبیعت و اقلیم",
-        "آثار ملی ایران": "تاریخی و باستانی",
-        "رستوران‌های ایران": "خدمات و رفاهی"
+    # ۲. ساختار سلسله‌مراتبی اصفهان
+    isfahan_categories = {
+        "استان اصفهان": {"title": "استان اصفهان", "parent": None},
+        "شهرهای استان اصفهان": {"title": "شهرها و بخش‌ها", "parent": "استان اصفهان"},
+        "روستاهای استان اصفهان": {"title": "روستاها", "parent": "استان اصفهان"},
+        "آثار تاریخی استان اصفهان": {"title": "آثار تاریخی و ملی", "parent": "استان اصفهان"},
+        "جاذبه‌های گردشگری اصفهان": {"title": "گردشگری و طبیعت", "parent": "استان اصفهان"},
+        "عمارت‌های تاریخی استان اصفهان": {"title": "بناها و عمارت‌ها", "parent": "آثار تاریخی استان اصفهان"},
+        "باغ‌های استان اصفهان": {"title": "باغ‌ها و تفرجگاه‌ها", "parent": "جاذبه‌های گردشگری اصفهان"},
     }
 
-    print("🚀 شروع فرآیند استخراج داده‌های جامع...")
+    print("🚀 شروع فرآیند جامع استخراج داده...")
 
-    for wiki_cat_name, local_cat_name in categories_map.items():
-        # ۱. ساخت یا پیدا کردن دسته‌بندی در دیتابیس خودتان
-        db_category, _ = WikiCategory.objects.using('team6').get_or_create(
-            slug=wiki_cat_name.replace(" ", "-"),
-            defaults={'title_fa': local_cat_name}
+    # ذخیره موقت آیدی مقالات برای ایجاد لینک‌های داخلی در گام دوم
+    processed_articles = {} 
+
+    for wiki_cat_name, info in isfahan_categories.items():
+        # ۳. مدیریت دسته‌بندی‌ها
+        parent_obj = None
+        if info['parent']:
+            parent_obj = WikiCategory.objects.using('team6').filter(slug=slugify(info['parent'], allow_unicode=True)).first()
+
+        db_cat, _ = WikiCategory.objects.using('team6').get_or_create(
+            slug=slugify(wiki_cat_name, allow_unicode=True),
+            defaults={'title_fa': info['title'], 'parent': parent_obj}
         )
 
-        print(f"\n📂 در حال استخراج رده: {wiki_cat_name}...")
-        
-        cat_page = wiki.page(f"Category:{wiki_cat_name}")
-        if not cat_page.exists():
-            print(f"⚠️ رده {wiki_cat_name} یافت نشد.")
-            continue
+        cat_page = wiki_fa.page(f"Category:{wiki_cat_name}")
+        if not cat_page.exists(): continue
 
-        # استخراج اعضای رده (محدود شده به ۱۵ مورد از هر کدام برای سرعت و تنوع)
-        members = list(cat_page.categorymembers.values())[:15]
+        # استخراج مقالات (محدود به ۱۵ مورد برای هر رده جهت تست اولیه)
+        members = [p for p in cat_page.categorymembers.values() if p.ns == wikipediaapi.Namespace.MAIN][:15]
 
         for page in members:
-            # فقط مقالات (Namespace.MAIN) را بردار، نه دسته‌بندی‌های فرعی
-            if page.ns == wikipediaapi.Namespace.MAIN:
-                try:
-                    # ۲. ذخیره در دیتابیس تیم 6
-                    # استفاده از slug منحصر به فرد با ترکیب نام برای جلوگیری از تداخل
-                    unique_slug = page.title.replace(" ", "-")[:50]
-                    
-                    article, created = WikiArticle.objects.using('team6').get_or_create(
-                        slug=unique_slug,
-                        defaults={
-                            'title_fa': page.title,
-                            'place_name': page.title, # معمولاً عنوان مقاله نام مکان است
-                            'body_fa': page.text[:3000], # متن طولانی‌تر برای محتوای واقعی
-                            'summary': page.summary[:500],
-                            'url': page.fullurl,
-                            'category': db_category,
-                            'status': 'published',
-                            'view_count': 0
-                        }
-                    )
-                    
-                    if created:
-                        print(f"  ✅ ثبت شد: {page.title}")
-                    else:
-                        print(f"  🟡 موجود بود: {page.title}")
+            try:
+                # ۴. استخراج اطلاعات انگلیسی (اگر باشد)
+                en_title = page.langlinks['en'].title if 'en' in page.langlinks else None
+                
+                # ۵. ایجاد یا بروزرسانی مقاله اصلی
+                article, created = WikiArticle.objects.using('team6').update_or_create(
+                    url=page.fullurl,
+                    defaults={
+                        'place_name': page.title,
+                        'slug': slugify(page.title, allow_unicode=True)[:50],
+                        'title_fa': page.title,
+                        'title_en': en_title,
+                        'body_fa': page.text,
+                        'summary': page.summary[:1000],
+                        'category': db_cat,
+                        'status': 'published',
+                        'published_at': now(),
+                        'view_count': 0
+                    }
+                )
+                processed_articles[page.title] = article
 
-                except Exception as e:
-                    print(f"  ❌ خطا در ثبت {page.title}: {str(e)}")
-
-    print("\n✨ عملیات با موفقیت به پایان رسید. حالا دیتابیس تیم ۶ پر از دیتای متنوع است!")
-
-if __name__ == "__main__":
-    run_comprehensive_seeder()
+                # ۶. پر کردن جدول Revision (تاریخچه نسخه اول)
+                WikiArticleRevision.objects.using('team6').get_or_create(
+                    article=article,
+                    revision_no=1,
+                    defaults={
+                        'body_fa': page.text,
+                        'change_note': 'Initial import from Wikipedia'
+                    }
+                )
