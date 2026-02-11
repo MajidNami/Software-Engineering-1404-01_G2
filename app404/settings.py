@@ -126,3 +126,4 @@ else:
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 
 GEMINI_API_KEY = env("GEMINI_API_KEY", default=None)
+ELASTICSEARCH_URL = env("ELASTICSEARCH_URL", default="http://localhost:9200")

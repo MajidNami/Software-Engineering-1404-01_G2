@@ -13,6 +13,7 @@ from .serializers import (
     CreateVersionFromVersionSerializer, VoteSerializer,
 )
 from .tasks.tasks import summarize_article, tag_article
+from .tasks.indexing import index_article_version, search_articles_semantic
 
 TEAM_NAME = "team2"
 
@@ -162,4 +163,18 @@ def publish_version(request, version_name):
     tag_article(article.name)
     summarize_article(article.name)
 
+    index_article_version(version)
+
     return Response(ArticleSerializer(article).data)
+
+
+@api_view(['GET'])
+@authentication_classes(AUTH_CLASSES)
+@permission_classes(PERM_CLASSES)
+def search_articles(request):
+    query = request.GET.get("q", "").strip()
+    if not query:
+        return Response({"detail": "Query missing"}, status=400)
+
+    results = search_articles_semantic(query)
+    return Response({"query": query, "results": results})

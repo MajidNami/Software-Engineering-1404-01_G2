@@ -9,6 +9,21 @@ services:
       - CORE_BASE_URL=http://core:8000
     networks:
       - app404
+    elasticsearch:
+      image: docker.elastic.co/elasticsearch/elasticsearch:8.12.1
+      container_name: elasticsearch
+      environment:
+        - discovery.type=single-node
+        - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      ports:
+        - "9200:9200"
+      networks:
+        - app404
+      healthcheck:
+        test: ["CMD", "curl", "-f", "http://localhost:9200/"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
   #   depends_on:
   #     - frontend
   #     - backend
