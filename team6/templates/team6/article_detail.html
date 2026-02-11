@@ -16,6 +16,23 @@
     .back-btn {
         margin-bottom: 15px;
     }
+    .article-content-body {
+        text-align: justify;
+        background-color: #fff;
+        line-height: 1.9;
+        font-size: 1.15rem;
+        border-right: 5px solid #4CAF50;
+    }
+    .ref-section-title {
+        border-bottom: 2px solid #eee;
+        padding-bottom: 10px;
+        margin-top: 20px;
+        color: #444;
+        font-weight: bold;
+    }
+    .list-group-item-action:hover {
+        background-color: #f8f9fa;
+    }
 </style>
 
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -30,14 +47,49 @@
     </button>
 </div>
 
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb bg-light p-2 rounded">
+        <li class="breadcrumb-item">استان اصفهان :</li>
+        {% if article.category.parent %}
+            <li class="breadcrumb-item"><a>{{ article.category.parent.title_fa }}</a></li>
+        {% endif %}
+        <li class="breadcrumb-item active">{{ article.category.title_fa }}</li>
+    </ol>
+</nav>
 <div class="mb-3 text-muted">
-    <i class="fa-solid fa-folder"></i> دسته: {{ article.category.title_fa }} | 
+    {% comment %} <i class="fa-solid fa-folder"></i> دسته: {{ article.category.title_fa }} |  {% endcomment %}
     <i class="fa-solid fa-eye"></i> بازدید: {{ article.view_count|default:0 }} |
     <i class="fa-solid fa-calendar"></i> تاریخ ایجاد: {{ article.created_at|date:"Y/m/d" }}
 </div>
 
-<div class="card p-4 mb-4 article-content-body" style="border-right: 4px solid #4CAF50; line-height: 1.8; font-size: 1.1rem;">
+<div class="card p-4 mb-4 article-content-body" id="article-body-container"> style="border-right: 4px solid #4CAF50; line-height: 1.8; font-size: 1.1rem;">
     {{ article.body_fa|safe|linebreaks }}
+</div>
+<div class="card shadow-sm mb-4 ref-card">
+    <div class="card-body">
+        <h5 class="ref-title"><i class="fa-solid fa-book-open me-2"></i> منابع، مراجع و جستارهای وابسته</h5>
+        
+        <div class="row">
+            <div class="col-md-6 border-start">
+                <h6 class="small fw-bold text-primary">اطلاعات سیستمی:</h6>
+                <ul class="list-unstyled small">
+                    {% for link in article.outgoing_links.all|slice:":5" %}
+                        <li><i class="fa-solid fa-link text-muted me-1"></i> <a href="{% url 'team6:article_detail' link.to_article.slug %}">{{ link.to_article.title_fa }}</a></li>
+                    {% empty %}
+                        <li class="text-muted">لینک داخلی ثبت نشده.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <div class="col-md-6">
+                <h6 class="small fw-bold text-success">استخراج شده از متن:</h6>
+                <div id="extracted-refs-content" class="small text-muted" style="white-space: pre-line;">
+                    <span class="text-italic">در حال جستجو در متن...</span>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="d-flex gap-2 mb-4">
@@ -121,5 +173,42 @@
         </div>
     </div>
 </div>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // ۱. گرفتن ظرف محتوای فارسی (Body_fa)
+        const bodyContainer = document.getElementById('article-body-container');
+        // ۲. گرفتن ظرف مقصد برای منابع
+        const refsContent = document.getElementById('extracted-refs-content');
+        const refsSection = document.getElementById('references-section');
+        
+        if (!bodyContainer || !refsContent) return;
+
+        const fullHTML = bodyContainer.innerHTML;
+        const keywords = ["منابع"];
+        let lastIndex = -1;
+
+        // پیدا کردن آخرین کلمه "منابع" در متن فارسی
+        keywords.forEach(word => {
+            let index = fullHTML.lastIndexOf(word);
+            if (index > lastIndex) {
+                lastIndex = index;
+            }
+        });
+
+        if (lastIndex !== -1) {
+            // جدا سازی متن: از ابتدا تا قبل از کلمه منابع
+            const cleanBody = fullHTML.substring(0, lastIndex);
+            // جدا سازی منابع: از کلمه منابع تا انتهای متن
+            const extractedRefs = fullHTML.substring(lastIndex);
+
+            // جایگزینی محتوا در بادی اصلی
+            bodyContainer.innerHTML = cleanBody;
+            // قرار دادن منابع در بخش پایینی
+            refsContent.innerHTML = extractedRefs;
+            // نمایش دادن کل باکس منابع
+            refsSection.style.display = 'block';
+        }
+    });
+</script>
 
 {% endblock %}
