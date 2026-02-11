@@ -1,6 +1,5 @@
 import json
 from uuid import UUID
-
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
@@ -9,11 +8,13 @@ from django.contrib.auth import get_user_model
 
 from core.auth import api_login_required
 from .models import Team5RecommendationFeedback
+from .serializers import Team5Serializer
 from .services.contracts import DEFAULT_LIMIT
 from .services.db_provider import DatabaseProvider
 from .services.location_service import get_client_ip, resolve_client_city
 from .services.recommendation_service import RecommendationService
 
+# Constants
 TEAM_NAME = "team5"
 FEEDBACK_ACTIONS = {"popular", "personalized", "nearest"}
 User = get_user_model()
@@ -51,106 +52,51 @@ def get_media(request):
 def get_popular_recommendations(request):
     limit = _parse_limit(request)
     user_id = request.GET.get("userId")
-    excluded_media_ids = _load_excluded_media_ids(user_id=user_id, action="popular")
-    items = recommendation_service.get_popular(limit=limit, excluded_media_ids=excluded_media_ids)
-    return JsonResponse(
-        {
-            "kind": "popular",
-            "userId": user_id,
-            "limit": limit,
-            "count": len(items),
-            "items": items,
-        }
-    )
+    excluded = _load_excluded_media_ids(user_id=user_id, action="popular")
+    items = recommendation_service.get_popular(limit=limit, excluded_media_ids=excluded)
+    return JsonResponse({
+        "kind": "popular", "userId": user_id, "limit": limit, "count": len(items), "items": items
+    })
 
 
 @require_GET
 def get_nearest_recommendations(request):
     limit = _parse_limit(request)
     user_id = request.GET.get("userId")
-    excluded_media_ids = _load_excluded_media_ids(user_id=user_id, action="nearest")
-    city_override = request.GET.get("cityId")
-    ip_override = request.GET.get("ip")
+    excluded = _load_excluded_media_ids(user_id=user_id, action="nearest")
 
-    client_ip = get_client_ip(request, ip_override=ip_override)
+    client_ip = get_client_ip(request, ip_override=request.GET.get("ip"))
     resolved = resolve_client_city(
-        cities=provider.get_cities(),
-        client_ip=client_ip,
-        preferred_city_id=city_override,
+        cities=provider.get_cities(), client_ip=client_ip, preferred_city_id=request.GET.get("cityId")
     )
-    if not resolved:
-        return JsonResponse(
-            {
-                "kind": "nearest",
-                "source": "unresolved",
-                "clientIp": client_ip,
-                "detail": "Could not resolve user city from IP. Provide cityId query param for local testing.",
-                "items": [],
-                "count": 0,
-                "limit": limit,
-            },
-            status=400,
-        )
 
-    city = resolved["city"]
+    if not resolved:
+        return JsonResponse({"kind": "nearest", "source": "unresolved", "clientIp": client_ip, "items": []}, status=400)
+
     items = recommendation_service.get_nearest_by_city(
-        city_id=city["cityId"],
-        limit=limit,
-        excluded_media_ids=excluded_media_ids,
-        user_id=user_id,
+        city_id=resolved["city"]["cityId"], limit=limit, excluded_media_ids=excluded, user_id=user_id
     )
-    return JsonResponse(
-        {
-            "kind": "nearest",
-            "title": "your nearest",
-            "source": resolved["source"],
-            "userId": user_id,
-            "clientIp": client_ip,
-            "cityId": city["cityId"],
-            "cityName": city["cityName"],
-            "limit": limit,
-            "count": len(items),
-            "items": items,
-        }
-    )
+    return JsonResponse(Team5Serializer.serialize_nearest(items, resolved, client_ip, limit, user_id))
 
 
 @require_GET
 def get_personalized_recommendations(request):
     limit = _parse_limit(request)
-    user_id = request.GET.get("userId")
-    if not user_id and getattr(request.user, "is_authenticated", False):
-        user_id = str(request.user.id)
+    user_id = request.GET.get("userId") or (
+        str(request.user.id) if getattr(request.user, "is_authenticated", False) else None)
+
     if not user_id:
         return JsonResponse({"detail": "userId query param is required"}, status=400)
 
-    excluded_media_ids = _load_excluded_media_ids(user_id=user_id, action="personalized")
-    items = recommendation_service.get_personalized(
-        user_id=user_id,
-        limit=limit,
-        excluded_media_ids=excluded_media_ids,
-    )
-    similar_items = [item for item in items if item.get("matchReason") != "high_user_rating"]
-    direct_items = [item for item in items if item.get("matchReason") == "high_user_rating"]
+    excluded = _load_excluded_media_ids(user_id=user_id, action="personalized")
+    items = recommendation_service.get_personalized(user_id=user_id, limit=limit, excluded_media_ids=excluded)
+
     source = "personalized"
     if not items:
-        items = recommendation_service.get_popular(limit=limit, excluded_media_ids=excluded_media_ids)
+        items = recommendation_service.get_popular(limit=limit, excluded_media_ids=excluded)
         source = "fallback_popular"
-        direct_items = items
-        similar_items = []
 
-    return JsonResponse(
-        {
-            "kind": "personalized",
-            "source": source,
-            "userId": user_id,
-            "limit": limit,
-            "count": len(items),
-            "items": items,
-            "highRatedItems": direct_items,
-            "similarItems": similar_items,
-        }
-    )
+    return JsonResponse(Team5Serializer.serialize_personalized(items, user_id, source, limit))
 
 
 @csrf_exempt
@@ -158,69 +104,32 @@ def get_personalized_recommendations(request):
 def submit_recommendation_feedback(request):
     try:
         payload = json.loads(request.body or "{}")
-    except json.JSONDecodeError:
-        return JsonResponse({"detail": "Invalid JSON body"}, status=400)
+        user_uuid = _parse_uuid(payload.get("userId"))
+        action = str(payload.get("action") or "").strip().lower()
+        liked = payload.get("liked")
 
-    user_id = payload.get("userId")
-    action = str(payload.get("action") or "").strip().lower()
-    liked = payload.get("liked")
-    shown_media_ids = payload.get("shownMediaIds") or []
+        if not user_uuid or action not in FEEDBACK_ACTIONS or not isinstance(liked, bool):
+            raise ValueError("Invalid payload data")
 
-    user_uuid = _parse_uuid(user_id)
-    if user_uuid is None:
-        return JsonResponse({"detail": "Valid userId is required"}, status=400)
-    if action not in FEEDBACK_ACTIONS:
-        return JsonResponse({"detail": f"action must be one of {sorted(FEEDBACK_ACTIONS)}"}, status=400)
-    if not isinstance(liked, bool):
-        return JsonResponse({"detail": "liked must be a boolean"}, status=400)
-    if not isinstance(shown_media_ids, list):
-        return JsonResponse({"detail": "shownMediaIds must be a list"}, status=400)
-
-    normalized_media_ids = []
-    for media_id in shown_media_ids:
-        text = str(media_id).strip()
-        if text:
-            normalized_media_ids.append(text)
-    normalized_media_ids = list(dict.fromkeys(normalized_media_ids))
-
-    Team5RecommendationFeedback.objects.create(
-        user_id=user_uuid,
-        action=action,
-        liked=liked,
-        shown_media_ids=normalized_media_ids,
-    )
-    return JsonResponse(
-        {
-            "ok": True,
-            "userId": str(user_uuid),
-            "action": action,
-            "liked": liked,
-            "storedMediaCount": len(normalized_media_ids),
-            "detail": "Feedback saved",
-        }
-    )
+        Team5RecommendationFeedback.objects.create(
+            user_id=user_uuid, action=action, liked=liked,
+            shown_media_ids=list(
+                dict.fromkeys([str(m).strip() for m in payload.get("shownMediaIds", []) if str(m).strip()]))
+        )
+        return JsonResponse({"ok": True, "detail": "Feedback saved"})
+    except (json.JSONDecodeError, ValueError) as e:
+        return JsonResponse({"detail": str(e)}, status=400)
 
 
 @require_GET
 def get_user_interests(request, user_id: str):
-    interests = recommendation_service.get_user_interest_distribution(user_id=user_id)
-    return JsonResponse(interests)
+    return JsonResponse(recommendation_service.get_user_interest_distribution(user_id=user_id))
 
 
 @require_GET
 def get_registered_users(request):
     users = User.objects.filter(is_active=True).order_by("-date_joined")
-    payload = [
-        {
-            "userId": str(user.id),
-            "email": user.email,
-            "firstName": user.first_name,
-            "lastName": user.last_name,
-            "age": user.age,
-            "dateJoined": user.date_joined.isoformat(),
-        }
-        for user in users
-    ]
+    payload = [Team5Serializer.serialize_user(u) for u in users]
     return JsonResponse({"count": len(payload), "items": payload})
 
 
@@ -229,51 +138,37 @@ def get_user_ratings(request, user_id: str):
     ratings = recommendation_service.get_user_ratings(user_id=user_id)
     return JsonResponse({"userId": user_id, "count": len(ratings), "items": ratings})
 
+
 @csrf_exempt
 @require_POST
 def train(request):
-    trained = recommendation_service.train()
-    return JsonResponse({"trained": bool(trained)})
+    return JsonResponse({"trained": bool(recommendation_service.train())})
 
 
 @require_GET
 def ml_status(request):
     return JsonResponse(recommendation_service.get_ml_status())
 
+
+# Helper functions
 def _parse_limit(request) -> int:
-    raw_limit = request.GET.get("limit")
-    if raw_limit is None:
-        return DEFAULT_LIMIT
     try:
-        parsed = int(raw_limit)
-    except ValueError:
+        return max(1, min(int(request.GET.get("limit", DEFAULT_LIMIT)), 100))
+    except (ValueError, TypeError):
         return DEFAULT_LIMIT
-    return max(1, min(parsed, 100))
 
 
 def _parse_uuid(value: str | None) -> UUID | None:
     try:
         return UUID(str(value))
-    except (ValueError, TypeError):
+    except:
         return None
 
 
 def _load_excluded_media_ids(*, user_id: str | None, action: str) -> set[str]:
     user_uuid = _parse_uuid(user_id)
-    if user_uuid is None:
-        return set()
-
-    latest = (
-        Team5RecommendationFeedback.objects.filter(user_id=user_uuid, action=action)
-        .order_by("-created_at", "-id")
-        .first()
-    )
-    if latest is None or latest.liked:
-        return set()
-
-    output: set[str] = set()
-    for media_id in latest.shown_media_ids or []:
-        text = str(media_id).strip()
-        if text:
-            output.add(text)
-    return output
+    if not user_uuid: return set()
+    latest = Team5RecommendationFeedback.objects.filter(user_id=user_uuid, action=action).order_by("-created_at",
+                                                                                                   "-id").first()
+    if not latest or latest.liked: return set()
+    return {str(m).strip() for m in latest.shown_media_ids or [] if str(m).strip()}

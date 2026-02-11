@@ -5,12 +5,8 @@ django-cors-headers
 mysqlclient
 PyMySQL
 gunicorn
-<<<<<<< Updated upstream
 whitenoise
-=======
-whitenoise
-numpy==1.26.4
+numpy<2
 scikit-surprise==1.1.4
 pandas==2.2.3
 scipy==1.13.1
->>>>>>> Stashed changes
