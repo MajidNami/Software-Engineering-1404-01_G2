@@ -65,3 +65,19 @@ class Team5MediaRating(models.Model):
 
     def __str__(self):
         return f"{self.user_email or self.user_id} -> {self.media_id}: {self.rate}"
+
+
+class Team5RecommendationFeedback(models.Model):
+    user_id = models.UUIDField(db_index=True)
+    action = models.CharField(max_length=32, db_index=True)
+    liked = models.BooleanField(default=True)
+    shown_media_ids = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["user_id", "action", "-created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user_id} [{self.action}] liked={self.liked}"

@@ -29,22 +29,36 @@ class RecommendationService:
         self.popular_min_votes = popular_min_votes
         self.personalized_min_user_rate = personalized_min_user_rate
 
-    def get_popular(self, limit: int = DEFAULT_LIMIT) -> list[MediaRecord]:
+    def get_popular(
+        self,
+        limit: int = DEFAULT_LIMIT,
+        excluded_media_ids: set[str] | None = None,
+    ) -> list[MediaRecord]:
         media = [dict(item) for item in self.provider.get_media()]
+        excluded = excluded_media_ids or set()
         filtered = [
             item
             for item in media
-            if float(item["overallRate"]) >= self.popular_min_overall_rate
+            if item["mediaId"] not in excluded
+            and float(item["overallRate"]) >= self.popular_min_overall_rate
             and int(item["ratingsCount"]) >= self.popular_min_votes
         ]
         filtered.sort(key=lambda item: (float(item["overallRate"]), int(item["ratingsCount"])), reverse=True)
         return filtered[:limit]
 
-    def get_nearest_by_city(self, city_id: str, limit: int = DEFAULT_LIMIT) -> list[MediaRecord]:
+    def get_nearest_by_city(
+        self,
+        city_id: str,
+        limit: int = DEFAULT_LIMIT,
+        excluded_media_ids: set[str] | None = None,
+    ) -> list[MediaRecord]:
         place_by_id = {place["placeId"]: place for place in self.provider.get_all_places()}
         items: list[dict] = []
+        excluded = excluded_media_ids or set()
 
         for media in self.provider.get_media():
+            if media["mediaId"] in excluded:
+                continue
             place = place_by_id.get(media["placeId"])
             if not place or place["cityId"] != city_id:
                 continue
@@ -55,13 +69,21 @@ class RecommendationService:
         items.sort(key=lambda item: (float(item["overallRate"]), int(item["ratingsCount"])), reverse=True)
         return items[:limit]
 
-    def get_personalized(self, user_id: str, limit: int = DEFAULT_LIMIT) -> list[MediaRecord]:
+    def get_personalized(
+        self,
+        user_id: str,
+        limit: int = DEFAULT_LIMIT,
+        excluded_media_ids: set[str] | None = None,
+    ) -> list[MediaRecord]:
         media = [dict(item) for item in self.provider.get_media()]
         media_by_id = {item["mediaId"]: item for item in media}
         scored: list[tuple[float, float, int, dict]] = []
         ratings_by_media = self._get_db_ratings_by_media(user_id)
+        blocked = excluded_media_ids or set()
 
         for item in media_by_id.values():
+            if item["mediaId"] in blocked:
+                continue
             user_rate = ratings_by_media.get(item["mediaId"])
             if user_rate is None or user_rate < self.personalized_min_user_rate:
                 continue
@@ -75,7 +97,7 @@ class RecommendationService:
         similar_items = self.get_similar_items(
             user_id=user_id,
             based_on_items=base_items,
-            excluded_media_ids={item["mediaId"] for item in base_items},
+            excluded_media_ids={item["mediaId"] for item in base_items}.union(blocked),
             limit=max(1, min(limit, 10)),
         )
 

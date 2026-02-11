@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from team5.models import Team5City, Team5Media, Team5MediaRating, Team5Place
+from team5.models import Team5City, Team5Media, Team5MediaRating, Team5Place, Team5RecommendationFeedback
 
 User = get_user_model()
 
@@ -186,3 +186,33 @@ class Team5RecommendationApiTests(TestCase):
         payload = res.json()
         self.assertTrue(any(item["mediaId"] == "m3" for item in payload["highRatedItems"]))
         self.assertTrue(any(item["mediaId"] == "m9" for item in payload["similarItems"]))
+
+    def test_feedback_endpoint_records_explicit_feedback(self):
+        res = self.client.post(
+            "/team5/api/recommendations/feedback/",
+            data={
+                "userId": str(self.user_main.id),
+                "action": "popular",
+                "liked": False,
+                "shownMediaIds": ["m3", "m9"],
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(res.status_code, 200)
+        payload = res.json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["storedMediaCount"], 2)
+        self.assertEqual(Team5RecommendationFeedback.objects.count(), 1)
+
+    def test_popular_excludes_previous_disliked_set_on_next_click(self):
+        Team5RecommendationFeedback.objects.create(
+            user_id=self.user_main.id,
+            action="popular",
+            liked=False,
+            shown_media_ids=["m3"],
+        )
+        res = self.client.get(f"/team5/api/recommendations/popular/?userId={self.user_main.id}&limit=10")
+        self.assertEqual(res.status_code, 200)
+        payload = res.json()
+        returned_ids = [item["mediaId"] for item in payload["items"]]
+        self.assertNotIn("m3", returned_ids)

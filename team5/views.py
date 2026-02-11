@@ -1,15 +1,21 @@
+import json
+from uuid import UUID
+
 from django.http import JsonResponse
 from django.shortcuts import render
-from django.views.decorators.http import require_GET
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_GET, require_POST
 from django.contrib.auth import get_user_model
 
 from core.auth import api_login_required
+from .models import Team5RecommendationFeedback
 from .services.contracts import DEFAULT_LIMIT
 from .services.db_provider import DatabaseProvider
 from .services.location_service import get_client_ip, resolve_client_city
 from .services.recommendation_service import RecommendationService
 
 TEAM_NAME = "team5"
+FEEDBACK_ACTIONS = {"popular", "personalized", "nearest"}
 User = get_user_model()
 provider = DatabaseProvider()
 recommendation_service = RecommendationService(provider)
@@ -44,10 +50,13 @@ def get_media(request):
 @require_GET
 def get_popular_recommendations(request):
     limit = _parse_limit(request)
-    items = recommendation_service.get_popular(limit=limit)
+    user_id = request.GET.get("userId")
+    excluded_media_ids = _load_excluded_media_ids(user_id=user_id, action="popular")
+    items = recommendation_service.get_popular(limit=limit, excluded_media_ids=excluded_media_ids)
     return JsonResponse(
         {
             "kind": "popular",
+            "userId": user_id,
             "limit": limit,
             "count": len(items),
             "items": items,
@@ -58,6 +67,8 @@ def get_popular_recommendations(request):
 @require_GET
 def get_nearest_recommendations(request):
     limit = _parse_limit(request)
+    user_id = request.GET.get("userId")
+    excluded_media_ids = _load_excluded_media_ids(user_id=user_id, action="nearest")
     city_override = request.GET.get("cityId")
     ip_override = request.GET.get("ip")
 
@@ -82,12 +93,17 @@ def get_nearest_recommendations(request):
         )
 
     city = resolved["city"]
-    items = recommendation_service.get_nearest_by_city(city_id=city["cityId"], limit=limit)
+    items = recommendation_service.get_nearest_by_city(
+        city_id=city["cityId"],
+        limit=limit,
+        excluded_media_ids=excluded_media_ids,
+    )
     return JsonResponse(
         {
             "kind": "nearest",
             "title": "your nearest",
             "source": resolved["source"],
+            "userId": user_id,
             "clientIp": client_ip,
             "cityId": city["cityId"],
             "cityName": city["cityName"],
@@ -107,12 +123,17 @@ def get_personalized_recommendations(request):
     if not user_id:
         return JsonResponse({"detail": "userId query param is required"}, status=400)
 
-    items = recommendation_service.get_personalized(user_id=user_id, limit=limit)
+    excluded_media_ids = _load_excluded_media_ids(user_id=user_id, action="personalized")
+    items = recommendation_service.get_personalized(
+        user_id=user_id,
+        limit=limit,
+        excluded_media_ids=excluded_media_ids,
+    )
     similar_items = [item for item in items if item.get("matchReason") != "high_user_rating"]
     direct_items = [item for item in items if item.get("matchReason") == "high_user_rating"]
     source = "personalized"
     if not items:
-        items = recommendation_service.get_popular(limit=limit)
+        items = recommendation_service.get_popular(limit=limit, excluded_media_ids=excluded_media_ids)
         source = "fallback_popular"
         direct_items = items
         similar_items = []
@@ -127,6 +148,54 @@ def get_personalized_recommendations(request):
             "items": items,
             "highRatedItems": direct_items,
             "similarItems": similar_items,
+        }
+    )
+
+
+@csrf_exempt
+@require_POST
+def submit_recommendation_feedback(request):
+    try:
+        payload = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"detail": "Invalid JSON body"}, status=400)
+
+    user_id = payload.get("userId")
+    action = str(payload.get("action") or "").strip().lower()
+    liked = payload.get("liked")
+    shown_media_ids = payload.get("shownMediaIds") or []
+
+    user_uuid = _parse_uuid(user_id)
+    if user_uuid is None:
+        return JsonResponse({"detail": "Valid userId is required"}, status=400)
+    if action not in FEEDBACK_ACTIONS:
+        return JsonResponse({"detail": f"action must be one of {sorted(FEEDBACK_ACTIONS)}"}, status=400)
+    if not isinstance(liked, bool):
+        return JsonResponse({"detail": "liked must be a boolean"}, status=400)
+    if not isinstance(shown_media_ids, list):
+        return JsonResponse({"detail": "shownMediaIds must be a list"}, status=400)
+
+    normalized_media_ids = []
+    for media_id in shown_media_ids:
+        text = str(media_id).strip()
+        if text:
+            normalized_media_ids.append(text)
+    normalized_media_ids = list(dict.fromkeys(normalized_media_ids))
+
+    Team5RecommendationFeedback.objects.create(
+        user_id=user_uuid,
+        action=action,
+        liked=liked,
+        shown_media_ids=normalized_media_ids,
+    )
+    return JsonResponse(
+        {
+            "ok": True,
+            "userId": str(user_uuid),
+            "action": action,
+            "liked": liked,
+            "storedMediaCount": len(normalized_media_ids),
+            "detail": "Feedback saved",
         }
     )
 
@@ -169,3 +238,31 @@ def _parse_limit(request) -> int:
     except ValueError:
         return DEFAULT_LIMIT
     return max(1, min(parsed, 100))
+
+
+def _parse_uuid(value: str | None) -> UUID | None:
+    try:
+        return UUID(str(value))
+    except (ValueError, TypeError):
+        return None
+
+
+def _load_excluded_media_ids(*, user_id: str | None, action: str) -> set[str]:
+    user_uuid = _parse_uuid(user_id)
+    if user_uuid is None:
+        return set()
+
+    latest = (
+        Team5RecommendationFeedback.objects.filter(user_id=user_uuid, action=action)
+        .order_by("-created_at", "-id")
+        .first()
+    )
+    if latest is None or latest.liked:
+        return set()
+
+    output: set[str] = set()
+    for media_id in latest.shown_media_ids or []:
+        text = str(media_id).strip()
+        if text:
+            output.add(text)
+    return output
