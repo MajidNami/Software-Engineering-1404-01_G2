@@ -13,7 +13,7 @@
   <body>
     <div id="root"></div>
     <script type="text/babel">
-      const { useEffect, useMemo, useState } = React;
+      const { useEffect, useMemo, useRef, useState } = React;
 
       const API_BASE = window.location.port === "8000" ? "" : "http://127.0.0.1:8000";
       const FEEDBACK_ACTIONS = new Set(["popular", "personalized", "nearest"]);
@@ -68,9 +68,15 @@
         const [isTraining, setIsTraining] = useState(false);
         const [trainingMessage, setTrainingMessage] = useState("");
         const [showFeedbackPrompt, setShowFeedbackPrompt] = useState(false);
+        const [isFeedbackMounted, setIsFeedbackMounted] = useState(false);
+        const [isFeedbackExiting, setIsFeedbackExiting] = useState(false);
         const [feedbackMessage, setFeedbackMessage] = useState("");
         const [shineCards, setShineCards] = useState(false);
+        const [dislikeFlashCards, setDislikeFlashCards] = useState(false);
         const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+        const [isFeedbackLocked, setIsFeedbackLocked] = useState(false);
+        const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+        const feedbackHideTimerRef = useRef(null);
 
         const safeLimit = useMemo(() => {
           const parsed = Number(limit);
@@ -79,7 +85,7 @@
         }, [limit]);
 
         const shownMediaIds = useMemo(() => extractShownMediaIds(cardsPayload), [cardsPayload]);
-        const canShowFeedback = FEEDBACK_ACTIONS.has(lastAction) && shownMediaIds.length > 0;
+        const canShowFeedback = FEEDBACK_ACTIONS.has(lastAction) && shownMediaIds.length > 0 && !feedbackSubmitted;
 
         useEffect(() => {
           loadReferenceData();
@@ -88,11 +94,36 @@
         }, []);
 
         useEffect(() => {
-          setShowFeedbackPrompt(false);
+          return () => {
+            if (feedbackHideTimerRef.current) {
+              window.clearTimeout(feedbackHideTimerRef.current);
+            }
+          };
+        }, []);
+
+        useEffect(() => {
           setFeedbackMessage("");
-          if (!canShowFeedback) return undefined;
-          const timerId = window.setTimeout(() => setShowFeedbackPrompt(true), 3000);
-          return () => window.clearTimeout(timerId);
+          let timerId;
+          let unmountId;
+
+          if (canShowFeedback) {
+            setIsFeedbackMounted(true);
+            setIsFeedbackExiting(false);
+            setShowFeedbackPrompt(false);
+            timerId = window.setTimeout(() => setShowFeedbackPrompt(true), 3000);
+          } else if (isFeedbackMounted) {
+            setShowFeedbackPrompt(false);
+            setIsFeedbackExiting(true);
+            unmountId = window.setTimeout(() => {
+              setIsFeedbackMounted(false);
+              setIsFeedbackExiting(false);
+            }, 360);
+          }
+
+          return () => {
+            if (timerId) window.clearTimeout(timerId);
+            if (unmountId) window.clearTimeout(unmountId);
+          };
         }, [canShowFeedback, lastAction, jsonOutput]);
 
         async function loadReferenceData() {
@@ -173,6 +204,18 @@
           const endpoint = endpointByAction(action);
           if (!endpoint) return;
           setLastAction(action);
+          if (feedbackHideTimerRef.current) {
+            window.clearTimeout(feedbackHideTimerRef.current);
+            feedbackHideTimerRef.current = null;
+          }
+          setIsFeedbackLocked(false);
+          if (FEEDBACK_ACTIONS.has(action)) {
+            setFeedbackSubmitted(false);
+          } else {
+            setFeedbackSubmitted(true);
+          }
+          setShineCards(false);
+          setDislikeFlashCards(false);
           try {
             const res = await fetch(endpoint, { credentials: "same-origin" });
             const text = await res.text();
@@ -240,13 +283,28 @@
               setFeedbackMessage(payload.detail || "ثبت فیدبک ناموفق بود.");
               return;
             }
+            setFeedbackMessage(
+              liked
+                ? "ممنون از فیدبک مثبت، خوشحالیم خوشت اومده."
+                : "برای دیدن پیشنهادهای جدید، مجدد وارد همین صفحه شوید."
+            );
             if (liked) {
-              setFeedbackMessage("مرسی! فیدبک مثبت ثبت شد.");
               setShineCards(true);
               window.setTimeout(() => setShineCards(false), 2500);
             } else {
-              setFeedbackMessage("ثبت شد. برای دیدن پیشنهاد جدید، دوباره روی همین بخش پیشنهادات کلیک کن.");
+              setDislikeFlashCards(true);
+              window.setTimeout(() => setDislikeFlashCards(false), 1700);
             }
+            setIsFeedbackLocked(true);
+            if (feedbackHideTimerRef.current) {
+              window.clearTimeout(feedbackHideTimerRef.current);
+            }
+            feedbackHideTimerRef.current = window.setTimeout(() => {
+              setFeedbackSubmitted(true);
+              setShowFeedbackPrompt(false);
+              setIsFeedbackLocked(false);
+              feedbackHideTimerRef.current = null;
+            }, 2000);
           } catch (error) {
             setFeedbackMessage(`خطا در ثبت فیدبک: ${String(error)}`);
           } finally {
@@ -316,17 +374,17 @@
 
             <section className="panel">
               <h2>نمایش کارت‌ها</h2>
-              <CardsView payload={cardsPayload} lastAction={lastAction} placesById={placesById} citiesById={citiesById} shineCards={shineCards} />
+              <CardsView payload={cardsPayload} lastAction={lastAction} placesById={placesById} citiesById={citiesById} shineCards={shineCards} dislikeFlashCards={dislikeFlashCards} />
             </section>
 
-            {canShowFeedback ? (
-              <section className={`feedback-widget ${showFeedbackPrompt ? "show" : ""}`}>
+            {isFeedbackMounted ? (
+              <section className={`feedback-widget ${showFeedbackPrompt ? "show" : ""} ${isFeedbackExiting ? "hide" : ""}`}>
                 <p className="feedback-title">این پیشنهادها برات مفید بود؟</p>
                 <div className="feedback-actions">
-                  <button type="button" className="feedback-btn like" disabled={isSubmittingFeedback} onClick={() => submitFeedback(true)}>
+                  <button type="button" className="feedback-btn like" disabled={isSubmittingFeedback || isFeedbackLocked} onClick={() => submitFeedback(true)}>
                     👍 پسندیدم
                   </button>
-                  <button type="button" className="feedback-btn dislike" disabled={isSubmittingFeedback} onClick={() => submitFeedback(false)}>
+                  <button type="button" className="feedback-btn dislike" disabled={isSubmittingFeedback || isFeedbackLocked} onClick={() => submitFeedback(false)}>
                     👎 نپسندیدم
                   </button>
                 </div>
@@ -350,7 +408,7 @@
         );
       }
 
-      function CardsView({ payload, lastAction, placesById, citiesById, shineCards }) {
+      function CardsView({ payload, lastAction, placesById, citiesById, shineCards, dislikeFlashCards }) {
         const sections = [];
         if (Array.isArray(payload)) {
           sections.push({ title: ACTION_LABELS[lastAction] || "Items", items: payload });
@@ -372,7 +430,7 @@
                 <h3 className="section-title">{section.title}</h3>
                 <div className="cards">
                   {section.items.map((item, index) => (
-                    <MediaCard key={`${item.mediaId || item.placeId || "item"}-${index}`} item={item} place={placesById[item.placeId || item.media?.placeId]} citiesById={citiesById} shineCards={shineCards} />
+                    <MediaCard key={`${item.mediaId || item.placeId || "item"}-${index}`} item={item} place={placesById[item.placeId || item.media?.placeId]} citiesById={citiesById} shineCards={shineCards} dislikeFlashCards={dislikeFlashCards} />
                   ))}
                 </div>
               </React.Fragment>
@@ -381,7 +439,7 @@
         );
       }
 
-      function MediaCard({ item, place, citiesById, shineCards }) {
+      function MediaCard({ item, place, citiesById, shineCards, dislikeFlashCards }) {
         const placeId = item.placeId || item.media?.placeId || "";
         const cityName = place ? citiesById[place.cityId] || place.cityId : "-";
         const placeName = place?.placeName || item.placeName || item.title || item.mediaId || "Content";
@@ -393,7 +451,7 @@
         const image = PLACE_IMAGES[placeId] || `https://source.unsplash.com/800x450/?iran,travel,${encodeURIComponent(placeName)}`;
 
         return (
-          <article className={`card card-modern ${shineCards ? "shine" : ""}`}>
+          <article className={`card card-modern ${shineCards ? "shine" : ""} ${dislikeFlashCards ? "dislike-flash" : ""}`}>
             <div className="card-image-wrap">
               <img className="card-image" src={image} alt={placeName} loading="lazy" />
               {reason ? <span className="chip">{reason}</span> : null}

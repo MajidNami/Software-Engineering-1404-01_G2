@@ -162,6 +162,22 @@ pre {
   position: relative;
 }
 
+.card-modern.dislike-flash {
+  animation: dislikeBlink 520ms ease-in-out 3;
+}
+
+@keyframes dislikeBlink {
+  0%,
+  100% {
+    border-color: #e2efe0;
+    box-shadow: 0 6px 16px rgba(46, 125, 50, 0.08);
+  }
+  50% {
+    border-color: #ef9a9a;
+    box-shadow: 0 11px 24px rgba(198, 40, 40, 0.26);
+  }
+}
+
 .card-image-wrap {
   position: relative;
   margin: -14px -14px 10px;
@@ -315,6 +331,11 @@ pre {
   pointer-events: auto;
 }
 
+.feedback-widget.hide {
+  animation: fadeOutDown 320ms ease forwards;
+  pointer-events: none;
+}
+
 .feedback-title {
   color: white;
   margin: 0 0 10px;
@@ -359,6 +380,17 @@ pre {
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fadeOutDown {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(16px) scale(0.985);
   }
 }
 
