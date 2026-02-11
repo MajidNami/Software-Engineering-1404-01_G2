@@ -31,7 +31,7 @@ class CommentClassifier:
             ],
         )
 
-        raw_response = completion.choices[0].message["content"]
+        raw_response = completion.choices[0].message.content
         
         try:
             confidence_dict = json.loads(raw_response)

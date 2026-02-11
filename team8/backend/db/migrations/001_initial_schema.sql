@@ -16,6 +16,7 @@ CREATE TABLE users (
     username VARCHAR(50) NOT NULL UNIQUE,
     email VARCHAR(100) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
+    is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -89,6 +90,12 @@ CREATE TABLE posts (
     is_edited BOOLEAN DEFAULT FALSE,
     status content_status DEFAULT 'PENDING_AI',
     
+    -- Per-component AI verdicts
+    text_ai_status content_status DEFAULT 'PENDING_AI',
+    media_ai_status content_status,  -- NULL when post has no media
+    ai_confidence FLOAT,
+    rejection_reason TEXT,
+    
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ,
     deleted_at TIMESTAMPTZ -- Soft Delete
@@ -135,7 +142,9 @@ CREATE TABLE activity_logs (
             'VOTE_CREATED', 'VOTE_UPDATED',
             'REPORT_CREATED', 'REPORT_RESOLVED',
             'PLACE_CREATED', 'PLACE_UPDATED',
-            'USER_LOGIN', 'USER_LOGOUT'
+            'USER_LOGIN', 'USER_LOGOUT',
+            'AI_TEXT_VERDICT', 'AI_MEDIA_VERDICT', 'AI_MEDIA_TAG',
+            'ADMIN_APPROVED', 'ADMIN_REJECTED'
         )
     )
 );

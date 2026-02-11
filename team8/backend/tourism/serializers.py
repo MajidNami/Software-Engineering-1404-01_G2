@@ -13,7 +13,7 @@ from .storage import storage
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['user_id', 'username', 'email', 'created_at']
+        fields = ['user_id', 'username', 'email', 'is_admin', 'created_at']
         read_only_fields = fields
 
 

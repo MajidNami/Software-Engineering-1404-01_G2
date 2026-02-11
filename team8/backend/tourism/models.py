@@ -9,6 +9,7 @@ class User(models.Model):
     username = models.CharField(max_length=50, unique=True)
     email = models.EmailField(max_length=100, unique=True)
     password_hash = models.CharField(max_length=255)
+    is_admin = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -196,6 +197,17 @@ class Post(models.Model):
         choices=ContentStatus.choices,
         default=ContentStatus.PENDING_AI
     )
+    # Per-component AI verdicts (for coordinated approval when post has both text+media)
+    text_ai_status = models.CharField(
+        max_length=20, choices=ContentStatus.choices,
+        default=ContentStatus.PENDING_AI
+    )
+    media_ai_status = models.CharField(
+        max_length=20, choices=ContentStatus.choices,
+        null=True, blank=True  # NULL when post has no media attachment
+    )
+    ai_confidence = models.FloatField(null=True, blank=True)
+    rejection_reason = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True, null=True, blank=True)
     deleted_at = models.DateTimeField(null=True, blank=True)

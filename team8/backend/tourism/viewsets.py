@@ -18,9 +18,10 @@ from .serializers import (
     RatingSerializer, PostVoteSerializer,
     NotificationSerializer, ReportSerializer,
 )
-from .permissions import IsAuthenticated, IsOwnerOrReadOnly, AllowAny
+from .permissions import IsAuthenticated, IsOwnerOrReadOnly, AllowAny, IsAdmin
 from .storage import storage
 from .utils import log_activity, notify_post_owner, create_notification
+from . import services
 
 
 # Read-only reference data
@@ -136,6 +137,13 @@ class MediaViewSet(viewsets.ModelViewSet):
             return [AllowAny()]
         return [IsAuthenticated()]
 
+    def perform_create(self, serializer):
+        media = serializer.save()
+        # Fire AI moderation + tagging
+        services.submit_image_moderation(str(media.media_id), media.s3_object_key)
+        services.submit_image_tagging(str(media.media_id), media.s3_object_key)
+        log_activity(self.request.user, 'MEDIA_UPLOADED', target_id=str(media.media_id))
+
     def perform_destroy(self, instance):
         if instance.user_id != self.request.user.user_id:
             from rest_framework.exceptions import PermissionDenied
@@ -184,6 +192,18 @@ class PostViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         post = serializer.save(user=self.request.user)
+
+        # Set per-component AI tracking
+        post.text_ai_status = 'PENDING_AI'
+        if post.media_id:
+            post.media_ai_status = 'PENDING_AI'
+        post.save(update_fields=['text_ai_status', 'media_ai_status'])
+
+        # Fire AI moderation requests
+        services.submit_text_moderation(post.post_id, post.content)
+        if post.media and post.media.s3_object_key:
+            services.submit_image_moderation(str(post.media.media_id), post.media.s3_object_key)
+
         log_activity(self.request.user, 'POST_CREATED', target_id=post.post_id)
         if post.parent:
             notify_post_owner(post.parent, self.request.user, 'reply')
@@ -335,3 +355,121 @@ class ReportViewSet(
         # Notify the reported content's owner
         if report.target_type == 'POST' and report.reported_post:
             notify_post_owner(report.reported_post, self.request.user, 'report')
+
+
+# Admin Moderation
+
+class ModerationViewSet(viewsets.GenericViewSet):
+    """Admin-only endpoints for reviewing PENDING_ADMIN content."""
+    permission_classes = [IsAdmin]
+
+    @action(detail=False, methods=['get'], url_path='posts')
+    def pending_posts(self, request):
+        """List posts waiting for admin review."""
+        qs = Post.objects.filter(
+            status='PENDING_ADMIN', deleted_at__isnull=True
+        ).select_related('user', 'place', 'media').order_by('created_at')
+        page = self.paginate_queryset(qs)
+        data = PostListSerializer(page or qs, many=True, context=self.get_serializer_context()).data
+        return self.get_paginated_response(data) if page else Response(data)
+
+    @action(detail=False, methods=['get'], url_path='media')
+    def pending_media(self, request):
+        """List media waiting for admin review."""
+        qs = Media.objects.filter(
+            status='PENDING_ADMIN', deleted_at__isnull=True
+        ).select_related('user', 'place').order_by('created_at')
+        page = self.paginate_queryset(qs)
+        data = MediaListSerializer(page or qs, many=True, context=self.get_serializer_context()).data
+        return self.get_paginated_response(data) if page else Response(data)
+
+    @action(detail=False, methods=['post'], url_path='posts/(?P<post_id>[^/.]+)/approve')
+    def approve_post(self, request, post_id=None):
+        try:
+            post = Post.objects.get(post_id=post_id, status='PENDING_ADMIN')
+        except Post.DoesNotExist:
+            return Response({'error': 'post not found or not pending'}, status=status.HTTP_404_NOT_FOUND)
+
+        post.status = 'APPROVED'
+        post.save(update_fields=['status'])
+        log_activity(request.user, 'ADMIN_APPROVED', target_id=post_id)
+        create_notification(post.user, 'Post approved', 'Your post has been approved by a moderator.')
+        return Response({'post_id': post_id, 'status': 'APPROVED'})
+
+    @action(detail=False, methods=['post'], url_path='posts/(?P<post_id>[^/.]+)/reject')
+    def reject_post(self, request, post_id=None):
+        try:
+            post = Post.objects.get(post_id=post_id, status='PENDING_ADMIN')
+        except Post.DoesNotExist:
+            return Response({'error': 'post not found or not pending'}, status=status.HTTP_404_NOT_FOUND)
+
+        reason = request.data.get('reason', 'Rejected by admin')
+        post.status = 'REJECTED'
+        post.rejection_reason = reason
+        post.save(update_fields=['status', 'rejection_reason'])
+        log_activity(request.user, 'ADMIN_REJECTED', target_id=post_id)
+        create_notification(post.user, 'Post rejected', f'Your post was rejected: {reason}')
+        return Response({'post_id': post_id, 'status': 'REJECTED'})
+
+    @action(detail=False, methods=['post'], url_path='media/(?P<media_id>[^/.]+)/approve')
+    def approve_media(self, request, media_id=None):
+        try:
+            media = Media.objects.get(media_id=media_id, status='PENDING_ADMIN')
+        except Media.DoesNotExist:
+            return Response({'error': 'media not found or not pending'}, status=status.HTTP_404_NOT_FOUND)
+
+        media.status = 'APPROVED'
+        media.save(update_fields=['status'])
+        log_activity(request.user, 'ADMIN_APPROVED', target_id=str(media_id))
+        create_notification(media.user, 'Media approved', 'Your media has been approved by a moderator.')
+
+        # Also reconcile any posts referencing this media
+        for post in Post.objects.filter(media=media, status='PENDING_ADMIN', deleted_at__isnull=True):
+            post.media_ai_status = 'APPROVED'
+            post.save(update_fields=['media_ai_status'])
+            self._reconcile_admin_post(post, request.user)
+
+        return Response({'media_id': str(media_id), 'status': 'APPROVED'})
+
+    @action(detail=False, methods=['post'], url_path='media/(?P<media_id>[^/.]+)/reject')
+    def reject_media(self, request, media_id=None):
+        try:
+            media = Media.objects.get(media_id=media_id, status='PENDING_ADMIN')
+        except Media.DoesNotExist:
+            return Response({'error': 'media not found or not pending'}, status=status.HTTP_404_NOT_FOUND)
+
+        reason = request.data.get('reason', 'Rejected by admin')
+        media.status = 'REJECTED'
+        media.rejection_reason = reason
+        media.save(update_fields=['status', 'rejection_reason'])
+        log_activity(request.user, 'ADMIN_REJECTED', target_id=str(media_id))
+        create_notification(media.user, 'Media rejected', f'Your media was rejected: {reason}')
+
+        # Also reject any posts referencing this media
+        for post in Post.objects.filter(media=media, status='PENDING_ADMIN', deleted_at__isnull=True):
+            post.media_ai_status = 'REJECTED'
+            post.status = 'REJECTED'
+            post.rejection_reason = reason
+            post.save(update_fields=['media_ai_status', 'status', 'rejection_reason'])
+            create_notification(post.user, 'Post rejected', f'Your post was rejected: {reason}')
+
+        return Response({'media_id': str(media_id), 'status': 'REJECTED'})
+
+    @staticmethod
+    def _reconcile_admin_post(post, admin_user):
+        """After admin approves one component, check if the whole post can be approved."""
+        statuses = [post.text_ai_status]
+        if post.media_ai_status is not None:
+            statuses.append(post.media_ai_status)
+
+        if 'PENDING_ADMIN' in statuses:
+            return  # still waiting for another component
+
+        if 'REJECTED' in statuses:
+            post.status = 'REJECTED'
+        else:
+            post.status = 'APPROVED'
+        post.save(update_fields=['status'])
+
+        if post.status == 'APPROVED':
+            create_notification(post.user, 'Post approved', 'Your post has been approved by a moderator.')

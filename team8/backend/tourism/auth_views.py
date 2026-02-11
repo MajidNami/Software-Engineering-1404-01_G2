@@ -73,6 +73,7 @@ def register(request):
                 'user_id': user.user_id,
                 'username': user.username,
                 'email': user.email,
+                'is_admin': user.is_admin,
                 'created_at': user.created_at,
             },
             'token': token,
@@ -124,7 +125,8 @@ def login(request):
             'user': {
                 'user_id': user.user_id,
                 'username': user.username,
-                'email': user.email
+                'email': user.email,
+                'is_admin': user.is_admin,
             },
             'token': token
         })
@@ -173,7 +175,8 @@ def verify_token(request):
             'user': {
                 'user_id': user.user_id,
                 'username': user.username,
-                'email': user.email
+                'email': user.email,
+                'is_admin': user.is_admin,
             }
         })
     except User.DoesNotExist:
@@ -188,6 +191,7 @@ def get_profile(request):
             'user_id': request.user.user_id,
             'username': request.user.username,
             'email': request.user.email,
+            'is_admin': request.user.is_admin,
             'created_at': request.user.created_at,
             'updated_at': request.user.updated_at
         }

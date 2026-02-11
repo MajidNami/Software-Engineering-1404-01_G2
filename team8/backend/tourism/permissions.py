@@ -59,3 +59,11 @@ class AllowAny(BasePermission):
     def has_permission(self, request, view):
         _get_user_from_token(request)  # attach user if available, but don't block
         return True
+
+
+class IsAdmin(BasePermission):
+    """Only users with is_admin=True."""
+
+    def has_permission(self, request, view):
+        user = _get_user_from_token(request)
+        return user is not None and user.is_admin

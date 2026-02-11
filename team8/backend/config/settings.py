@@ -103,3 +103,12 @@ S3_BUCKET_NAME = env("S3_BUCKET_NAME", default="team8-media")
 MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10 MB
 ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"]
 ALLOWED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"]
+
+# AI Service
+AI_SERVICE_URL = env("AI_SERVICE_URL", default="http://localhost:8002")
+INTERNAL_API_KEY = env("INTERNAL_API_KEY", default="team8-internal-secret-change-me")
+
+# AI Moderation thresholds
+# Scores above REJECT → REJECTED, between REVIEW and REJECT → PENDING_ADMIN, below REVIEW → APPROVED
+AI_REJECT_THRESHOLD = float(env("AI_REJECT_THRESHOLD", default="0.8"))
+AI_REVIEW_THRESHOLD = float(env("AI_REVIEW_THRESHOLD", default="0.4"))
