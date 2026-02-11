@@ -3,6 +3,18 @@
 
 ---
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Project Structure](#project-structure)
+- [How to Run](#how-to-run)
+- [URL Structure](#url-structure)
+- [Features](#features)
+- [Database](#database)
+- [Integration with Core](#integration-with-core)
+- [Notes for Developers](#notes-for-developers)
+
 ## Overview
 
 The Wiki Service, developed by Team NullTerminated, is a structured
@@ -133,6 +145,7 @@ database configuration.
 
 Database schema changes are managed through Django migrations
 located in the `migrations/` directory.
+
 ## Features
 
 The Wiki Service provides a comprehensive set of features for structured article management:
