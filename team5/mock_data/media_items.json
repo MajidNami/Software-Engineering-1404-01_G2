@@ -1,0 +1,119 @@
+[
+  {
+    "mediaId": "m1",
+    "placeId": "isfahan-naqsh-jahan",
+    "title": "Sunset at Naqsh-e Jahan",
+    "caption": "Crowded square with local music and food",
+    "overallRate": 4.8,
+    "ratingsCount": 19,
+    "userRatings": [
+      {"userId": "u1", "rate": 5},
+      {"userId": "u2", "rate": 4},
+      {"userId": "u3", "rate": 5},
+      {"userId": "u4", "rate": 5}
+    ]
+  },
+  {
+    "mediaId": "m2",
+    "placeId": "tehran-golestan-palace",
+    "title": "Golestan Palace mirror hall",
+    "caption": "Historical architecture and museum details",
+    "overallRate": 4.4,
+    "ratingsCount": 14,
+    "userRatings": [
+      {"userId": "u1", "rate": 4},
+      {"userId": "u2", "rate": 5},
+      {"userId": "u3", "rate": 4}
+    ]
+  },
+  {
+    "mediaId": "m3",
+    "placeId": "tehran-azadi-tower",
+    "title": "Azadi Tower in winter",
+    "caption": "Night lights and city skyline",
+    "overallRate": 3.9,
+    "ratingsCount": 22,
+    "userRatings": [
+      {"userId": "u1", "rate": 3},
+      {"userId": "u2", "rate": 4},
+      {"userId": "u5", "rate": 4}
+    ]
+  },
+  {
+    "mediaId": "m4",
+    "placeId": "shiraz-hafezieh",
+    "title": "Poetry night at Hafezieh",
+    "caption": "Visitors reading Hafez verses in garden",
+    "overallRate": 4.7,
+    "ratingsCount": 11,
+    "userRatings": [
+      {"userId": "u1", "rate": 5},
+      {"userId": "u3", "rate": 5},
+      {"userId": "u4", "rate": 4}
+    ]
+  },
+  {
+    "mediaId": "m5",
+    "placeId": "mashhad-haram",
+    "title": "Morning in Imam Reza Shrine",
+    "caption": "Large prayer crowd and calm atmosphere",
+    "overallRate": 4.9,
+    "ratingsCount": 26,
+    "userRatings": [
+      {"userId": "u2", "rate": 5},
+      {"userId": "u4", "rate": 5},
+      {"userId": "u5", "rate": 5}
+    ]
+  },
+  {
+    "mediaId": "m6",
+    "placeId": "tabriz-arg",
+    "title": "Arg of Tabriz walkthrough",
+    "caption": "Ancient walls and local guide narration",
+    "overallRate": 4.1,
+    "ratingsCount": 7,
+    "userRatings": [
+      {"userId": "u3", "rate": 4},
+      {"userId": "u4", "rate": 4},
+      {"userId": "u6", "rate": 3}
+    ]
+  },
+  {
+    "mediaId": "m7",
+    "placeId": "isfahan-si-o-se-pol",
+    "title": "Si-o-se-pol at dusk",
+    "caption": "Bridge reflection over Zayandeh Rud",
+    "overallRate": 4.6,
+    "ratingsCount": 17,
+    "userRatings": [
+      {"userId": "u1", "rate": 5},
+      {"userId": "u2", "rate": 4},
+      {"userId": "u5", "rate": 4}
+    ]
+  },
+  {
+    "mediaId": "m8",
+    "placeId": "shiraz-pasargadae",
+    "title": "Pasargadae ruins",
+    "caption": "Historical site with wide plain scenery",
+    "overallRate": 3.7,
+    "ratingsCount": 4,
+    "userRatings": [
+      {"userId": "u3", "rate": 3},
+      {"userId": "u6", "rate": 4}
+    ]
+  },
+  {
+    "mediaId": "m9",
+    "placeId": "tehran-milad-tower",
+    "title": "Milad Tower panoramic deck",
+    "caption": "Tehran skyline from the top of the tower",
+    "overallRate": 4.3,
+    "ratingsCount": 12,
+    "userRatings": [
+      {"userId": "u2", "rate": 4},
+      {"userId": "u4", "rate": 5},
+      {"userId": "u5", "rate": 4}
+    ]
+  }
+]

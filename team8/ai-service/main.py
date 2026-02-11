@@ -245,6 +245,8 @@ class SummarizePlaceReq(BaseModel):
 async def health():
     return {"status": "ok"}
 
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/moderate-text/")
 async def moderate_text(req: ModerateTextReq, bg: BackgroundTasks, db: Session = Depends(get_db)):

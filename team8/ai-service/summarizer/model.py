@@ -5,7 +5,7 @@ class CommentSummarizer:
     def __init__(self, model="openai/gpt-oss-120b"):
         self.role = """
             You are an AI text summarizer for Persian content. 
-            You read a list of comments and ratings about a media (image, video, etc.) 
+            You read a list of comments about a media (image, video, etc.) 
             and generate a concise natural-language summary in Persian. 
             
             Your summary should include:
@@ -22,15 +22,13 @@ class CommentSummarizer:
         """
         self.model = model
 
-    def summarize(self, comments, ratings):
+    def summarize(self, comments):
         """
         comments: list of strings (Persian comments)
-        ratings: list of integers/floats (e.g., 1-5)
         """
         combined_text = "نظرات کاربران و امتیازات آنها:\n"
         for i, comment in enumerate(comments):
-            rating = ratings[i] if i < len(ratings) else "بدون امتیاز"
-            combined_text += f"{i+1}. ({rating}) {comment}\n"
+            combined_text += f"{i+1}. {comment}\n"
 
         completion = CLIENT.chat.completions.create(
             model=self.model,

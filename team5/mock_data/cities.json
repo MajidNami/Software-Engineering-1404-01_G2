@@ -1,0 +1,27 @@
+[
+  {
+    "cityId": "tehran",
+    "cityName": "Tehran",
+    "coordinates": [35.6892, 51.389]
+  },
+  {
+    "cityId": "isfahan",
+    "cityName": "Isfahan",
+    "coordinates": [32.6546, 51.668]
+  },
+  {
+    "cityId": "shiraz",
+    "cityName": "Shiraz",
+    "coordinates": [29.5918, 52.5837]
+  },
+  {
+    "cityId": "tabriz",
+    "cityName": "Tabriz",
+    "coordinates": [38.0962, 46.2738]
+  },
+  {
+    "cityId": "mashhad",
+    "cityName": "Mashhad",
+    "coordinates": [36.2605, 59.6168]
+  }
+]

@@ -6,10 +6,11 @@ from utils.labels import image_classifier_locations as IMAGE_LABELS
 
 
 class ImageTagger:
+
+
     def __init__(self, weights_path = "convnext_iranian_landmarksTop136.pth", device="cpu"):
         self.device = device
         self.num_classes = len(IMAGE_LABELS)
-
         model = convnext_base(weights=None)
         model.classifier[2] = nn.Linear(
             model.classifier[2].in_features,
@@ -35,3 +36,5 @@ class ImageTagger:
             "label": IMAGE_LABELS[idx],
             "confidence": probs[0, idx].item(),
         }
+    
+

@@ -1,24 +1,326 @@
-{% load static %}
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Group 5 - Recommendation Service</title>
-    <link rel="stylesheet" href="{% static 'team5/styles/style.css' %}">
+    <title>Team5 Recommendation UI (React)</title>
+    <link rel="stylesheet" href="../../static/team5/styles/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100..900&display=swap" rel="stylesheet">
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body>
-    <h1>Recommendation Service</h1>
-    <h3>پیاده‌سازی توسط گروه 5</h3>
-    <hr style="width: 50%; margin: 20px auto; opacity: 0.3;">
-    
-    <div style="border: 2px dashed #ccc; padding: 50px; border-radius: 10px; margin: 20px 0;">
-        <p>محل قرارگیری رابط کاربری میکرو سرویس</p>
-        <p>(Microservice UI Placeholder)</p>
-    </div>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useEffect, useMemo, useState } = React;
 
-    <a href="/" class="back-btn"> بازگشت به داشبورد اصلی</a>
-    
+        const API_BASE = window.location.port === "8000" ? "" : "http://127.0.0.1:8000";
+        const PLACE_IMAGES = {
+            "tehran-milad-tower": "https://source.unsplash.com/800x450/?milad,tower,tehran",
+            "tehran-azadi-tower": "https://source.unsplash.com/800x450/?azadi,tower,tehran",
+            "tehran-golestan-palace": "https://source.unsplash.com/800x450/?golestan,palace,tehran",
+            "isfahan-naqsh-jahan": "https://source.unsplash.com/800x450/?naqsh,jahan,isfahan",
+            "isfahan-si-o-se-pol": "https://source.unsplash.com/800x450/?si-o-se-pol,isfahan,bridge",
+            "shiraz-hafezieh": "https://source.unsplash.com/800x450/?hafezieh,shiraz",
+            "shiraz-pasargadae": "https://source.unsplash.com/800x450/?pasargadae,shiraz,persia",
+            "tabriz-arg": "https://source.unsplash.com/800x450/?tabriz,arg,iran",
+            "mashhad-haram": "https://source.unsplash.com/800x450/?imam,reza,shrine,mashhad"
+        };
+
+        const ACTION_LABELS = {
+            users: "Users",
+            cities: "Cities",
+            places: "Places",
+            media: "Media",
+            popular: "Popular",
+            nearest: "Your Nearest",
+            personalized: "Personalized",
+            interests: "Interests",
+            "user-ratings": "User Ratings"
+        };
+
+        const REASON_LABELS = {
+            high_user_rating: "به خاطر امتیاز بالای کاربر",
+            your_nearest: "نزدیک‌ترین پیشنهاد براساس موقعیت شما",
+            similar_topic: "پیشنهاد مشابه موضوعی",
+            same_city: "پیشنهاد مشابه در همان شهر",
+            similar: "پیشنهاد مشابه"
+        };
+
+        function api(path) {
+            return `${API_BASE}${path}`;
+        }
+
+        function App() {
+            const [userId, setUserId] = useState("");
+            const [cityId, setCityId] = useState("tehran");
+            const [limit, setLimit] = useState(5);
+            const [users, setUsers] = useState([]);
+            const [jsonOutput, setJsonOutput] = useState("در حال بارگذاری...");
+            const [cardsPayload, setCardsPayload] = useState(null);
+            const [lastAction, setLastAction] = useState("popular");
+            const [placesById, setPlacesById] = useState({});
+            const [citiesById, setCitiesById] = useState({});
+
+            const safeLimit = useMemo(() => {
+                const parsed = Number(limit);
+                if (!Number.isFinite(parsed)) return 5;
+                return Math.min(100, Math.max(1, Math.floor(parsed)));
+            }, [limit]);
+
+            useEffect(() => {
+                loadReferenceData();
+                loadUsers();
+                callAction("popular");
+            }, []);
+
+            async function loadReferenceData() {
+                try {
+                    const res = await fetch(api("/team5/api/cities/"), { credentials: "same-origin" });
+                    const cities = await res.json();
+                    if (!Array.isArray(cities)) return;
+                    const cityMap = {};
+                    cities.forEach((city) => {
+                        cityMap[city.cityId] = city.cityName;
+                    });
+                    setCitiesById(cityMap);
+
+                    const placeMap = {};
+                    await Promise.all(cities.map(async (city) => {
+                        try {
+                            const placesRes = await fetch(api(`/team5/api/places/city/${encodeURIComponent(city.cityId)}/`), {
+                                credentials: "same-origin"
+                            });
+                            const places = await placesRes.json();
+                            if (Array.isArray(places)) {
+                                places.forEach((place) => {
+                                    placeMap[place.placeId] = place;
+                                });
+                            }
+                        } catch (_) {}
+                    }));
+                    setPlacesById(placeMap);
+                } catch (_) {}
+            }
+
+            async function loadUsers() {
+                const endpoint = api("/team5/api/users/");
+                try {
+                    const res = await fetch(endpoint, { credentials: "same-origin" });
+                    const data = await res.json();
+                    const list = Array.isArray(data.items) ? data.items : [];
+                    setUsers(list);
+                    if (!userId && list.length) {
+                        setUserId(list[0].userId);
+                    }
+                } catch (error) {
+                    setJsonOutput(JSON.stringify({ status: "network_error", endpoint, error: String(error) }, null, 2));
+                }
+            }
+
+            function endpointByAction(action) {
+                const encodedUser = encodeURIComponent(userId.trim());
+                const encodedCity = encodeURIComponent(cityId.trim());
+                switch (action) {
+                    case "cities":
+                        return api("/team5/api/cities/");
+                    case "places":
+                        return api(`/team5/api/places/city/${encodedCity}/`);
+                    case "media":
+                        return api(`/team5/api/media/?userId=${encodedUser}`);
+                    case "users":
+                        return api("/team5/api/users/");
+                    case "user-ratings":
+                        return api(`/team5/api/users/${encodedUser}/ratings/`);
+                    case "popular":
+                        return api(`/team5/api/recommendations/popular/?limit=${safeLimit}`);
+                    case "nearest":
+                        return api(`/team5/api/recommendations/nearest/?limit=${safeLimit}&cityId=${encodedCity}`);
+                    case "personalized":
+                        return api(`/team5/api/recommendations/personalized/?userId=${encodedUser}&limit=${safeLimit}`);
+                    case "interests":
+                        return api(`/team5/api/users/${encodedUser}/interests/`);
+                    case "ping":
+                        return api("/team5/ping/");
+                    default:
+                        return null;
+                }
+            }
+
+            async function callAction(action) {
+                const endpoint = endpointByAction(action);
+                if (!endpoint) return;
+                setLastAction(action);
+                try {
+                    const res = await fetch(endpoint, { credentials: "same-origin" });
+                    const text = await res.text();
+                    let payload = text;
+                    try {
+                        payload = JSON.parse(text);
+                    } catch (_) {}
+                    setCardsPayload(payload);
+                    setJsonOutput(JSON.stringify({ status: res.status, endpoint, data: payload }, null, 2));
+                } catch (error) {
+                    setCardsPayload(null);
+                    setJsonOutput(JSON.stringify({ status: "network_error", endpoint, error: String(error) }, null, 2));
+                }
+            }
+
+            return (
+                <main className="container">
+                    <header className="page-header page-header-modern">
+                        <h1>Team5 Recommendation Service</h1>
+                        <p>نسخه React - پیشنهادهای Popular, Personalized و Your Nearest براساس IP</p>
+                    </header>
+
+                    <section className="panel">
+                        <h2>تنظیمات</h2>
+                        <div className="form-grid">
+                            <label>
+                                انتخاب کاربر
+                                <select value={userId} onChange={(e) => setUserId(e.target.value)}>
+                                    <option value="">-- انتخاب کن --</option>
+                                    {users.map((user) => {
+                                        const fullName = `${user.firstName || ""} ${user.lastName || ""}`.trim();
+                                        return (
+                                            <option key={user.userId} value={user.userId}>
+                                                {fullName ? `${fullName} - ${user.email}` : `${user.email} - ${user.userId}`}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+                            </label>
+                            <label>
+                                User ID
+                                <input value={userId} onChange={(e) => setUserId(e.target.value)} placeholder="UUID user id" />
+                            </label>
+                            <label>
+                                City ID
+                                <input value={cityId} onChange={(e) => setCityId(e.target.value)} placeholder="tehran" />
+                            </label>
+                            <label>
+                                Limit
+                                <input type="number" min="1" max="100" value={limit} onChange={(e) => setLimit(e.target.value)} />
+                            </label>
+                        </div>
+                    </section>
+
+                    <section className="panel">
+                        <h2>اکشن‌ها</h2>
+                        <div className="actions">
+                            <button type="button" onClick={loadUsers}>Load Users Dropdown</button>
+                            {Object.keys(ACTION_LABELS).map((action) => (
+                                <button key={action} type="button" onClick={() => callAction(action)}>
+                                    {ACTION_LABELS[action]}
+                                </button>
+                            ))}
+                        </div>
+                    </section>
+
+                    <section className="panel">
+                        <h2>خروجی JSON</h2>
+                        <pre>{jsonOutput}</pre>
+                    </section>
+
+                    <section className="panel">
+                        <h2>نمایش کارت‌ها</h2>
+                        <CardsView
+                            payload={cardsPayload}
+                            lastAction={lastAction}
+                            placesById={placesById}
+                            citiesById={citiesById}
+                        />
+                    </section>
+
+                    <section className="panel panel-note">
+                        <h2>راهنما</h2>
+                        <ul>
+                            <li>برای Personalized و Interests مقدار <code>User ID</code> را تنظیم کن.</li>
+                            <li>در <code>Your Nearest</code> ابتدا IP بررسی می‌شود؛ اگر resolve نشد از <code>City ID</code> استفاده می‌شود.</li>
+                            <li>برای Places by City مقدار <code>City ID</code> را تنظیم کن (مثل: tehran, shiraz).</li>
+                        </ul>
+                    </section>
+
+                    <div className="footer">
+                        <a href="/" className="back-btn">بازگشت به داشبورد اصلی</a>
+                    </div>
+                </main>
+            );
+        }
+
+        function CardsView({ payload, lastAction, placesById, citiesById }) {
+            const sections = [];
+            if (Array.isArray(payload)) {
+                sections.push({ title: ACTION_LABELS[lastAction] || "Items", items: payload });
+            } else if (payload && typeof payload === "object") {
+                if (Array.isArray(payload.highRatedItems)) sections.push({ title: "Personalized", items: payload.highRatedItems });
+                if (Array.isArray(payload.similarItems)) sections.push({ title: "Similars", items: payload.similarItems });
+                if (Array.isArray(payload.ratedHigh)) sections.push({ title: "Rated High", items: payload.ratedHigh });
+                if (Array.isArray(payload.ratedLow)) sections.push({ title: "Rated Low", items: payload.ratedLow });
+                if (Array.isArray(payload.items) && !sections.length) sections.push({ title: ACTION_LABELS[lastAction] || "Items", items: payload.items });
+            }
+
+            const hasAny = sections.some((sec) => sec.items && sec.items.length);
+            if (!hasAny) return <p className="empty">داده‌ای برای نمایش کارت وجود ندارد.</p>;
+
+            return (
+                <>
+                    {sections.map((section) => (
+                        <React.Fragment key={section.title}>
+                            <h3 className="section-title">{section.title}</h3>
+                            <div className="cards">
+                                {section.items.map((item, index) => (
+                                    <MediaCard
+                                        key={`${item.mediaId || item.placeId || "item"}-${index}`}
+                                        item={item}
+                                        place={placesById[item.placeId || item.media?.placeId]}
+                                        citiesById={citiesById}
+                                    />
+                                ))}
+                            </div>
+                        </React.Fragment>
+                    ))}
+                </>
+            );
+        }
+
+        function MediaCard({ item, place, citiesById }) {
+            const placeId = item.placeId || item.media?.placeId || "";
+            const cityName = place ? (citiesById[place.cityId] || place.cityId) : "-";
+            const placeName = place?.placeName || item.placeName || item.title || item.mediaId || "Content";
+            const avgRate = Number(item.overallRate ?? item.media?.overallRate);
+            const userRate = Number(item.userRate ?? item.rate);
+            const avgText = Number.isFinite(avgRate) ? avgRate.toFixed(2) : "-";
+            const userText = Number.isFinite(userRate) ? userRate.toFixed(1) : "-";
+            const reason = item.matchReason ? (REASON_LABELS[item.matchReason] || item.matchReason) : "";
+            const image = PLACE_IMAGES[placeId] || `https://source.unsplash.com/800x450/?iran,travel,${encodeURIComponent(placeName)}`;
+
+            return (
+                <article className="card card-modern">
+                    <div className="card-image-wrap">
+                        <img className="card-image" src={image} alt={placeName} loading="lazy" />
+                        {reason ? <span className="chip">{reason}</span> : null}
+                    </div>
+                    <div className="card-top">
+                        <h3 className="place-name">{placeName}</h3>
+                        <p className="city-name">{cityName}</p>
+                    </div>
+                    <div className="stats">
+                        <div className="stat">
+                            <span className="label">میانگین</span>
+                            <span className="value">{avgText}</span>
+                        </div>
+                        <div className="stat">
+                            <span className="label">امتیاز کاربر</span>
+                            <span className="value user">{userText}</span>
+                        </div>
+                    </div>
+                </article>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+    </script>
 </body>
 </html>
