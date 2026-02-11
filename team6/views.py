@@ -28,6 +28,7 @@ from .models import WikiArticle, WikiArticleLink
 from django.utils.text import slugify
 from .models import ArticleFollow, ArticleNotification
 import numpy as np
+from django.db import transaction
 
 def sync_internal_links(article):
     """
@@ -193,36 +194,22 @@ class ArticleListView(ListView):
 class ArticleCreateView(CreateView):
     model = WikiArticle
     template_name = 'team6/article_form.html'
-    
-    # لیست فیلدهایی که می‌خواهیم در فرم باشند
     fields = ['title_fa', 'place_name', 'body_fa', 'summary']
-    
-    # اضافه کردن چک لاگین در dispatch
+
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             messages.error(request, "برای ایجاد مقاله باید وارد سیستم شوید.")
-            return redirect('/auth/')  # هدایت به صفحه لاگین سرویس مرکزی
-        return super().dispatch(request, *args, **kwargs)
-
-    # اضافه کردن چک لاگین در dispatch
-    def dispatch(self, request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return redirect('/auth/')  # هدایت به صفحه لاگین سرویس مرکزی
+            return redirect('/auth/')
         return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
         article = form.save(commit=False)
-        tags_input = self.request.POST.get('tags', '').strip()
 
-        if not tags_input:
-            messages.error(self.request, "وارد کردن حداقل یک تگ الزامی است.")
-            return self.form_invalid(form)
-        # پر کردن اطلاعات نویسنده و ویرایشگر
         article.author_user_id = self.request.user.id
         article.last_editor_user_id = self.request.user.id
         article.status = 'published'
-        
-        # دریافت category_id از فرم
+
+        # دسته‌بندی
         category_id = self.request.POST.get('category')
         if category_id:
             try:
@@ -233,98 +220,86 @@ class ArticleCreateView(CreateView):
         else:
             messages.error(self.request, "لطفاً یک دسته‌بندی انتخاب کنید.")
             return self.form_invalid(form)
-        
-        # ساخت slug از عنوان فارسی
-        # ابتدا از عنوان فارسی slug می‌سازیم
+
+        # slug مقاله
         title_slug = slugify(article.place_name, allow_unicode=False)
-        
-        # اگر slug خالی بود یا تکراری بود، از UUID استفاده می‌کنیم
-        if not title_slug or WikiArticle.objects.filter(slug=title_slug).exists():
-            article.slug = str(uuid.uuid4())[:12]
-        else:
-            article.slug = title_slug
-        
-        # ساخت URL مقاله
+        article.slug = title_slug if title_slug and not WikiArticle.objects.filter(slug=title_slug).exists() else str(uuid.uuid4())[:12]
         article.url = f"/team6/article/{article.slug}/"
 
+        # ترجمه انگلیسی
         try:
             article.title_en = GoogleTranslator(source='fa', target='en').translate(article.title_fa)
             article.body_en = GoogleTranslator(source='fa', target='en').translate(article.body_fa)
-            logger.info(f"✅ Translation success for: {article.title_fa}")
-        except Exception as e:
-            logger.warning(f"⚠️ Translation failed: {e}. Using Persian text as fallback.")
-            # اگر ترجمه انجام نشد، پیش‌فرض انگلیسی برابر فارسی باشد
+        except Exception:
             article.title_en = article.title_fa
             article.body_en = article.body_fa
-            
-        # خلاصه متن
-        # article.summary = summarize_text(article.body_fa)
-        # ذخیره مقاله
-        
+
+        # تولید خلاصه و تگ با AI
         try:
             llm = FreeAIService()
-            ai_summary = llm.generate_summary(article.body_fa)
-            # ai_tags = llm.extract_tags(article.body_fa, article.title_fa)
-
-            article.summary = ai_summary
+            
+            # 1️⃣ خلاصه انگلیسی
+            summary_en = llm.generate_summary(article.body_en)
+            
+            # 2️⃣ ترجمه خلاصه به فارسی
+            try:
+                article.summary = GoogleTranslator(source='en', target='fa').translate(summary_en)
+            except Exception:
+                article.summary = summary_en  # اگر ترجمه خراب شد، همان انگلیسی ذخیره شود
+            
             article.save(update_fields=['summary'])
-            # --- ذخیره تگ‌های وارد شده توسط کاربر ---
-            tags_input = self.request.POST.get('tags', '')
-            for tag_name in [t.strip() for t in tags_input.split(',') if t.strip()]:
-                tag, _ = WikiTag.objects.get_or_create(
-                    title_fa=tag_name,
-                    defaults={
-                        'slug': slugify(tag_name),
-                        'title_en': tag_name
-                    }
-                )
+
+            # تگ‌های کاربر
+            user_tags_input = self.request.POST.get('tags', '')
+            user_tags = [t.strip() for t in user_tags_input.split(",") if t.strip()]
+
+            # تگ‌های AI
+            ai_tags = llm.extract_tags(article.body_fa, article.title_fa)
+
+            # ترکیب بدون تکرار
+            all_tags = set(user_tags + ai_tags)
+
+            for tag_name in all_tags:
+                tag_qs = WikiTag.objects.filter(title_fa=tag_name)
+                if tag_qs.exists():
+                    tag = tag_qs.first()
+                else:
+                    tag = WikiTag.objects.create(title_fa=tag_name)
                 article.tags.add(tag)
 
-            # حذف تگ‌های قبلی و اضافه کردن تگ‌های AI
-            # article.tags.clear()
-            # for tag_name in ai_tags:
-            #     tag, _ = WikiTag.objects.get_or_create(
-            #         title_fa=tag_name,
-            #         defaults={'slug': tag_name.replace(' ', '-').replace('‌', '-')[:50],
-            #                 'title_en': tag_name}
-            #     )
-            #     article.tags.add(tag)
-            logger.info("🤖 AI Summary generated successfully.")
+
         except Exception as e:
-            # اگر AI خراب شد، مقاله با خلاصه دستی ذخیره شود
-            print("AI summary/tags error:", e)
-            logger.error(f"❌ AI Service Error: {e}")
-            # messages.warning(self.request, "مقاله ذخیره شد، اما سیستم هوش مصنوعی برای تولید خلاصه در دسترس نبود.")
-        
+            messages.error(self.request, f"خطا در تولید AI: {e}")
+            return self.form_invalid(form)
+
         article.save()
-        
+
+        # لینک داخلی و تاریخچه
         sync_internal_links(article)
         WikiArticleRevision.objects.create(
             article=article,
             revision_no=1,
             body_fa=article.body_fa,
-            body_en=article.body_en,  
+            body_en=article.body_en,
             editor_user_id=self.request.user.id,
             change_note="ایجاد اولیه مقاله"
         )
-        # اضافه کردن پیام موفقیت
+
         messages.success(self.request, f"✅ مقاله '{article.title_fa}' با موفقیت ایجاد شد!")
-        
-        # ریدایرکت به صفحه لیست مقالات
         return redirect('team6:index')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['categories'] = WikiCategory.objects.all()
-        # اضافه کردن لیست مقالات برای لینک‌دهی داخلی
         context['all_articles'] = WikiArticle.objects.filter(status='published').values('title_fa', 'slug')
         return context
-    
+
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
         if 'slug' in form.fields:
             del form.fields['slug']
         return form
+
 
 # ویرایش مقاله
 @login_required
@@ -360,15 +335,19 @@ def edit_article(request, slug):
                 pass
         
         # **تگ‌ها: ساده و بدون سیگنال اضافی**
-        tags_input = request.POST.get('tags', '')
-        if tags_input:
+        tags_input = request.POST.get('tags', None)
+
+        if tags_input is not None:
             tag_names = [t.strip() for t in tags_input.split(",") if t.strip()]
-            article.tags.clear()  # حذف همه
+            
+            # فقط اگر کاربر واقعاً چیزی نوشته، جایگزین کن
+            article.tags.set([])  # ریست ایمن
+            
             for tag_name in tag_names:
                 tag, _ = WikiTag.objects.get_or_create(
                     title_fa=tag_name,
                     defaults={
-                        'slug': tag_name.replace(' ', '-').replace('‌', '-')[:50],
+                        'slug': slugify(tag_name, allow_unicode=True)[:50],
                         'title_en': tag_name
                     }
                 )

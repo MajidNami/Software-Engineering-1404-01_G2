@@ -4,6 +4,10 @@ from django.dispatch import receiver
 from .models import WikiArticle, WikiTag, ArticleFollow, ArticleNotification
 import threading
 import time
+from .services.llm_service import FreeAIService
+from django.utils.text import slugify
+import uuid
+from django.db import transaction
 
 # کش برای ذخیره old values
 _article_old_cache = {}
@@ -33,13 +37,27 @@ def generate_ai_content(article):
     except Exception as e:
         print(f"⚠️ خطا در تولید AI: {e}")
 
-@receiver(post_save, sender=WikiArticle)
-def handle_new_article(sender, instance, created, **kwargs):
-    """هنگام ایجاد مقاله جدید"""
-    if created and instance.body_fa:
-        thread = threading.Thread(target=generate_ai_content, args=(instance,))
-        thread.daemon = True
-        thread.start()
+# @receiver(post_save, sender=WikiArticle)
+# def handle_new_article(sender, instance, created, **kwargs):
+#     if created and instance.body_fa:
+#         def generate_ai():
+#             llm = FreeAIService()
+#             instance.summary = llm.generate_summary(instance.body_fa)
+#             instance.save(update_fields=['summary'])
+
+#             tags_list = llm.extract_tags(instance.body_fa, instance.title_fa)
+#             for tag_name in tags_list:
+#                 tag_name = tag_name.strip()
+#                 if not tag_name:
+#                     continue
+#                 with transaction.atomic():
+#                     tag_qs = WikiTag.objects.filter(title_fa=tag_name)
+#                     if tag_qs.exists():
+#                         tag = tag_qs.first()
+#                     else:
+#                         tag = WikiTag.objects.create(title_fa=tag_name)
+#                     instance.tags.add(tag)
+#         threading.Thread(target=generate_ai, daemon=True).start()
 
 @receiver(pre_save, sender=WikiArticle)
 def capture_real_old_state(sender, instance, **kwargs):
@@ -67,8 +85,6 @@ def capture_real_old_state(sender, instance, **kwargs):
                         'featured_image_url': row[3],
                         'timestamp': time.time()
                     }
-                    print(f"📝 وضعیت REAL قدیمی ذخیره شد برای مقاله: {instance.title_fa}")
-                    print(f"   Body from DB: {len(row[0] or '')} chars")
         except Exception as e:
             print(f"⚠️ خطا در ذخیره وضعیت قدیمی REAL: {e}")
 
@@ -78,19 +94,13 @@ def simple_notify_article_change(sender, instance, created, **kwargs):
     if created:
         return
     
-    print(f"🔔 بررسی تغییرات برای مقاله: {instance.title_fa}")
-    print(f"   Current body: {len(instance.body_fa)} chars")
-    
     # دریافت وضعیت قدیمی REAL
     old_state = None
     if instance.pk in _article_old_cache:
         old_state = _article_old_cache.pop(instance.pk)
     
     if not old_state:
-        print("❌ وضعیت REAL قدیمی پیدا نشد در cache")
         return
-    
-    print(f"   Old body from cache: {len(old_state['body_fa'])} chars")
     
     # بررسی تغییرات با دقت
     body_changed = old_state['body_fa'] != instance.body_fa
@@ -98,15 +108,8 @@ def simple_notify_article_change(sender, instance, created, **kwargs):
     category_changed = old_state['category_id'] != instance.category_id
     image_changed = old_state['featured_image_url'] != instance.featured_image_url
     
-    print(f"📊 تغییرات شناسایی شده:")
-    print(f"  - متن: {body_changed} ({len(old_state['body_fa'])} -> {len(instance.body_fa)})")
-    print(f"  - عنوان: {title_changed}")
-    print(f"  - دسته‌بندی: {category_changed}")
-    print(f"  - تصویر: {image_changed}")
-    
     # اگر هیچ تغییر مهمی نبود، خروج
     if not (body_changed or title_changed or category_changed or image_changed):
-        print("ℹ️ هیچ تغییر قابل توجهی نیست")
         return
     
     # **ایجاد پیام دقیق بر اساس نوع تغییر**
@@ -139,8 +142,6 @@ def simple_notify_article_change(sender, instance, created, **kwargs):
         changes_text = "، ".join(changes_list)
         message = f"مقاله '{instance.title_fa}' در بخش‌های {changes_text} ویرایش شد."
     
-    print(f"✅ تغییر شناسایی شد! ایجاد اعلان: {message}")
-    
     # پیدا کردن دنبال‌کنندگان
     try:
         followers = ArticleFollow.objects.filter(
@@ -149,7 +150,6 @@ def simple_notify_article_change(sender, instance, created, **kwargs):
         )
         
         if not followers.exists():
-            print("ℹ️ هیچ دنبال‌کننده‌ای ندارد")
             return
         
         # ایجاد اعلان برای همه دنبال‌کنندگان
@@ -176,9 +176,6 @@ def simple_notify_article_change(sender, instance, created, **kwargs):
             )
             notification_count += 1
         
-        print(f"✅ {notification_count} اعلان ارسال شد")
-        
     except Exception as e:
-        print(f"⚠️ خطا در ارسال اعلان: {e}")
         import traceback
         traceback.print_exc()

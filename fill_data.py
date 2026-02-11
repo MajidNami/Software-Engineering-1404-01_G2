@@ -4,6 +4,7 @@ import uuid
 import re
 from django.utils.text import slugify
 from django.utils.timezone import now
+from deep_translator import GoogleTranslator
 
 # ۱. تنظیمات اولیه جنگو
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'app404.settings')
@@ -11,9 +12,10 @@ django.setup()
 
 import wikipediaapi
 from team6.models import (
-    WikiArticle, WikiCategory, WikiTag, 
+    WikiArticle, WikiCategory, WikiTag,
     WikiArticleLink, WikiArticleRef, WikiArticleRevision
 )
+
 
 def run_advanced_seeder():
     wiki_fa = wikipediaapi.Wikipedia(
@@ -21,7 +23,6 @@ def run_advanced_seeder():
         language='fa'
     )
 
-    # ۲. ساختار سلسله‌مراتبی اصفهان
     isfahan_categories = {
         "استان اصفهان": {"title": "استان اصفهان", "parent": None},
         "شهرهای استان اصفهان": {"title": "شهرها و بخش‌ها", "parent": "استان اصفهان"},
@@ -32,16 +33,17 @@ def run_advanced_seeder():
         "باغ‌های استان اصفهان": {"title": "باغ‌ها و تفرجگاه‌ها", "parent": "جاذبه‌های گردشگری اصفهان"},
     }
 
-    print("🚀 شروع فرآیند جامع استخراج داده...")
+    print("🚀 شروع فرآیند استخراج داده...")
 
-    # ذخیره موقت آیدی مقالات برای ایجاد لینک‌های داخلی در گام دوم
-    processed_articles = {} 
+    processed_articles = {}
 
     for wiki_cat_name, info in isfahan_categories.items():
-        # ۳. مدیریت دسته‌بندی‌ها
+
         parent_obj = None
         if info['parent']:
-            parent_obj = WikiCategory.objects.using('team6').filter(slug=slugify(info['parent'], allow_unicode=True)).first()
+            parent_obj = WikiCategory.objects.using('team6').filter(
+                slug=slugify(info['parent'], allow_unicode=True)
+            ).first()
 
         db_cat, _ = WikiCategory.objects.using('team6').get_or_create(
             slug=slugify(wiki_cat_name, allow_unicode=True),
@@ -49,17 +51,18 @@ def run_advanced_seeder():
         )
 
         cat_page = wiki_fa.page(f"Category:{wiki_cat_name}")
-        if not cat_page.exists(): continue
+        if not cat_page.exists():
+            continue
 
-        # استخراج مقالات (محدود به ۱۵ مورد برای هر رده جهت تست اولیه)
-        members = [p for p in cat_page.categorymembers.values() if p.ns == wikipediaapi.Namespace.MAIN][:15]
+        members = [
+            p for p in cat_page.categorymembers.values()
+            if p.ns == wikipediaapi.Namespace.MAIN
+        ][:15]
 
         for page in members:
             try:
-                # ۴. استخراج اطلاعات انگلیسی (اگر باشد)
                 en_title = page.langlinks['en'].title if 'en' in page.langlinks else None
-                
-                # ۵. ایجاد یا بروزرسانی مقاله اصلی
+
                 article, created = WikiArticle.objects.using('team6').update_or_create(
                     url=page.fullurl,
                     defaults={
@@ -75,9 +78,34 @@ def run_advanced_seeder():
                         'view_count': 0
                     }
                 )
+
+                # ✅ ترجمه فقط اگر وجود نداشته باشد
+                updated_fields = []
+
+                if not article.title_en:
+                    try:
+                        article.title_en = GoogleTranslator(
+                            source='fa', target='en'
+                        ).translate(article.title_fa)
+                    except Exception:
+                        article.title_en = article.title_fa
+                    updated_fields.append('title_en')
+
+                if not article.body_en:
+                    try:
+                        article.body_en = GoogleTranslator(
+                            source='fa', target='en'
+                        ).translate(article.body_fa[:4000])  # محدودیت طول
+                    except Exception:
+                        article.body_en = article.body_fa
+                    updated_fields.append('body_en')
+
+                if updated_fields:
+                    article.save(using='team6', update_fields=updated_fields)
+
                 processed_articles[page.title] = article
 
-                # ۶. پر کردن جدول Revision (تاریخچه نسخه اول)
+                # ✅ ساخت نسخه اولیه اگر وجود نداشت
                 WikiArticleRevision.objects.using('team6').get_or_create(
                     article=article,
                     revision_no=1,
@@ -86,3 +114,14 @@ def run_advanced_seeder():
                         'change_note': 'Initial import from Wikipedia'
                     }
                 )
+
+                print(f"✅ پردازش شد: {page.title}")
+
+            except Exception as e:
+                print(f"❌ خطا در پردازش {page.title}: {e}")
+
+    print("🎉 فرآیند با موفقیت پایان یافت.")
+
+
+if __name__ == "__main__":
+    run_advanced_seeder()
