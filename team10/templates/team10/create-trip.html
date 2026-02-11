@@ -236,7 +236,7 @@
             data.preferences = formData.getAll('preferences');
 
             try {
-                const response = await fetch('/team10/create-trip/', {
+                const response = await fetch('/team10/api/trips/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -252,7 +252,7 @@
                         <p class="success-message">سفر با موفقیت ایجاد شد!</p>
                         <p>شناسه سفر: <strong>${result.trip_id || '—'}</strong></p>
                         <p>وضعیت: ${result.status === 'DRAFT' ? 'پیش‌نویس' : result.status}</p>
-                        <a href="/team10/trip/${result.trip_id || ''}" class="btn btn-login">مشاهده برنامه سفر</a>
+                        <button class="btn btn-login" onclick="viewTripDetails(${result.trip_id})">مشاهده برنامه سفر</button>
                     `;
                 } else {
                     resultContent.innerHTML = `<p class="error-message">خطا: ${result.error || 'مشکلی پیش آمد'}</p>`;
@@ -265,6 +265,39 @@
                 submitBtn.disabled = false;
             }
         });
+
+        // Function to view trip details
+        async function viewTripDetails(tripId) {
+            try {
+                const response = await fetch(`/team10/api/trips/${tripId}/`);
+                const trip = await response.json();
+
+                if (response.ok) {
+                    let detailsHtml = `
+                        <h3>جزئیات سفر به ${trip.destination}</h3>
+                        <p><strong>تاریخ:</strong> ${new Date(trip.start_date).toLocaleDateString('fa-IR')} تا ${new Date(trip.end_date).toLocaleDateString('fa-IR')}</p>
+                        <p><strong>بودجه:</strong> ${trip.budget ? trip.budget.toLocaleString() + ' تومان' : 'نامشخص'}</p>
+                        <p><strong>هزینه کل:</strong> ${trip.total_cost.toLocaleString()} تومان</p>
+                        <p><strong>تعداد مسافران:</strong> ${trip.travelers_count} نفر</p>
+
+                        <h4>برنامه روزانه:</h4>
+                        <ul style="text-align: right; list-style: none;">
+                    `;
+
+                    trip.daily_plans.forEach(plan => {
+                        const startTime = new Date(plan.start_at).toLocaleTimeString('fa-IR', {hour: '2-digit', minute: '2-digit'});
+                        detailsHtml += `<li>⏰ ${startTime} - ${plan.description} (${plan.cost.toLocaleString()} تومان)</li>`;
+                    });
+
+                    detailsHtml += '</ul>';
+                    resultContent.innerHTML = detailsHtml;
+                } else {
+                    resultContent.innerHTML = `<p class="error-message">خطا در دریافت اطلاعات سفر</p>`;
+                }
+            } catch (err) {
+                resultContent.innerHTML = `<p class="error-message">خطا در اتصال به سرور</p>`;
+            }
+        }
     </script>
 
 </body>
