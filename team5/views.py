@@ -229,6 +229,7 @@ def get_user_ratings(request, user_id: str):
     ratings = recommendation_service.get_user_ratings(user_id=user_id)
     return JsonResponse({"userId": user_id, "count": len(ratings), "items": ratings})
 
+@csrf_exempt
 @require_POST
 def train(request):
     trained = recommendation_service.train()

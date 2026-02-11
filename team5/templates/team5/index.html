@@ -194,7 +194,13 @@
           const endpoint = api("/team5/api/train");
           try {
             const res = await fetch(endpoint, { method: "POST", credentials: "same-origin" });
-            const payload = await res.json();
+            const raw = await res.text();
+            let payload;
+            try {
+              payload = JSON.parse(raw);
+            } catch (_) {
+              throw new Error(`Non-JSON response: ${raw.slice(0, 140)}`);
+            }
             const statusRes = await fetch(api("/team5/api/ml/status"), { credentials: "same-origin" });
             const statusPayload = await statusRes.json();
             setTrainingMessage(`Train: ${payload.trained ? "OK" : "FAILED"} | modelsReady=${statusPayload.modelsReady} | mediaSamples=${statusPayload.mediaRatingsSamples}`);

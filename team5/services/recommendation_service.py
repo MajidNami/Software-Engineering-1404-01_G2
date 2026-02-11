@@ -15,8 +15,7 @@ from .data_provider import DataProvider
 from team5.models import Team5MediaRating
 
 try:
-    from .ml.recommender_model import RecommenderModel
-    from team5.exceptions.not_trained_yet_exception import NotTrainedYetException
+    from .ml.recommender_model import RecommenderModel, NotTrainedYetException
 except Exception:  # pragma: no cover - optional ML dependencies
     RecommenderModel = None
 
@@ -56,8 +55,15 @@ class RecommendationService:
             and float(item["overallRate"]) >= self.popular_min_overall_rate
             and int(item["ratingsCount"]) >= self.popular_min_votes
         ]
-        filtered.sort(key=lambda item: (float(item["overallRate"]), int(item["ratingsCount"])), reverse=True)
-        return filtered[:limit]
+        if filtered:
+            filtered.sort(key=lambda item: (float(item["overallRate"]), int(item["ratingsCount"])), reverse=True)
+            return filtered[:limit]
+
+        fallback = [item for item in media if item["mediaId"] not in excluded]
+        fallback.sort(key=lambda item: (float(item["overallRate"]), int(item["ratingsCount"])), reverse=True)
+        for item in fallback:
+            item["matchReason"] = "popular_fallback"
+        return fallback[:limit]
 
     def get_nearest_by_city(
         self,
