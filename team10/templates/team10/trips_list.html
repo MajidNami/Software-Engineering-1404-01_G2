@@ -31,10 +31,10 @@
                                 <span class="value">{{ trip.total_cost }}</span>
                             </div>
                         {% endif %}
-                        {% if trip.budget %}
+                        {% if trip.requirements.budget_level %}
                             <div class="detail-item">
-                                <span class="label">بودجه:</span>
-                                <span class="value">{{ trip.budget }}</span>
+                                <span class="label">سطح بودجه:</span>
+                                <span class="value">{{ trip.requirements.get_budget_level_display }}</span>
                             </div>
                         {% endif %}
                     </div>

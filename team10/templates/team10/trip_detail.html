@@ -35,8 +35,8 @@
                     <span class="value">{{ trip.people }}</span>
                 </div>
                 <div class="info-item">
-                    <span class="label">بودجه</span>
-                    <span class="value">{{ trip.budget|default:"—" }}</span>
+                    <span class="label">سطح بودجه</span>
+                    <span class="value">{{ trip.requirements.get_budget_level_display|default:"—" }}</span>
                 </div>
                 <div class="info-item">
                     <span class="label">هزینه کل</span>

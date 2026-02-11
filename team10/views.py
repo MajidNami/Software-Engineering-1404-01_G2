@@ -61,7 +61,7 @@ def _safe_trips_queryset(request):
     """دریافت سفرهای ایمن بر اساس احراز هویت کاربر"""
     qs = Trip.objects.all().order_by("-created_at")
     if request.user.is_authenticated:
-        qs = qs.filter(user=request.user).order_by("-created_at")
+        qs = qs.filter(user_id=request.user.id).order_by("-created_at")
     return qs
 
 
@@ -74,7 +74,7 @@ def _mock_trips() -> list[dict]:
             "origin_name": "تهران",
             "days": 4,
             "start_at_jalali": "1404-11-20",
-            "budget": 15000000,
+            "budget_level": "ECONOMY",
             "total_cost": 13200000,
             "status": "draft",
             "status_fa": "پیش‌نویس",
@@ -85,7 +85,7 @@ def _mock_trips() -> list[dict]:
             "origin_name": "تهران",
             "days": 3,
             "start_at_jalali": "1404-12-02",
-            "budget": 12000000,
+            "budget_level": "MODERATE",
             "total_cost": None,
             "status": "active",
             "status_fa": "فعال",
@@ -103,8 +103,13 @@ def home(request):
         days_raw = (request.POST.get("days") or "").strip()
         start_at_raw = (request.POST.get("start_at") or "").strip()
         people_raw = (request.POST.get("people") or "1").strip()
-        budget_raw = (request.POST.get("budget") or "").strip()
+        budget_level = (request.POST.get("budget_level") or "MODERATE").strip()
         styles_selected = request.POST.getlist("styles")
+
+        # Validate budget_level
+        valid_budget_levels = ['ECONOMY', 'MODERATE', 'LUXURY']
+        if budget_level not in valid_budget_levels:
+            budget_level = 'MODERATE'
 
         # ---- Validation
         if not origin:
@@ -136,21 +141,14 @@ def home(request):
             except ValueError:
                 people = 1
 
-            budget = None
-            if budget_raw:
-                try:
-                    budget = int(_to_en_digits(budget_raw))
-                except ValueError:
-                    budget = None
-
             try:
                 trip = Trip.objects.create(
-                    user=request.user if request.user.is_authenticated else None,
+                    user_id=request.user.id if request.user.is_authenticated else 0,
                     destination_name=destination,
                     origin_name=origin,
                     days=days,
                     people=people,
-                    budget=budget,
+                    budget_level=budget_level,
                     start_at=start_at,
                     styles=styles_selected,
                     status=Trip.Status.DRAFT,
@@ -173,7 +171,7 @@ def home(request):
                     "destination_name": t.destination_name,
                     "origin_name": t.origin_name,
                     "days": t.days,
-                    "budget": t.budget,
+                    "budget_level": t.budget_level,
                     "total_cost": t.total_cost,
                     "status": t.status,
                     "status_fa": t.get_status_display(),
@@ -296,8 +294,12 @@ def _parse_trip_form_data(request):
     days_raw = (request.POST.get("days") or "").strip()
     start_at_raw = (request.POST.get("start_at") or "").strip()
     people_raw = (request.POST.get("people") or "1").strip()
-    budget_raw = (request.POST.get("budget") or "").strip()
+    budget_level = (request.POST.get("budget_level") or "MODERATE").strip()
     styles_selected = request.POST.getlist("styles")
+
+    valid_budget_levels = ['ECONOMY', 'MODERATE', 'LUXURY']
+    if budget_level not in valid_budget_levels:
+        budget_level = 'MODERATE'
 
     try:
         people = int(_to_en_digits(people_raw))
@@ -306,20 +308,13 @@ def _parse_trip_form_data(request):
     except ValueError:
         people = 1
 
-    budget = None
-    if budget_raw:
-        try:
-            budget = int(_to_en_digits(budget_raw))
-        except ValueError:
-            budget = None
-
     return {
         "destination": destination,
         "origin": origin,
         "days_raw": days_raw,
         "start_at_raw": start_at_raw,
         "people": people,
-        "budget": budget,
+        "budget_level": budget_level,
         "styles_selected": styles_selected,
     }
 

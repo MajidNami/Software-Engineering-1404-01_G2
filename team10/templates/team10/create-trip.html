@@ -126,10 +126,14 @@
                 </div>
             </div>
 
-            <!-- بودجه تقریبی -->
+            <!-- سطح بودجه -->
             <div class="form-group">
-                <label for="budget">بودجه تقریبی کل سفر (به تومان)</label>
-                <input type="number" id="budget" name="budget" placeholder="مثال: ۱۵۰۰۰۰۰۰" min="1000000">
+                <label for="budget_level">سطح بودجه</label>
+                <select id="budget_level" name="budget_level">
+                    <option value="ECONOMY">اقتصادی</option>
+                    <option value="MODERATE" selected>متوسط</option>
+                    <option value="LUXURY">لوکس</option>
+                </select>
             </div>
 
             <!-- دکمه ارسال -->
@@ -401,7 +405,7 @@
                     let detailsHtml = `
                         <h3>جزئیات سفر به ${trip.destination}</h3>
                         <p><strong>تاریخ:</strong> ${new Date(trip.start_date).toLocaleDateString('fa-IR')} تا ${new Date(trip.end_date).toLocaleDateString('fa-IR')}</p>
-                        <p><strong>بودجه:</strong> ${trip.budget ? trip.budget.toLocaleString() + ' تومان' : 'نامشخص'}</p>
+                        <p><strong>سطح بودجه:</strong> ${{ECONOMY: 'اقتصادی', MODERATE: 'متوسط', LUXURY: 'لوکس'}[trip.budget_level] || trip.budget_level || 'نامشخص'}</p>
                         <p><strong>هزینه کل:</strong> ${trip.total_cost.toLocaleString()} تومان</p>
                         <p><strong>تعداد مسافران:</strong> ${trip.travelers_count} نفر</p>
 

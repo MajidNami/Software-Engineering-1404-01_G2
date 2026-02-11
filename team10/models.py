@@ -58,6 +58,7 @@ class Trip(models.Model):
 
     user_id = models.CharField(max_length=255, db_index=True)  # Hash string from central auth
     requirements = models.ForeignKey(TripRequirements, on_delete=models.CASCADE, related_name='trips')
+    destination_name = models.CharField(max_length=200, default='')
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='DRAFT')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
