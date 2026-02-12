@@ -91,12 +91,12 @@ class TripService:
     def search_trips(query: str) -> List[Trip]:
         """Search trips by title, province, or city"""
         return list(TripRepository.search(query))
-    
+
     @staticmethod
     def calculate_trip_cost_breakdown(trip_id: int) -> Optional[Dict[str, Any]]:
         """
         محاسبه هزینه کل و breakdown به تفکیک کتگوری
-        
+
         Returns:
         {
             "total_estimated_cost": Decimal,
@@ -112,49 +112,52 @@ class TripService:
         }
         """
         from django.db.models import Sum, Count
-        
+
         trip = TripRepository.get_by_id(trip_id)
         if not trip:
             return None
-        
+
         # جمع هزینه تمام آیتم‌ها
         items = TripItem.objects.filter(day__trip=trip)
-        total = items.aggregate(Sum('estimated_cost'))['estimated_cost__sum'] or Decimal('0.00')
-        
+        total = items.aggregate(Sum('estimated_cost'))[
+            'estimated_cost__sum'] or Decimal('0.00')
+
         # Breakdown by category
         breakdown_query = items.values('category').annotate(
             amount=Sum('estimated_cost'),
             count=Count('item_id')
         )
-        
+
         breakdown_by_category = {}
         for item in breakdown_query:
             category = item['category'] or 'OTHER'
             amount = item['amount'] or Decimal('0.00')
             percentage = float((amount / total * 100) if total > 0 else 0)
-            
+
             breakdown_by_category[category] = {
                 "amount": float(amount),
                 "percentage": round(percentage, 2),
                 "count": item['count']
             }
-        
+
         # Breakdown by day
-        day_breakdown_query = TripDay.objects.filter(trip=trip).prefetch_related('items')
+        day_breakdown_query = TripDay.objects.filter(
+            trip=trip).prefetch_related('items')
         breakdown_by_day = []
-        
+
         for day in day_breakdown_query:
-            day_cost = day.items.aggregate(Sum('estimated_cost'))['estimated_cost__sum'] or Decimal('0.00')
+            day_cost = day.items.aggregate(Sum('estimated_cost'))[
+                'estimated_cost__sum'] or Decimal('0.00')
             breakdown_by_day.append({
                 "day_index": day.day_index,
                 "date": day.specific_date.isoformat(),
                 "cost": float(day_cost)
             })
-        
+
         # Update Trip model total
         trip.total_estimated_cost = total
         trip.save(update_fields=['total_estimated_cost'])
-        
+
         return {
             "total_estimated_cost": float(total),
             "breakdown_by_category": breakdown_by_category,
@@ -228,7 +231,7 @@ class TripItemService:
     def update_item(item_id: int, data: Dict[str, Any]) -> Optional[TripItem]:
         """Update a trip item with time validation"""
         from .helpers import validate_time_reschedule
-        
+
         item = TripItemRepository.get_by_id(item_id)
         if not item:
             return None
@@ -236,14 +239,14 @@ class TripItemService:
         # If updating time, validate the change
         new_start_time = data.get('start_time')
         new_end_time = data.get('end_time')
-        
+
         if new_start_time or new_end_time:
             validation_result = validate_time_reschedule(
                 item=item,
                 new_start_time=new_start_time,
                 new_end_time=new_end_time
             )
-            
+
             if not validation_result['valid']:
                 raise ValueError(validation_result['error'])
 

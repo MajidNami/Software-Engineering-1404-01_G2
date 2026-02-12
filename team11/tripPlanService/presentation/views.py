@@ -274,18 +274,18 @@ class TripViewSet(viewsets.ViewSet):
                 {"error": f"PDF generation failed: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-    
+
     @action(detail=True, methods=['get'])
     def cost_breakdown(self, request, pk=None):
         """
         GET /api/trips/{id}/cost_breakdown/ - Get cost breakdown
-        
+
         Returns detailed cost analysis:
         - Total estimated cost
         - Breakdown by category (DINING, STAY, etc.)
         - Breakdown by day
         - Category percentages
-        
+
         Example response:
         {
             "total_estimated_cost": 2500000.00,
@@ -301,13 +301,13 @@ class TripViewSet(viewsets.ViewSet):
         }
         """
         breakdown = TripService.calculate_trip_cost_breakdown(int(pk))
-        
+
         if not breakdown:
             return Response(
                 {"error": "Trip not found"},
                 status=status.HTTP_404_NOT_FOUND
             )
-        
+
         return Response(breakdown)
 
 

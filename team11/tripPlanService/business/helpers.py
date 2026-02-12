@@ -135,7 +135,8 @@ class AlternativesProvider:
         )
 
         # 3. حذف مکان اصلی از لیست
-        alternatives = [p for p in alternatives if p['id'] != original_place_id]
+        alternatives = [
+            p for p in alternatives if p['id'] != original_place_id]
 
         # 4. رتبه‌بندی بر اساس فاصله از مکان اصلی
         if original and 'lat' in original and 'lng' in original:
@@ -185,7 +186,7 @@ class AvailabilityChecker:
     """
     چک کردن availability مکان‌ها
     """
-    
+
     def __init__(self):
         if EXTERNAL_SERVICES_AVAILABLE:
             self.facility_client = FacilityClient()
@@ -227,18 +228,18 @@ class AvailabilityChecker:
 def validate_time_reschedule(item, new_start_time=None, new_end_time=None):
     """
     Validate if an item can be rescheduled to new time slot.
-    
+
     Checks:
     1. Item is not locked
     2. Item is not in the past
     3. Place is available at new time
     4. Time constraints (15-minute intervals, minimum 60 minutes)
-    
+
     Args:
         item: TripItem instance
         new_start_time: New start time (None = keep current)
         new_end_time: New end time (None = keep current)
-    
+
     Returns:
         {
             "valid": bool,
@@ -247,11 +248,11 @@ def validate_time_reschedule(item, new_start_time=None, new_end_time=None):
         }
     """
     from datetime import datetime, timedelta, date
-    
+
     # Use existing times if not changing
     start = new_start_time or item.start_time
     end = new_end_time or item.end_time
-    
+
     # Check 1: Is locked?
     if item.is_locked:
         return {
@@ -259,7 +260,7 @@ def validate_time_reschedule(item, new_start_time=None, new_end_time=None):
             "error": "این آیتم قفل شده است و نمی‌توان زمان آن را تغییر داد",
             "availability": {}
         }
-    
+
     # Check 2: Is past event?
     event_datetime = datetime.combine(item.day.specific_date, end)
     if event_datetime < datetime.now():
@@ -268,7 +269,7 @@ def validate_time_reschedule(item, new_start_time=None, new_end_time=None):
             "error": "نمی‌توان زمان آیتم‌های گذشته را تغییر داد",
             "availability": {}
         }
-    
+
     # Check 3: Time constraints (15-minute intervals)
     if start.minute % 15 != 0 or end.minute % 15 != 0:
         return {
@@ -276,19 +277,19 @@ def validate_time_reschedule(item, new_start_time=None, new_end_time=None):
             "error": "زمان باید مضرب 15 دقیقه باشد",
             "availability": {}
         }
-    
+
     # Check 4: Minimum duration (60 minutes)
     start_dt = datetime.combine(date.today(), start)
     end_dt = datetime.combine(date.today(), end)
     duration_minutes = (end_dt - start_dt).total_seconds() / 60
-    
+
     if duration_minutes < 60:
         return {
             "valid": False,
             "error": "مدت زمان حداقل باید 60 دقیقه باشد",
             "availability": {}
         }
-    
+
     # Check 5: Place availability
     # TODO: Integration with Mohammad Hossein's Facility Service
     # When ready, use the actual AvailabilityChecker class above
@@ -297,7 +298,7 @@ def validate_time_reschedule(item, new_start_time=None, new_end_time=None):
         "reason": "",
         "suggested_times": []
     }
-    
+
     # Uncomment when Facility Service is ready:
     # checker = AvailabilityChecker()
     # availability = checker.check_place_availability(
@@ -306,14 +307,14 @@ def validate_time_reschedule(item, new_start_time=None, new_end_time=None):
     #     start_time=start.isoformat(),
     #     end_time=end.isoformat()
     # )
-    
+
     if not availability.get("is_available", True):
         return {
             "valid": False,
             "error": f"مکان در این بازه زمانی بسته است. {availability.get('reason', '')}",
             "availability": availability
         }
-    
+
     return {
         "valid": True,
         "error": "",
