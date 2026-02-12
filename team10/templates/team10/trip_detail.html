@@ -95,6 +95,15 @@
                 </div>
             </div>
         </div>
+        
+        {% if trip.destination_info %}
+          <section class="t10-card t10-destination-description">
+            <h3 class="t10-section-title">درباره مقصد</h3>
+            <div class="t10-description-content">
+              {{ destination_info|linebreaks }}
+            </div>
+          </section>
+        {% endif %}
 
   <section class="t10-card">
     <h3>برنامه روزانه</h3>
