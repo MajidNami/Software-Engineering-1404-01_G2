@@ -70,11 +70,24 @@ class Trip(models.Model):
         return f"Trip {self.id} - User {self.user_id} ({self.status})"
 
     def calculate_total_cost(self):
-        """Calculate total cost of the trip."""
+        """Calculate total cost of the trip including activities, hotels, and transportation."""
         daily_cost = sum(plan.cost for plan in self.daily_plans.all())
         hotel_cost = sum(schedule.cost for schedule in self.hotel_schedules.all())
         transfer_cost = sum(transfer.cost for transfer in self.transfer_plans.all())
         return daily_cost + hotel_cost + transfer_cost
+
+    def get_cost_breakdown(self):
+        """Get detailed cost breakdown by category."""
+        daily_cost = sum(plan.cost for plan in self.daily_plans.all())
+        hotel_cost = sum(schedule.cost for schedule in self.hotel_schedules.all())
+        transfer_cost = sum(transfer.cost for transfer in self.transfer_plans.all())
+        
+        return {
+            'activities': float(daily_cost),
+            'hotels': float(hotel_cost),
+            'transportation': float(transfer_cost),
+            'total': float(daily_cost + hotel_cost + transfer_cost)
+        }
 
 
 class DailyPlan(models.Model):

@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, date
 from typing import List, Optional, Tuple, Dict, Any
 from dataclasses import dataclass
 
+from django.db import transaction
 from django.db.models import Q
 
 from ...models import Trip as TripModel, TripRequirements as TripRequirementsModel, PreferenceConstraint as PreferenceConstraintModel
@@ -70,12 +71,22 @@ class TripPlanningServiceImpl(TripPlanningService):
         Args:
             requirements_data: Dictionary containing trip requirements
             user_id: Hash string ID of the user from central auth system
+        
+        Returns:
+            The created Trip model
+            
+        Raises:
+            ValueError: If region not found or other validation errors
+            
+        Note:
+            This method uses database transactions. If any step fails,
+            all database changes are rolled back automatically.
         """
         # Parse dates
         start_date = datetime.fromisoformat(requirements_data['start_date'])
         end_date = datetime.fromisoformat(requirements_data['end_date'])
 
-        # Search region via facilities service
+        # Search region via facilities service (done outside transaction - read-only external call)
         destination_query = requirements_data['destination']
         region = self._facilities_service.search_region(destination_query)
         if region is None:
@@ -84,7 +95,7 @@ class TripPlanningServiceImpl(TripPlanningService):
         # Calculate season based on start date (Iran calendar)
         season = calculate_season_iran(start_date)
 
-        # Get recommended places from recommender service
+        # Get recommended places from recommender service (done outside transaction - external call)
         recommended_places = self._recommendation_service.get_recommendations(
             user_id=user_id,
             region_id=region.id,
@@ -95,43 +106,45 @@ class TripPlanningServiceImpl(TripPlanningService):
         budget_level = requirements_data.get('budget_level', 'MODERATE')
         preferences = requirements_data.get('preferences', [])
 
-        # Create TripRequirements
-        requirements = TripRequirementsModel.objects.create(
-            user_id=user_id,
-            start_at=start_date,
-            end_at=end_date,
-            destination_name=region.name,
-            region_id=region.id,
-            budget_level=budget_level,
-            travelers_count=requirements_data.get('travelers_count', 1)
-        )
-
-        # Create preference constraints
-        for pref in preferences:
-            PreferenceConstraintModel.objects.create(
-                requirements=requirements,
-                description=self._get_preference_description(pref),
-                tag=pref
+        # Use transaction to ensure atomicity - if any step fails, everything rolls back
+        with transaction.atomic(using='team10'):
+            # Create TripRequirements
+            requirements = TripRequirementsModel.objects.create(
+                user_id=user_id,
+                start_at=start_date,
+                end_at=end_date,
+                destination_name=region.name,
+                region_id=region.id,
+                budget_level=budget_level,
+                travelers_count=requirements_data.get('travelers_count', 1)
             )
 
-        # Create Trip
-        trip = TripModel.objects.create(
-            user_id=user_id,
-            requirements=requirements,
-            destination_name=region.name,
-            status='DRAFT'
-        )
+            # Create preference constraints
+            for pref in preferences:
+                PreferenceConstraintModel.objects.create(
+                    requirements=requirements,
+                    description=self._get_preference_description(pref),
+                    tag=pref
+                )
 
-        # Build the actual daily plan using recommendations
-        self._create_trip_plan(
-            trip=trip,
-            start_date=start_date,
-            end_date=end_date,
-            region_id=region.id,
-            budget_level=budget_level,
-            preferences=preferences,
-            recommended_places=recommended_places
-        )
+            # Create Trip
+            trip = TripModel.objects.create(
+                user_id=user_id,
+                requirements=requirements,
+                destination_name=region.name,
+                status='DRAFT'
+            )
+
+            # Build the actual daily plan using recommendations
+            self._create_trip_plan(
+                trip=trip,
+                start_date=start_date,
+                end_date=end_date,
+                region_id=region.id,
+                budget_level=budget_level,
+                preferences=preferences,
+                recommended_places=recommended_places
+            )
 
         print(f"[TripPlanning] User_id: {user_id}")
         print(f"[TripPlanning] Region: {region.name} (id={region.id})")
@@ -722,23 +735,15 @@ class TripPlanningServiceImpl(TripPlanningService):
         return 'SIGHTSEEING'
 
     def regenerate_by_styles(self, trip_id: int, styles: List[str]) -> Trip:
-        """Regenerate a trip with different styles/preferences."""
+        """Regenerate a trip with different styles/preferences.
+        
+        Note:
+            This method uses database transactions. If any step fails,
+            all database changes are rolled back automatically.
+        """
         trip = TripModel.objects.get(id=trip_id)
 
-        # Clear existing plans
-        trip.daily_plans.all().delete()
-        trip.hotel_schedules.all().delete()
-
-        # Update preferences
-        trip.requirements.constraints.all().delete()
-        for style in styles:
-            PreferenceConstraintModel.objects.create(
-                requirements=trip.requirements,
-                description=self._get_preference_description(style),
-                tag=style
-            )
-
-        # Get region and recommendations for regeneration
+        # Get region and recommendations for regeneration (outside transaction - external calls)
         region_id = trip.requirements.region_id
         season = calculate_season_iran(trip.requirements.start_at)
         
@@ -749,19 +754,35 @@ class TripPlanningServiceImpl(TripPlanningService):
             season=season
         )
 
-        # Regenerate plan with new styles
-        self._create_trip_plan(
-            trip=trip,
-            start_date=trip.requirements.start_at,
-            end_date=trip.requirements.end_at,
-            region_id=region_id,
-            budget_level=trip.requirements.budget_level,
-            preferences=styles,
-            recommended_places=recommended_places
-        )
+        # Use transaction to ensure atomicity
+        with transaction.atomic(using='team10'):
+            # Clear existing plans (including transfer plans)
+            trip.daily_plans.all().delete()
+            trip.hotel_schedules.all().delete()
+            trip.transfer_plans.all().delete()
 
-        trip.updated_at = datetime.now()
-        trip.save()
+            # Update preferences
+            trip.requirements.constraints.all().delete()
+            for style in styles:
+                PreferenceConstraintModel.objects.create(
+                    requirements=trip.requirements,
+                    description=self._get_preference_description(style),
+                    tag=style
+                )
+
+            # Regenerate plan with new styles
+            self._create_trip_plan(
+                trip=trip,
+                start_date=trip.requirements.start_at,
+                end_date=trip.requirements.end_at,
+                region_id=region_id,
+                budget_level=trip.requirements.budget_level,
+                preferences=styles,
+                recommended_places=recommended_places
+            )
+
+            trip.updated_at = datetime.now()
+            trip.save()
 
         return trip
 

@@ -89,7 +89,7 @@
     <div class="t10-day-card">
       <div class="t10-day-header">
         <h4>روز {{ day.day_number }}</h4>
-        <span class="t10-day-date">{{ day.date|date:"Y-m-d" }}</span>
+        <span class="t10-day-date">{{  day.date_jalali }}</span>
       </div>
       
       {% for item in day.activities %}
@@ -163,7 +163,7 @@
       </div>
       <div class="t10-transfer-row">
         <span class="t10-transfer-emoji">📅</span>
-        <span class="t10-transfer-text">بازه اقامت: {{ hotel.start_at|date:"Y-m-d"|default:"-" }} تا {{ hotel.end_at|date:"Y-m-d"|default:"-" }}</span>
+        <span class="t10-transfer-text">بازه اقامت: {{ hotel.start_at_jalali|default:"-" }} تا {{ hotel.end_at_jalali|default:"-" }}</span>
       </div>
     </div>
     {% empty %}

@@ -389,8 +389,23 @@ def trip_detail(request, trip_id: int):
             days_list.append({
                 'day_number': day_num,
                 'date': d,
+                'date_jalali': to_jalali_str(d),
                 'activities': days_grouped[d],
             })
+        
+        # Convert hotel dates to Jalali
+        hotel_schedules = []
+        for hotel in trip.hotel_schedules.all():
+            hotel_schedules.append({
+                'hotel_id': hotel.hotel_id,
+                'rooms_count': hotel.rooms_count,
+                'cost': hotel.cost,
+                'start_at_jalali': to_jalali_str(hotel.start_at.date() if hotel.start_at else None),
+                'end_at_jalali': to_jalali_str(hotel.end_at.date() if hotel.end_at else None),
+            })
+        
+        # Convert trip start date to Jalali
+        start_at_jalali = to_jalali_str(req.start_at.date() if req.start_at else None)
         
         return render(
             request,
@@ -400,7 +415,8 @@ def trip_detail(request, trip_id: int):
                 "days_count": days_count,
                 "total_cost": trip.calculate_total_cost(),
                 "days_list": days_list,
-                "hotel_schedules": trip.hotel_schedules.all(),
+                "hotel_schedules": hotel_schedules,
+                "start_at_jalali": start_at_jalali,
             },
         )
     except OperationalError:
@@ -619,4 +635,4 @@ def base(request):
 
 @team10_login_required
 def create_trip(request):
-    return render(request, f"{TEAM_NAME}/create-trip.html")
+    return render(request, f"{TEAM_NAME}/create_trip.html")
