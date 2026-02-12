@@ -83,6 +83,27 @@
     font-size: 1.3rem;
 }
 
+.t10-celebrate-badge {
+    min-height: 2.1rem;
+    margin: 6px 0 10px;
+    text-align: center;
+    font-size: 1.9rem;
+    line-height: 1;
+    opacity: 0;
+    transform: translateY(4px) scale(0.94);
+    pointer-events: none;
+    user-select: none;
+}
+
+.t10-celebrate-badge.is-visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+.t10-celebrate-badge.is-animating {
+    animation: t10-celebrate-pop 1.5s ease-out;
+}
+
 .error-message {
     color: #ef4444;
     font-weight: bold;
@@ -523,6 +544,15 @@
     100% { transform: translateY(-1px) rotate(0deg); }
 }
 
+@keyframes t10-celebrate-pop {
+    0% { transform: translateY(10px) scale(0.88) rotate(-8deg); opacity: 0; }
+    18% { transform: translateY(-9px) scale(1.1) rotate(8deg); opacity: 1; }
+    35% { transform: translateY(0) scale(0.98) rotate(-3deg); opacity: 1; }
+    58% { transform: translateY(-5px) scale(1.04) rotate(3deg); opacity: 1; }
+    78% { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
+}
+
 .create-trip-card button:focus-visible,
 .create-trip-card input:focus-visible,
 .create-trip-card select:focus-visible {
@@ -571,5 +601,13 @@
     .travelers-stepper--premium .stepper-btn--plus:hover:not(:disabled),
     .travelers-stepper--premium .stepper-btn--minus:hover:not(:disabled) {
         animation: none !important;
+    }
+
+    .t10-celebrate-badge,
+    .t10-celebrate-badge.is-visible,
+    .t10-celebrate-badge.is-animating {
+        animation: none !important;
+        transform: none !important;
+        opacity: 1;
     }
 }
