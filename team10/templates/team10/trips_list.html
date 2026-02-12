@@ -4,6 +4,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="https://unpkg.com/persian-datepicker@latest/dist/css/persian-datepicker.min.css">
+<link rel="stylesheet" href="{% static 'team10/styles/trips.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -13,9 +14,11 @@
     <p>فهرست سفرها با فیلتر و جستجو</p>
 </div>
 
-<section class="t10-filter-box">
+<section class="t10-filter-box t10-filter-card">
     <form method="get" class="t10-filter-form">
-        <div class="t10-filter-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;">
+        <div class="t10-filter-card__title">فیلتر و جستجو</div>
+
+        <div class="t10-filter-grid t10-filter-grid--top">
             <div class="t10-field">
                 <label for="status">وضعیت</label>
                 <select id="status" name="status">
@@ -56,14 +59,14 @@
             </div>
         </div>
 
-        <div class="t10-filter-grid" style="display: grid; grid-template-columns: 1fr auto; gap: 1rem; margin-top: 1rem; align-items: end;">
+        <div class="t10-filter-grid t10-filter-grid--bottom">
             <div class="t10-field">
                 <label for="q">جستجو در مقصد یا کد سفر</label>
                 <input id="q" type="text" name="q" value="{{ q }}" placeholder="مثال: شیراز یا ۱۰۲">
             </div>
 
-            <div class="t10-actions" style="margin: 0;">
-                <button type="submit" class="t10-btn t10-btn--secondary">جستجو</button>
+            <div class="t10-actions">
+                <button type="submit" class="btn btn-search t10-search-btn">جستجو</button>
             </div>
         </div>
     </form>

@@ -146,6 +146,10 @@
                 <button type="submit" class="auth-btn btn-submit-signup" id="submit-btn">
                     <i class="fas fa-magic"></i> ساخت برنامه سفر هوشمند
                 </button>
+                <button type="button" class="t10-btn t10-btn--ghost" id="t10-reset-btn">
+                    <i class="fa-solid fa-rotate-left"></i>
+                    پاک کردن
+                </button>
                 <p class="loading-text" id="loading">
                     <i class="fas fa-spinner fa-spin"></i> در حال ساخت برنامه شخصی‌سازی‌شده...
                 </p>
@@ -154,6 +158,7 @@
 
         <div id="result-area" class="result-area auth-card">
             <h2>برنامه سفر شما آماده است!</h2>
+            <div id="t10-celebrate-badge" class="t10-celebrate-badge" aria-hidden="true"></div>
             <div id="result-content"></div>
             <button class="auth-btn btn-submit-login" onclick="window.location.reload()">سفر جدید</button>
         </div>
@@ -163,6 +168,7 @@
     <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
     <script src="https://unpkg.com/persian-date@latest/dist/persian-date.min.js"></script>
     <script src="https://unpkg.com/persian-datepicker@latest/dist/js/persian-datepicker.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
     <script>
         // Convert Persian/Farsi numerals to English numerals
@@ -451,7 +457,7 @@
             // initial value (use 2 by default)
             let travelersCount = 2;
 
-            function syncAll() {
+            function syncTravelers() {
                 travelersSelect.value = String(travelersCount);
                 travelersInput.value = toPersianDigits(travelersCount);
             }
@@ -470,22 +476,22 @@
             function increaseTravelers() {
                 if (travelersCount >= maxTravelers) {
                     setHint(maxWarning, true);
-                    syncAll();
+                    syncTravelers();
                     return;
                 }
                 travelersCount += 1;
-                syncAll();
+                syncTravelers();
                 setHint();
             }
 
             function decreaseTravelers() {
                 if (travelersCount <= minTravelers) {
                     setHint(minWarning, true);
-                    syncAll();
+                    syncTravelers();
                     return;
                 }
                 travelersCount -= 1;
-                syncAll();
+                syncTravelers();
                 setHint();
             }
 
@@ -502,7 +508,7 @@
 
                 const clamped = clamp(typed);
                 travelersCount = clamped;
-                syncAll();
+                syncTravelers();
 
                 if (typed > maxTravelers) {
                     setHint(maxWarning, true);
@@ -516,7 +522,7 @@
             travelersInput.addEventListener('blur', function() {
                 const typed = parseTypedValue(travelersInput.value);
                 travelersCount = clamp(typed === null ? travelersCount : typed);
-                syncAll();
+                syncTravelers();
                 if (travelersCount > minTravelers && travelersCount < maxTravelers) {
                     setHint();
                 }
@@ -532,7 +538,7 @@
                 } else if (event.key === 'Enter') {
                     const typed = parseTypedValue(travelersInput.value);
                     travelersCount = clamp(typed === null ? travelersCount : typed);
-                    syncAll();
+                    syncTravelers();
                     if (typed !== null && typed > maxTravelers) {
                         setHint(maxWarning, true);
                     } else if (typed !== null && typed < minTravelers) {
@@ -544,8 +550,18 @@
             });
 
             // init
-            syncAll();
+            syncTravelers();
             setHint();
+
+            window.t10SetTravelersCount = function(nextValue) {
+                const next = parseInt(nextValue, 10);
+                travelersCount = clamp(Number.isFinite(next) ? next : travelersCount);
+                syncTravelers();
+                setHint();
+            };
+            window.t10ResetTravelersHint = function() {
+                setHint();
+            };
         }
 
         function initBudgetSegmentedControl() {
@@ -563,14 +579,19 @@
                 });
             }
 
+            function setBudget(value) {
+                budgetSelect.value = value;
+                syncBudgetPills();
+            }
+
             pills.forEach(function(pill) {
                 pill.addEventListener('click', function() {
-                    budgetSelect.value = pill.getAttribute('data-value');
-                    syncBudgetPills();
+                    setBudget(pill.getAttribute('data-value'));
                 });
             });
 
             syncBudgetPills();
+            window.t10SetBudgetValue = setBudget;
         }
 
         $(document).ready(function() {
@@ -639,10 +660,134 @@
         const loading = document.getElementById('loading');
         const resultArea = document.getElementById('result-area');
         const resultContent = document.getElementById('result-content');
+        const celebrateBadge = document.getElementById('t10-celebrate-badge');
         const submitBtn = document.getElementById('submit-btn');
+        const resetBtn = document.getElementById('t10-reset-btn');
+
+        const DEFAULT_TRAVELERS = (function() {
+            const travelersInput = document.getElementById('travelers-input');
+            const raw = travelersInput ? persianToEnglish(travelersInput.value) : '2';
+            const parsed = parseInt(raw, 10);
+            return Number.isFinite(parsed) ? parsed : 2;
+        })();
+
+        const DEFAULT_BUDGET = (function() {
+            const budgetSelect = document.getElementById('budget_level');
+            return budgetSelect ? budgetSelect.value : 'MODERATE';
+        })();
 
         loading.style.display = 'none';
         resultArea.style.display = 'none';
+
+        function runConfetti() {
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                return;
+            }
+            if (typeof window.confetti !== 'function') {
+                return;
+            }
+
+            const defaults = {
+                startVelocity: 28,
+                ticks: 120,
+                gravity: 1.1,
+                scalar: 0.95,
+                zIndex: 1200,
+                colors: ['#22c55e', '#26c6da', '#eab308', '#f97316', '#60a5fa']
+            };
+
+            const bursts = [
+                { particleCount: 40, spread: 68, angle: 120, origin: { x: 0.12, y: 0.65 } },
+                { particleCount: 40, spread: 68, angle: 60, origin: { x: 0.88, y: 0.65 } },
+                { particleCount: 52, spread: 86, angle: 90, origin: { x: 0.5, y: 0.5 } },
+                { particleCount: 34, spread: 58, angle: 100, origin: { x: 0.32, y: 0.36 } },
+                { particleCount: 34, spread: 58, angle: 80, origin: { x: 0.68, y: 0.36 } }
+            ];
+
+            bursts.forEach(function(config, index) {
+                window.setTimeout(function() {
+                    window.confetti(Object.assign({}, defaults, config));
+                }, index * 300);
+            });
+        }
+
+        function showCelebrateBadge() {
+            if (!celebrateBadge) {
+                return;
+            }
+            celebrateBadge.textContent = '🧳✨';
+            celebrateBadge.classList.remove('is-visible', 'is-animating');
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                celebrateBadge.classList.add('is-animating');
+            }
+            celebrateBadge.classList.add('is-visible');
+
+            window.setTimeout(function() {
+                celebrateBadge.classList.remove('is-animating');
+            }, 1500);
+        }
+
+        function clearSelectedPrefs() {
+            document.querySelectorAll('input[name="preferences"]').forEach(function(input) {
+                input.checked = false;
+            });
+        }
+
+        function resetCreateTripForm() {
+            const destinationInput = document.getElementById('destination');
+            const destinationPanel = document.getElementById('destination-suggestions');
+            const startDateInput = document.getElementById('start-date');
+            const endDateInput = document.getElementById('end-date');
+            const startDateGreg = document.getElementById('start-date-gregorian');
+            const endDateGreg = document.getElementById('end-date-gregorian');
+
+            if (destinationInput) {
+                destinationInput.value = '';
+                destinationInput.focus();
+            }
+            if (destinationPanel) {
+                destinationPanel.innerHTML = '';
+                destinationPanel.classList.remove('is-open');
+            }
+
+            if (startDateInput) startDateInput.value = '';
+            if (endDateInput) endDateInput.value = '';
+            if (startDateGreg) startDateGreg.value = '';
+            if (endDateGreg) endDateGreg.value = '';
+
+            try { $('#start-date').persianDatepicker('setDate', null); } catch (err) {}
+            try { $('#end-date').persianDatepicker('setDate', null); } catch (err) {}
+            try { $('#end-date').persianDatepicker('option', 'minDate', null); } catch (err) {}
+
+            if (typeof window.t10SetTravelersCount === 'function') {
+                window.t10SetTravelersCount(DEFAULT_TRAVELERS);
+            }
+            if (typeof window.t10ResetTravelersHint === 'function') {
+                window.t10ResetTravelersHint();
+            }
+
+            if (typeof window.t10SetBudgetValue === 'function') {
+                window.t10SetBudgetValue(DEFAULT_BUDGET);
+            }
+
+            clearSelectedPrefs();
+
+            if (loading) loading.style.display = 'none';
+            if (resultArea) resultArea.style.display = 'none';
+            if (resultContent) resultContent.innerHTML = '';
+            if (celebrateBadge) {
+                celebrateBadge.textContent = '';
+                celebrateBadge.classList.remove('is-visible', 'is-animating');
+            }
+
+            if (form) {
+                form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        if (resetBtn) {
+            resetBtn.addEventListener('click', resetCreateTripForm);
+        }
 
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -715,16 +860,26 @@
                 const result = await response.json();
 
                 if (response.ok) {
+                    const hasTripId = Boolean(result.trip_id);
                     resultContent.innerHTML = `
                         <p class="success-message">سفر با موفقیت ایجاد شد!</p>
                         <p>شناسه سفر: <strong>${result.trip_id || '—'}</strong></p>
                         <p>وضعیت: ${result.status === 'DRAFT' ? 'پیش‌نویس' : result.status}</p>
-                        <button class="btn btn-login" onclick="viewTripDetails(${result.trip_id})">مشاهده برنامه سفر</button>
+                        <button class="btn btn-login" onclick="goToTripDetails(${result.trip_id || 'null'})" ${hasTripId ? '' : 'disabled'}>مشاهده برنامه سفر</button>
+                        ${hasTripId ? '' : '<p class="error-message">شناسه سفر دریافت نشد</p>'}
                     `;
+                    runConfetti();
+                    showCelebrateBadge();
                 } else {
+                    if (celebrateBadge) {
+                        celebrateBadge.classList.remove('is-visible', 'is-animating');
+                    }
                     resultContent.innerHTML = `<p class="error-message">خطا: ${result.error || 'مشکلی پیش آمد'}</p>`;
                 }
             } catch (err) {
+                if (celebrateBadge) {
+                    celebrateBadge.classList.remove('is-visible', 'is-animating');
+                }
                 resultContent.innerHTML = `<p class="error-message">اتصال به سرور برقرار نشد</p>`;
             } finally {
                 loading.style.display = 'none';
@@ -733,36 +888,9 @@
             }
         });
 
-        async function viewTripDetails(tripId) {
-            try {
-                const response = await fetch(`/team10/api/trips/${tripId}/`);
-                const trip = await response.json();
-
-                if (response.ok) {
-                    let detailsHtml = `
-                        <h3>جزئیات سفر به ${trip.destination}</h3>
-                        <p><strong>تاریخ:</strong> ${new Date(trip.start_date).toLocaleDateString('fa-IR')} تا ${new Date(trip.end_date).toLocaleDateString('fa-IR')}</p>
-                        <p><strong>سطح بودجه:</strong> ${{ECONOMY: 'اقتصادی', MODERATE: 'متوسط', LUXURY: 'لوکس'}[trip.budget_level] || trip.budget_level || 'نامشخص'}</p>
-                        <p><strong>هزینه کل:</strong> ${trip.total_cost.toLocaleString()} تومان</p>
-                        <p><strong>تعداد مسافران:</strong> ${trip.travelers_count} نفر</p>
-
-                        <h4>برنامه روزانه:</h4>
-                        <ul style="text-align: right; list-style: none;">
-                    `;
-
-                    trip.daily_plans.forEach(plan => {
-                        const startTime = new Date(plan.start_at).toLocaleTimeString('fa-IR', {hour: '2-digit', minute: '2-digit'});
-                        detailsHtml += `<li>⏰ ${startTime} - ${plan.description} (${plan.cost.toLocaleString()} تومان)</li>`;
-                    });
-
-                    detailsHtml += '</ul>';
-                    resultContent.innerHTML = detailsHtml;
-                } else {
-                    resultContent.innerHTML = `<p class="error-message">خطا در دریافت اطلاعات سفر</p>`;
-                }
-            } catch (err) {
-                resultContent.innerHTML = `<p class="error-message">خطا در اتصال به سرور</p>`;
-            }
+        function goToTripDetails(tripId) {
+            if (!tripId) return;
+            window.location.assign(`/team10/trips/${tripId}/`);
         }
     </script>
 {% endblock %}

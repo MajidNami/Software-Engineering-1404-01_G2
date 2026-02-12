@@ -248,3 +248,11 @@
     margin: 0;
     color: #546E7A;
 }
+
+.t10-search-btn{
+  height: 44px;
+  padding: 0 18px;
+  border-radius: 12px;
+  font-size: 14px;
+  box-shadow: 0 6px 14px rgba(0,0,0,.10);
+}
