@@ -10,5 +10,10 @@ router.register(r'items', TripItemViewSet, basename='item')
 urlpatterns = [
     path("test/", test),
     path("trip-plan/trips", ok),
+    path(
+        'days/<int:pk>/items/bulk/',
+        TripDayViewSet.as_view({'post': 'create_items_bulk'}),
+        name='day-items-bulk'
+    ),
     path('', include(router.urls)),
 ]

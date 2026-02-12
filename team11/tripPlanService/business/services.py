@@ -174,6 +174,11 @@ class TripDayService:
         return list(TripDayRepository.get_by_trip(trip_id))
 
     @staticmethod
+    def get_day_by_id(day_id: int) -> Optional[TripDay]:
+        """Get a specific day by ID"""
+        return TripDayRepository.get_by_id(day_id)
+
+    @staticmethod
     def create_day(trip_id: int, data: Dict[str, Any]) -> TripDay:
         """Create a new day for a trip"""
         day_data = {**data, 'trip_id': trip_id}

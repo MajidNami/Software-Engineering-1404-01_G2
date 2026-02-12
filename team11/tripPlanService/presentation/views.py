@@ -471,7 +471,7 @@ class TripDayViewSet(viewsets.ViewSet):
         }
         """
         # Verify day exists
-        day = TripDayService.get_days_for_trip(pk)
+        day = TripDayService.get_day_by_id(int(pk))
         if not day:
             return Response(
                 {"error": "Day not found"},
@@ -500,7 +500,7 @@ class TripDayViewSet(viewsets.ViewSet):
         for idx, item_data in enumerate(items_data):
             # Validate each item
             serializer = TripItemSerializer(data=item_data)
-            
+
             if not serializer.is_valid():
                 errors.append({
                     "index": idx,
