@@ -165,6 +165,17 @@ class MediaViewSet(viewsets.ModelViewSet):
         services.submit_image_tagging(str(media.media_id), media.s3_object_key)
         log_activity(self.request.user, 'MEDIA_UPLOADED', target_id=str(media.media_id))
 
+    def create(self, request, *args, **kwargs):
+        """Use upload serializer for input, but return media detail output."""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+
+        media = serializer.instance
+        out = MediaDetailSerializer(media, context=self.get_serializer_context())
+        headers = self.get_success_headers(out.data)
+        return Response(out.data, status=status.HTTP_201_CREATED, headers=headers)
+
     def perform_destroy(self, instance):
         if instance.user_id != self.request.user.user_id:
             from rest_framework.exceptions import PermissionDenied
@@ -245,7 +256,7 @@ class PostViewSet(viewsets.ModelViewSet):
         instance.save(update_fields=['deleted_at'])
         log_activity(self.request.user, 'POST_DELETED', target_id=instance.post_id)
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], url_path='vote')
     def vote(self, request, pk=None):
         post = self.get_object()
         is_like = request.data.get('is_like')
@@ -261,7 +272,7 @@ class PostViewSet(viewsets.ModelViewSet):
         notify_post_owner(post, request.user, 'like' if is_like else 'dislike')
         return Response(PostVoteSerializer(vote).data, status=status.HTTP_200_OK)
 
-    @action(detail=True, methods=['delete'], url_path='vote')
+    @vote.mapping.delete
     def remove_vote(self, request, pk=None):
         post = self.get_object()
         deleted, _ = PostVote.objects.filter(user=request.user, post=post).delete()
