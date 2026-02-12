@@ -1,5 +1,5 @@
 from django.http import JsonResponse
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.db.models import Q
 from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view
@@ -843,11 +843,29 @@ class FavoriteViewSet(viewsets.ModelViewSet):
             'facility__city__province'
         )
     
+    @extend_schema(
+        summary="Add a facility to favorites",
+        parameters=[
+            OpenApiParameter(
+                name='facility', 
+                description='ID of the facility to favorite', 
+                required=True, 
+                type=int,
+                location=OpenApiParameter.QUERY
+            ),
+        ],
+        request=None, 
+        responses={201: FavoriteSerializer}
+    )
     def create(self, request):
         """Add a facility to user's favorites."""
-        serializer = self.get_serializer(data=request.data)
+        facility_id = request.query_params.get('facility')
+        data = request.data.copy() if request.data else {}
+        if facility_id:
+            data['facility'] = facility_id
+        serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        serializer.save(user_id=self.request.user.pk)
         
         return Response(
             {
@@ -857,96 +875,85 @@ class FavoriteViewSet(viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED
         )
     
-    def destroy(self, request, pk=None):
-        """Remove a facility from user's favorites."""
+    def destroy(self, request, *args, **kwargs):
+        # We grab the ID from the URL using the name you defined in lookup_field
+        favorite_id = kwargs.get('favorite_id')
+        
         try:
-            favorite = self.get_queryset().get(favorite_id=pk)
-            favorite.delete()
-            return Response(
-                {'message': 'مکان از علاقه‌مندی‌ها حذف شد'},
-                status=status.HTTP_200_OK
+            # Filter by both ID and User to ensure people can't delete 
+            # other people's favorites by guessing the ID
+            instance = Favorite.objects.get(
+                favorite_id=favorite_id, 
+                user_id=request.user.pk
             )
+            self.perform_destroy(instance)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+            
         except Favorite.DoesNotExist:
             return Response(
-                {'error': 'علاقه‌مندی یافت نشد'},
+                {"detail": "علاقه‌مندی پیدا نشد."}, 
                 status=status.HTTP_404_NOT_FOUND
             )
-    
+    @extend_schema(
+        summary="Toggle favorite status",
+        tags=['Favorites'],
+        description="Add a facility to favorites if it isn't there, or remove it if it is.",
+        parameters=[
+            OpenApiParameter(
+                name='facility', 
+                description='ID of the facility to toggle', 
+                required=True, 
+                type=str, # Using str is safest for IDs/UUIDs
+                location=OpenApiParameter.QUERY
+            ),
+        ],
+        request=None,
+        responses={200: OpenApiResponse(description="Status changed")}
+    )
     @action(detail=False, methods=['post'])
     def toggle(self, request):
-        """
-        Toggle favorite status for a facility.
-        
-        Request Body:
-        ```json
-        {
-            "facility": 123
-        }
-        ```
-        
-        Response:
-        ```json
-        {
-            "message": "added" | "removed",
-            "is_favorite": true | false
-        }
-        ```
-        """
-        facility_id = request.data.get('facility')
-        
+        facility_id = request.data.get('facility') or request.query_params.get('facility')
         if not facility_id:
-            return Response(
-                {'error': 'شناسه مکان الزامی است'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        try:
-            facility = Facility.objects.get(fac_id=facility_id)
-        except Facility.DoesNotExist:
-            return Response(
-                {'error': 'مکان یافت نشد'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        
-        favorite = Favorite.objects.filter(
-            user=request.user,
-            facility=facility
-        ).first()
-        
-        if favorite:
-            # Remove from favorites
-            favorite.delete()
-            return Response({
-                'message': 'removed',
-                'is_favorite': False
-            })
+            return Response({"detail": "Facility ID required"}, status=400)
+
+        # Get the facility object (lives in the same DB as Favorite)
+        facility = get_object_or_404(Facility, pk=facility_id)
+
+        # 1. Look for existing favorite using IDs only
+        favorite_filter = Favorite.objects.filter(
+            user_id=request.user.pk, 
+            facility_id=facility.pk
+        )
+
+        if favorite_filter.exists():
+            # 2. If it exists, remove it
+            favorite_filter.delete()
+            return Response({"status": "removed", "favorited": False})
         else:
-            # Add to favorites
+            # 3. If it doesn't, create it using user_id=... (The Multi-DB Fix)
             Favorite.objects.create(
-                user=request.user,
-                facility=facility
+                user_id=str(request.user.pk), # Use the ID value, not the object
+                facility=facility             # This is okay because it's in the same DB
             )
-            return Response({
-                'message': 'added',
-                'is_favorite': True
-            }, status=status.HTTP_201_CREATED)
-    
+            return Response({"status": "added", "favorited": True})
+
+    @extend_schema(
+        summary="Check if facility is favorited",
+        tags=['Favorites'],
+        description="Returns true if the specified facility is in the current user's favorite list.",
+        parameters=[
+            OpenApiParameter(
+                name='facility', 
+                description='ID of the facility to check', 
+                required=True, 
+                type=str, 
+                location=OpenApiParameter.QUERY
+            ),
+        ],
+        responses={200: OpenApiResponse(description="Success")}
+    )
     @action(detail=False, methods=['get'])
     def check(self, request):
-        """
-        Check if a facility is in user's favorites.
-        
-        Query Parameters:
-        - facility: Facility ID
-        
-        Response:
-        ```json
-        {
-            "is_favorite": true | false,
-            "facility_id": "123"
-        }
-        ```
-        """
         facility_id = request.query_params.get('facility')
         
         if not facility_id:
@@ -955,8 +962,10 @@ class FavoriteViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # FIX: Use user_id=request.user.pk to bypass the Router error
+        # We use .filter().exists() because it is much faster than .get()
         is_favorite = Favorite.objects.filter(
-            user=request.user,
+            user_id=request.user.pk,
             facility_id=facility_id
         ).exists()
         

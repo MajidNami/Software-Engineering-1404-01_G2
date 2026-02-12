@@ -301,7 +301,7 @@ class FavoriteSerializer(serializers.ModelSerializer):
         
         # بررسی وجود قبلی
         favorite, created = Favorite.objects.get_or_create(
-            user=user,
+            user_id=user.pk,
             facility=facility
         )
         
