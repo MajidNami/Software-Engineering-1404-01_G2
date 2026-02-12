@@ -11,7 +11,7 @@ from fastapi import FastAPI, BackgroundTasks, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from database import get_db, init_db
+from database import get_db
 from models import (
     AnalysisStatus, TextModeration, ImageModeration, ImageTagging, PlaceSummary,
 )
@@ -20,7 +20,7 @@ from registry import get_model
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("ai-service")
 
-BACKEND_URL = os.getenv("BACKEND_URL", "http://backend:8000")
+BACKEND_URL = os.getenv("BACKEND_URL", "http://backend:8001")
 INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "team8-internal-secret-change-me")
 
 INTERNAL_HEADERS = {"X-Internal-Key": INTERNAL_API_KEY}
@@ -213,8 +213,11 @@ def run_place_summary(place_id: int, comments: list[str], ratings: list[float], 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db()
+    # Database migrations are managed by Alembic
+    # Run: alembic upgrade head
+    log.info("AI Service starting up...")
     yield
+    log.info("AI Service shutting down...")
 
 app = FastAPI(title="AI Service", version="1.0.0", lifespan=lifespan)
 
@@ -245,8 +248,6 @@ class SummarizePlaceReq(BaseModel):
 async def health():
     return {"status": "ok"}
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/moderate-text/")
 async def moderate_text(req: ModerateTextReq, bg: BackgroundTasks, db: Session = Depends(get_db)):

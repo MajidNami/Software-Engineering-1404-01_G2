@@ -7,7 +7,7 @@ from nsfw.model import NSFWDetector
 
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-DEFAULT_IMAGE_TAGGER_WEIGHTS = "image_tagging/convnext_weights.pth"
+DEFAULT_IMAGE_TAGGER_WEIGHTS = "image_tagging/convnext_iranian_landmarksTop136.pth"
 NSFW_MODEL = "Falconsai/nsfw_image_detection"
 COMMENT_MODEL = "openai/gpt-oss-120b"
 

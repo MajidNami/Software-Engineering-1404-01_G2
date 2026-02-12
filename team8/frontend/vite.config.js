@@ -9,8 +9,8 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       '/api': {
-        // Backend currently running on 8002 (see user note)
-        target: 'http://localhost:8002',
+        // Backend currently running on 8001 (see user note)
+        target: 'http://localhost:8001',
         changeOrigin: true,
       },
     },
