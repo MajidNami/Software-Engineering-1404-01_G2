@@ -182,54 +182,8 @@
         #search-section .btn-primary {
             box-shadow: 0 4px 10px rgba(26, 35, 126, 0.3);
         }
-        
+      
     </style>
-    {% load notification_tags %}
-        {% if request.user.is_authenticated %}
-            <div class="dropdown d-inline-block me-3">
-                <button class="btn btn-light btn-sm dropdown-toggle" type="button" id="notifDropdown" data-bs-toggle="dropdown">
-                    <i class="fa-solid fa-bell"></i>
-                    {% if unread_notifications_count %}
-                        <span class="badge bg-danger">{{ unread_notifications_count }}</span>
-                    {% endif %}
-                </button>
-                <div class="dropdown-menu dropdown-menu-end" aria-labelledby="notifDropdown" style="width: 350px; max-height: 400px; overflow-y: auto;">
-                    <div class="dropdown-header">
-                        <strong>اعلان‌های اخیر</strong>
-                        {% if unread_notifications_count %}
-                            <span class="badge bg-primary">{{ unread_notifications_count }} خوانده نشده</span>
-                        {% endif %}
-                    </div>
-                    
-                    {% if user_notifications %}
-                        {% for notification in user_notifications|slice:":5" %}
-                            <a class="dropdown-item {% if not notification.is_read %}bg-light{% endif %}" 
-                            href="{% url 'team6:mark_notification_read' notification.id %}?next={{ request.path }}">
-                                <div class="d-flex">
-                                    <div class="flex-shrink-0 me-2">
-                                        <i class="fas {{ notification.notification_type|get_notification_icon }} text-primary"></i>
-                                    </div>
-                                    <div class="flex-grow-1">
-                                        <small class="text-muted">{{ notification.created_at|timesince }} پیش</small>
-                                        <p class="mb-0 small">{{ notification.message|truncatechars:50 }}</p>
-                                    </div>
-                                </div>
-                            </a>
-                            <div class="dropdown-divider"></div>
-                        {% endfor %}
-                        
-                        <a class="dropdown-item text-center text-primary" href="{% url 'team6:notifications_list' %}">
-                            <i class="fa-solid fa-list"></i> مشاهده همه اعلان‌ها
-                        </a>
-                    {% else %}
-                        <div class="dropdown-item text-center text-muted py-3">
-                            <i class="fa-solid fa-bell-slash fa-lg mb-2"></i>
-                            <p class="mb-0 small">اعلانی ندارید</p>
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
-        {% endif %}
 </head>
 <body>
     <div class="bg-pattern"></div>
