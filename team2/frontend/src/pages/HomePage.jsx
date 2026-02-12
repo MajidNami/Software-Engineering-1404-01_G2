@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, FileText, ArrowLeft } from 'lucide-react'
+import { Search, FileText, ArrowRight } from 'lucide-react'
 import { api } from '../api'
 
 export default function HomePage() {
@@ -20,9 +20,9 @@ export default function HomePage() {
       navigate(`/articles/${encodeURIComponent(searchQuery.trim())}`)
     } catch (err) {
       if (err.status === 404) {
-        setError('Article not found.')
+        setError('مقاله‌ای با این نام یافت نشد.')
       } else {
-        setError('An error occurred. Make sure you are logged in.')
+        setError('خطایی رخ داد. مطمئن شوید وارد حساب کاربری خود شده‌اید.')
       }
     } finally {
       setLoading(false)
@@ -34,51 +34,50 @@ export default function HomePage() {
       <section className="flex-1 flex flex-col items-center justify-center px-4 py-20">
         <div className="text-center max-w-2xl mx-auto">
           <div className="mb-6">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-indigo-500/10 mb-6">
-              <FileText className="w-10 h-10 text-indigo-400" />
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-forest/10 mb-6">
+              <FileText className="w-10 h-10 text-forest" />
             </div>
           </div>
 
-          <h1 className="text-4xl sm:text-5xl font-bold text-white mb-4 leading-tight">
-            Wiki Service
+          <h1 className="text-4xl sm:text-5xl font-bold text-dark mb-4 leading-tight">
+            دانشنامه (ویکی)
           </h1>
-          <p className="text-gray-400 text-lg mb-10">
-            Search for an article by name to view, edit, or vote on it.
+          <p className="text-gray-600 text-lg mb-10">
+            نام مقاله را جستجو کنید تا آن را مشاهده، ویرایش یا رأی‌گیری کنید.
           </p>
 
           <form onSubmit={handleSearch} className="w-full max-w-lg mx-auto">
             <div className="relative">
-              <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Enter article name..."
+                placeholder="نام مقاله را وارد کنید..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded-xl py-3.5 pr-12 pl-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-right"
-                dir="ltr"
+                className="w-full bg-white border border-gray-300 rounded-xl py-3.5 pr-4 pl-12 text-dark placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-forest focus:border-transparent"
               />
             </div>
             {error && (
-              <p className="mt-3 text-red-400 text-sm">{error}</p>
+              <p className="mt-3 text-red-600 text-sm">{error}</p>
             )}
             <button
               type="submit"
               disabled={loading}
-              className="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="mt-4 w-full bg-forest hover:bg-leaf text-white font-medium py-3 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Searching...' : 'Search Article'}
+              {loading ? 'در حال جستجو...' : 'جستجوی مقاله'}
             </button>
           </form>
         </div>
       </section>
 
-      <footer className="border-t border-gray-800 py-6 text-center">
+      <footer className="border-t border-gray-300 py-6 text-center">
         <a
           href="/"
-          className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-300 transition-colors text-sm"
+          className="inline-flex items-center gap-2 text-gray-500 hover:text-forest transition-colors text-sm"
         >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Main Dashboard
+          <ArrowRight className="w-4 h-4" />
+          بازگشت به داشبورد اصلی
         </a>
       </footer>
     </div>
