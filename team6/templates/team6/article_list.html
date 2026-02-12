@@ -2,6 +2,8 @@
 {% block title %}لیست مقالات{% endblock %}
 
 {% block content %}
+
+
 <h2>لیست مقالات <span class="badge bg-secondary">{{ articles.count }}</span></h2>
 
 <form method="GET" id="search-section" class="row g-3 mb-4 p-3 bg-light rounded">
@@ -14,18 +16,34 @@
         <select name="sort" class="form-select" onchange="this.form.submit()">
             <option value="alphabetical" {% if request.GET.sort == 'alphabetical' %}selected{% endif %}>الفبایی (آ-ی)</option>
             <option value="views" {% if request.GET.sort == 'views' %}selected{% endif %}>پربازدیدترین‌ها</option>
+            <option value="newest" {% if request.GET.sort == 'newest' %}selected{% endif %}>جدیدترین‌ها</option>
+            {% comment %} <option value="followers" {% if request.GET.sort == 'followers' %}selected{% endif %}>محبوب‌ترین (دنبال‌کننده‌ها)</option> {% endcomment %}
         </select>
     </div>
-    <div class="col-md-3">
-        <select name="category" class="form-select">
-            <option value="">همه دسته‌ها</option>
-            {% for cat in categories %}
-                <option value="{{ cat.slug }}"
-                    {% if request.GET.category == cat.slug %}selected{% endif %}>
-                    {{ cat.title_fa }}
-                </option>
-            {% endfor %}
-        </select>
+    <div class="col-md-4">
+        {% comment %} <label class="small fw-bold mb-1">فیلتر دسته‌بندی:</label> {% endcomment %}
+        <div class="dropdown w-100" id="categoryDropdown">
+            <button class="btn btn-white border dropdown-toggle w-100 text-end d-flex justify-content-between align-items-center" 
+                    type="button" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+                <span id="selected-count">انتخاب دسته‌ها...</span>
+            </button>
+            <div class="dropdown-menu w-100 p-3" aria-labelledby="dropdownMenuButton" style="max-height: 300px; overflow-y: auto;">
+                <input type="text" id="catSearch" class="form-control form-control-sm mb-2" placeholder="جستجوی سریع...">
+                
+                <div id="categoryList">
+                    {% for cat in categories %}
+                    <div class="form-check mb-1">
+                        <input class="form-check-input cat-checkbox" type="checkbox" name="category" 
+                            value="{{ cat.slug }}" id="cat_{{ forloop.counter }}"
+                            {% if cat.slug in request.GET.getlist %}checked{% endif %}>
+                        <label class="form-check-label small" for="cat_{{ forloop.counter }}">
+                            {{ cat.title_fa }}
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="col-md-2">
@@ -142,4 +160,48 @@
     </a>
 </div>
 {% endif %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('catSearch');
+    const categoryList = document.getElementById('categoryList');
+    const checkboxes = document.querySelectorAll('.cat-checkbox');
+    const countSpan = document.getElementById('selected-count');
+
+    // ۱. جلوگیری از بسته شدن دراپ‌دان هنگام کلیک داخل آن
+    const dropdownMenu = document.querySelector('#categoryDropdown .dropdown-menu');
+    dropdownMenu.addEventListener('click', function (e) {
+        e.stopPropagation();
+    });
+
+    // ۲. آپدیت تعداد انتخاب شده‌ها
+    function updateCount() {
+        const checkedCount = document.querySelectorAll('.cat-checkbox:checked').length;
+        if (checkedCount > 0) {
+            countSpan.innerText = checkedCount + ' دسته انتخاب شده';
+            countSpan.classList.add('text-primary', 'fw-bold');
+        } else {
+            countSpan.innerText = 'انتخاب دسته‌ها...';
+            countSpan.classList.remove('text-primary', 'fw-bold');
+        }
+    }
+
+    checkboxes.forEach(cb => cb.addEventListener('change', updateCount));
+    updateCount(); // اجرای اولیه برای زمانی که صفحه لود می‌شود و قبلاً چیزی انتخاب شده
+
+    // ۳. سیستم جستجوی داخلی
+    searchInput.addEventListener('keyup', function() {
+        const filter = searchInput.value.toLowerCase();
+        const items = categoryList.getElementsByClassName('form-check');
+        
+        for (let i = 0; i < items.length; i++) {
+            const label = items[i].getElementsByTagName('label')[0];
+            if (label.innerHTML.toLowerCase().indexOf(filter) > -1) {
+                items[i].style.display = "";
+            } else {
+                items[i].style.display = "none";
+            }
+        }
+    });
+});
+</script>
 {% endblock %}

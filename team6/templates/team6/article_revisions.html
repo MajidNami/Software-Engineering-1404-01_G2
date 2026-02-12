@@ -20,7 +20,15 @@
                    class="btn btn-sm btn-primary">
                     مشاهده
                 </a>
+            <form method="POST" action="{% url 'team6:rollback' article.slug rev.revision_no %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-danger" 
+                    onclick="return confirm('آیا از بازگردانی محتوا به این نسخه مطمئن هستید؟')">
+                بازگردانی
+            </button>
+            </form>
             </div>
+            
         </li>
         {% endif %}
     {% endfor %}
