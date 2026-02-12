@@ -1,4 +1,5 @@
 from .models import Place
+from math import tanh
 
 ### 0:Single, 1:Couple, 2:Family, 3:Business, 4:Friends
 styleMtx = [
@@ -58,7 +59,7 @@ def scoreByStyle(places, targetStyle):
         style = styleIndex[place.travel_style]
         placeId = place.place_id
         score = styleMtx[ts][style]
-        result.append((placeId,score))
+        result.append((placeId, score))
     
     return result 
 
@@ -72,7 +73,7 @@ def scoreBySeason(places, targetSeason):
         season = seasonIndex[place.season]
         placeId = place.place_id
         score = seasonMtx[ts][season]
-        result.append((placeId,score))
+        result.append((placeId, score))
     
     return result 
 
@@ -84,12 +85,22 @@ def scoreByBudget(places, targetBudget):
         badget = budgetIndex[place.budget_level]
         placeId = place.place_id
         score = budgetMtx[tb][budget]
-        result.append((placeId,score))
+        result.append((placeId, score))
     
     return result         
 
 
-def scoreByDuration(places, duration):
+def scoreByDuration(places, targetDuration):
+    result = []
     
+    for place in places:
+        placeId = place.place_id
+        deltaT = targetBudget - place.duration
+        score = (tanh(deltaT) + 1)/2
+        result.append((placeId, score))
+
+    return result
+
+
     
 
