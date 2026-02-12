@@ -218,6 +218,12 @@ class ArticleCreateView(CreateView):
             article.status = 'published'
             article.published_at = now()
 
+        featured_image = self.request.POST.get('featured_image_url', '')
+        if featured_image and featured_image.lower() in ['none', 'null', '']:
+            article.featured_image_url = None  # یا ''
+        else:
+            article.featured_image_url = featured_image    
+
         # دسته‌بندی
         category_id = self.request.POST.get('category')
         if category_id:
