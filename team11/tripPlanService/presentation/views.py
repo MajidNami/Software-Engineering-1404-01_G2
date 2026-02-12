@@ -78,11 +78,8 @@ class TripViewSet(viewsets.ViewSet):
             )
 
         try:
-            user_id = request.data.get('user_id')
-            trip = TripService.create_trip(
-                user_id=int(user_id) if user_id else None,
-                data=serializer.validated_data
-            )
+            # Use serializer.save() which calls create()
+            trip = serializer.save()
 
             return Response(
                 TripDetailSerializer(trip).data,

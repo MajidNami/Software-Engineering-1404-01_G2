@@ -28,6 +28,12 @@ class TravelStyleChoices(models.TextChoices):
     BUSINESS = 'BUSINESS', 'کاری'
 
 
+class DensityChoices(models.TextChoices):
+    RELAXED = 'RELAXED', 'آرام'
+    BALANCED = 'BALANCED', 'متعادل'
+    INTENSIVE = 'INTENSIVE', 'فشرده'
+
+
 class ItemTypeChoices(models.TextChoices):
     VISIT = 'VISIT', 'بازدید'
     STAY = 'STAY', 'اقامت'
@@ -59,7 +65,9 @@ class Trip(models.Model):
 
     STATUS_CHOICES = [
         ('DRAFT', 'Draft'),
+        ('ACTIVE', 'Active'),
         ('FINALIZED', 'Finalized'),
+        ('COMPLETED', 'Completed'),
     ]
 
     trip_id = models.BigAutoField(primary_key=True)
@@ -91,10 +99,13 @@ class Trip(models.Model):
     )
     travel_style = models.CharField(
         max_length=15, choices=TravelStyleChoices.choices)
+    density = models.CharField(
+        max_length=15, choices=DensityChoices.choices, null=True, blank=True)
+    interests = models.JSONField(null=True, blank=True)
     generation_strategy = models.CharField(
         max_length=15, choices=GENERATION_STRATEGY_CHOICES)
     status = models.CharField(
-        max_length=15, choices=STATUS_CHOICES, default='DRAFT')
+        max_length=15, choices=STATUS_CHOICES, default='ACTIVE')
     total_estimated_cost = models.DecimalField(
         max_digits=12,
         decimal_places=2,

@@ -5,19 +5,47 @@ from data.models import (
 )
 
 
+class CamelCaseFieldMixin:
+    """Mixin to handle camelCase field names in input"""
+
+    def to_internal_value(self, data):
+        """Convert camelCase to snake_case"""
+        camel_to_snake = {
+            'startDate': 'start_date',
+            'endDate': 'end_date',
+            'budgetLevel': 'budget_level',
+        }
+        converted_data = {}
+        for key, value in data.items():
+            converted_key = camel_to_snake.get(key, key)
+            converted_data[converted_key] = value
+        return super().to_internal_value(converted_data)
+
+
 class TripItemSerializer(serializers.ModelSerializer):
-    """Serializer for TripItem model"""
+    """Serializer for TripItem model with custom field names"""
+
+    id = serializers.IntegerField(source='item_id', read_only=True)
+    type = serializers.CharField(source='item_type')
+    summery = serializers.CharField(
+        source='wiki_summary', allow_blank=True, required=False)
+    cost = serializers.SerializerMethodField()
+    address = serializers.CharField(
+        source='address_summary', allow_blank=True, required=False)
+    url = serializers.URLField(
+        source='wiki_link', allow_blank=True, required=False)
 
     class Meta:
         model = TripItem
         fields = [
-            'item_id', 'item_type', 'place_ref_id', 'title', 'category',
-            'address_summary', 'lat', 'lng', 'wiki_summary', 'wiki_link',
-            'main_image_url', 'start_time', 'end_time', 'duration_minutes',
-            'sort_order', 'is_locked', 'price_tier', 'estimated_cost',
-            'transport_mode_to_next', 'travel_time_to_next', 'travel_distance_to_next'
+            'id', 'category', 'type', 'title', 'start_time', 'end_time',
+            'summery', 'cost', 'address', 'url'
         ]
-        read_only_fields = ['item_id']
+        read_only_fields = ['id']
+
+    def get_cost(self, obj):
+        """Convert decimal to float for cost"""
+        return float(obj.estimated_cost) if obj.estimated_cost else 0
 
     def validate(self, data):
         """Validate time fields"""
@@ -26,11 +54,6 @@ class TripItemSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     "End time must be after start time"
                 )
-
-        if 'duration_minutes' in data and data['duration_minutes'] < 60:
-            raise serializers.ValidationError(
-                "Duration must be at least 60 minutes"
-            )
 
         return data
 
@@ -63,22 +86,16 @@ class VoteSerializer(serializers.ModelSerializer):
 
 
 class TripDaySerializer(serializers.ModelSerializer):
-    """Serializer for TripDay model"""
+    """Serializer for TripDay model with custom field names"""
 
+    day_number = serializers.IntegerField(source='day_index', read_only=True)
+    date = serializers.DateField(source='specific_date', read_only=True)
     items = TripItemSerializer(many=True, read_only=True)
-    items_count = serializers.SerializerMethodField()
 
     class Meta:
         model = TripDay
-        fields = [
-            'day_id', 'day_index', 'specific_date',
-            'start_geo_location', 'items', 'items_count'
-        ]
-        read_only_fields = ['day_id']
-
-    def get_items_count(self, obj):
-        """Get number of items in this day"""
-        return obj.items.count()
+        fields = ['day_number', 'date', 'items']
+        read_only_fields = ['day_number', 'date']
 
 
 class ShareLinkSerializer(serializers.ModelSerializer):
@@ -159,59 +176,75 @@ class TripListSerializer(serializers.ModelSerializer):
 
 
 class TripDetailSerializer(serializers.ModelSerializer):
-    """Detailed serializer for single trip view"""
+    """Detailed serializer for single trip view with custom field names"""
 
+    id = serializers.IntegerField(source='trip_id', read_only=True)
+    total_cost = serializers.SerializerMethodField()
+    style = serializers.CharField(source='travel_style', read_only=True)
     days = TripDaySerializer(many=True, read_only=True)
-    share_links = ShareLinkSerializer(many=True, read_only=True)
-    reviews = TripReviewSerializer(many=True, read_only=True)
-    media = UserMediaSerializer(many=True, read_only=True)
-    average_rating = serializers.SerializerMethodField()
-    username = serializers.CharField(source='user.username', read_only=True)
 
     class Meta:
         model = Trip
         fields = [
-            'trip_id', 'user', 'username', 'copied_from_trip',
-            'title', 'province', 'city', 'start_date', 'end_date',
-            'duration_days', 'budget_level', 'daily_available_hours',
-            'travel_style', 'generation_strategy', 'status',
-            'total_estimated_cost', 'reminder_enabled', 'created_at',
-            'days', 'share_links', 'reviews', 'media', 'average_rating'
+            'id', 'title', 'province', 'city', 'start_date', 'end_date',
+            'duration_days', 'style', 'budget_level', 'status',
+            'total_cost', 'days', 'created_at'
         ]
-        read_only_fields = ['trip_id', 'created_at', 'end_date']
+        read_only_fields = ['id', 'created_at', 'end_date', 'total_cost']
 
-    def get_average_rating(self, obj):
-        """Calculate average rating"""
-        reviews = obj.reviews.all()
-        if not reviews:
-            return None
-        return sum(r.rating for r in reviews) / len(reviews)
+    def get_total_cost(self, obj):
+        """Convert decimal to float for total_cost"""
+        return float(obj.total_estimated_cost)
 
 
 class TripCreateUpdateSerializer(serializers.ModelSerializer):
-    """Serializer for creating/updating trips"""
+    """Serializer for creating/updating trips with camelCase support"""
+
+    style = serializers.CharField(source='travel_style', required=False)
+    startDate = serializers.DateField(source='start_date', required=True)
+    endDate = serializers.DateField(source='end_date', required=False)
+    budget_level = serializers.CharField(required=False)
+    density = serializers.CharField(required=False, allow_null=True)
+    interests = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        allow_null=True
+    )
 
     class Meta:
         model = Trip
         fields = [
-            'title', 'province', 'city', 'start_date', 'duration_days',
-            'budget_level', 'daily_available_hours', 'travel_style',
-            'generation_strategy', 'status', 'reminder_enabled'
+            'province', 'city', 'startDate', 'endDate', 'style',
+            'density', 'interests', 'budget_level'
         ]
 
-    def validate_duration_days(self, value):
-        """Validate duration is within acceptable range"""
-        if value < 1:
-            raise serializers.ValidationError(
-                "Duration must be at least 1 day")
-        if value > 30:
-            raise serializers.ValidationError("Duration cannot exceed 30 days")
-        return value
+    def create(self, validated_data):
+        """Create trip with default values"""
+        # Calculate duration_days from start_date and end_date
+        start_date = validated_data.get('start_date')
+        end_date = validated_data.get('end_date')
 
-    def validate_daily_available_hours(self, value):
-        """Validate daily hours"""
-        if not 1 <= value <= 24:
-            raise serializers.ValidationError(
-                "Daily available hours must be between 1 and 24"
-            )
-        return value
+        if end_date is None and start_date is not None:
+            # Default to 3 days if end_date not provided
+            from datetime import timedelta
+            end_date = start_date + timedelta(days=3)
+            validated_data['end_date'] = end_date
+
+        if start_date and end_date:
+            duration_days = (end_date - start_date).days + 1
+            validated_data['duration_days'] = duration_days
+        else:
+            validated_data['duration_days'] = 3  # Default duration
+
+        # Set default values
+        validated_data.setdefault('daily_available_hours', 8)
+        validated_data.setdefault('generation_strategy', 'MIXED')
+        validated_data.setdefault('status', 'ACTIVE')
+
+        # Generate title
+        city = validated_data.get('city')
+        province = validated_data.get('province')
+        location = city if city else province
+        validated_data['title'] = f'Trip to {location}'
+
+        return super().create(validated_data)
