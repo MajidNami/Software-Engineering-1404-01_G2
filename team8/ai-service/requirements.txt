@@ -1,28 +1,27 @@
+
 # Web framework
-fastapi~=0.109
-uvicorn[standard]~=0.27
+fastapi>=0.109,<1.0 
+uvicorn[standard]>=0.27,<1.0
 
-# Data validation (FastAPI 0.109 expects Pydantic v2)
-pydantic~=2.5
+# ML / DL  (CPU-only wheels)
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.6.0+cpu                    # image_tagging ConvNeXt inference
+torchvision==0.21.0+cpu             # convnext_base model + transforms
+transformers>=4.36,<5.0             # HF pipeline (NSFW image-classification)
+huggingface-hub>=0.20,<1.0          # InferenceClient (LLM API for comment/summarizer)
 
-# ML / DL stack (keep tightly aligned)
-torch~=2.1
-torchvision~=0.16
-transformers~=4.36
-huggingface-hub~=0.17
-
-# Imaging & numerics
-Pillow~=10.2
-numpy~=1.26
+# Image processing
+Pillow>=10.2,<11.0
 
 # Database
-sqlalchemy~=2.0
-psycopg2-binary~=2.9
+sqlalchemy>=2.0,<3.0
+psycopg2-binary>=2.9,<3.0
+alembic>=1.13,<2.0
 
-# HTTP & cloud
-httpx>=0.27,<1.0
-boto3>=1.34,<2.0
+# HTTP & S3/MinIO
+httpx>=0.27,<1.0                    # async callbacks to backend
+boto3>=1.34,<2.0                    # S3 image download in main.py
+minio>=7.2,<8.0                     # MinIO client in utils/image.py
 
 # Config
 python-dotenv>=1.0,<2.0
-

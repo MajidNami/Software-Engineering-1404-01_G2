@@ -18,6 +18,7 @@ ALLOWED_HOSTS = env.get_value("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"
 INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.staticfiles",
+    'django.contrib.auth',      
     # "django.contrib.gis",  # GeoDjango for PostGIS
     "rest_framework",
     # "rest_framework_gis",  # DRF GIS support
@@ -50,10 +51,9 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 DATABASES = {
-    # Team8 tables - Your PostgreSQL with PostGIS
     "default": env.db(
-        "TEAM8_DATABASE_URL",
-        default="postgresql://team8_user:team8_pass@postgres:5432/team8_db",
+        "BACKEND_DATABASE_URL",
+        default="postgresql://backend_user:backend_pass@localhost:5433/backend_db",
         # engine="django.contrib.gis.db.backends.postgis"
     )
 }
