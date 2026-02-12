@@ -5,9 +5,9 @@ from .models import Trip, TripRequirements, PreferenceConstraint, DailyPlan, Hot
 @admin.register(TripRequirements)
 class TripRequirementsAdmin(admin.ModelAdmin):
     """Admin interface for Trip Requirements."""
-    list_display = ['id', 'user', 'destination_name', 'start_at', 'end_at', 'budget', 'travelers_count', 'created_at']
+    list_display = ['id', 'user_id', 'destination_name', 'start_at', 'end_at', 'budget_level', 'travelers_count', 'created_at']
     list_filter = ['created_at', 'travelers_count']
-    search_fields = ['destination_name', 'user__username']
+    search_fields = ['destination_name', 'user_id']
     date_hierarchy = 'created_at'
 
 
@@ -22,9 +22,9 @@ class PreferenceConstraintAdmin(admin.ModelAdmin):
 @admin.register(Trip)
 class TripAdmin(admin.ModelAdmin):
     """Admin interface for Trips."""
-    list_display = ['id', 'user', 'status', 'get_destination', 'created_at', 'updated_at', 'get_total_cost']
+    list_display = ['id', 'user_id', 'status', 'get_destination', 'created_at', 'updated_at', 'get_total_cost']
     list_filter = ['status', 'created_at', 'updated_at']
-    search_fields = ['user__username', 'requirements__destination_name']
+    search_fields = ['user_id', 'requirements__destination_name']
     date_hierarchy = 'created_at'
     readonly_fields = ['created_at', 'updated_at', 'get_total_cost']
 
@@ -42,7 +42,7 @@ class DailyPlanAdmin(admin.ModelAdmin):
     """Admin interface for Daily Plans."""
     list_display = ['id', 'trip', 'activity_type', 'start_at', 'end_at', 'cost', 'place_source_type']
     list_filter = ['activity_type', 'place_source_type', 'start_at']
-    search_fields = ['description', 'trip__id']
+    search_fields = ['description', 'trip_id']
     date_hierarchy = 'start_at'
 
 

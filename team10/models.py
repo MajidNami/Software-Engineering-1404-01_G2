@@ -5,13 +5,20 @@ from django.conf import settings
 class TripRequirements(models.Model):
     """Database model for trip requirements."""
 
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='trip_requirements')
+    BUDGET_LEVEL_CHOICES = [
+        ('ECONOMY', 'Economy'),
+        ('MODERATE', 'Moderate'),
+        ('LUXURY', 'Luxury'),
+    ]
+
+    user_id = models.CharField(max_length=255, db_index=True)  # Hash string from central auth
     start_at = models.DateTimeField()
     end_at = models.DateTimeField()
     origin_city_id = models.IntegerField(null=True, blank=True)
     destination_city_id = models.IntegerField(null=True, blank=True)
     destination_name = models.CharField(max_length=200)
-    budget = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    region_id = models.CharField(max_length=255, null=True, blank=True)
+    budget_level = models.CharField(max_length=20, choices=BUDGET_LEVEL_CHOICES, default='MODERATE')
     travelers_count = models.IntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -20,7 +27,7 @@ class TripRequirements(models.Model):
         verbose_name_plural = 'Trip Requirements'
 
     def __str__(self):
-        return f"Requirements for {self.user.username} - {self.destination_name}"
+        return f"Requirements for user {self.user_id} - {self.destination_name}"
 
 
 class PreferenceConstraint(models.Model):
@@ -49,8 +56,9 @@ class Trip(models.Model):
         ('NEEDS_REGENERATION', 'Needs Regeneration'),
     ]
 
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='trips')
+    user_id = models.CharField(max_length=255, db_index=True)  # Hash string from central auth
     requirements = models.ForeignKey(TripRequirements, on_delete=models.CASCADE, related_name='trips')
+    destination_name = models.CharField(max_length=200, default='')
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='DRAFT')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -60,7 +68,7 @@ class Trip(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"Trip {self.id} - {self.user.username} ({self.status})"
+        return f"Trip {self.id} - User {self.user_id} ({self.status})"
 
     def calculate_total_cost(self):
         """Calculate total cost of the trip."""

@@ -8,19 +8,42 @@
     <p>نمایش اطلاعات کلی و برنامه روزانه سفر.</p>
   </section>
 
-  {% if trip %}
-  <section class="t10-card t10-trip-summary">
-    <h3>خلاصه سفر</h3>
-    <div class="t10-grid t10-grid--3">
-      <div><strong>مبدأ:</strong> {{ trip.requirements.origin_city_id|default:"-" }}</div>
-      <div><strong>مقصد:</strong> {{ trip.requirements.destination_name|default:"-" }}</div>
-      <div><strong>تاریخ شروع:</strong> {{ trip.requirements.start_at|date:"Y-m-d H:i"|default:"-" }}</div>
-      <div><strong>تاریخ پایان:</strong> {{ trip.requirements.end_at|date:"Y-m-d H:i"|default:"-" }}</div>
-      <div><strong>تعداد نفرات:</strong> {{ trip.requirements.travelers_count|default:"-" }}</div>
-      <div><strong>بودجه (تومان):</strong> {{ trip.requirements.budget|default:"-" }}</div>
-      <div><strong>وضعیت:</strong> <span class="t10-badge t10-badge--active">{{ trip.get_status_display }}</span></div>
-    </div>
-  </section>
+        <div class="trip-details-card">
+            <div class="trip-info-grid">
+                <div class="info-item">
+                    <span class="label">مزدا</span>
+                    <span class="value">{{ trip.destination_name }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">مبدأ</span>
+                    <span class="value">{{ trip.origin_name|default:"—" }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">مدت</span>
+                    <span class="value">{{ trip.days }} روز</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">تاریخ شروع</span>
+                    <span class="value">{{ trip.start_at|default:"—" }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">قالب</span>
+                    <span class="value">{{ trip.get_status_display }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">تعداد نفر</span>
+                    <span class="value">{{ trip.people }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">سطح بودجه</span>
+                    <span clascompelates="value">{{ trip.requirements.get_budget_level_display|default:"—" }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">هزینه کل</span>
+                    <span class="value">{{ trip.total_cost|default:"—" }}</span>
+                </div>
+            </div>
+        </div>
 
   <section class="t10-card">
     <h3>برنامه روزانه</h3>

@@ -6,31 +6,47 @@ from core.auth import api_login_required
 
 from .application.services.trip_planning_service_impl import TripPlanningServiceImpl
 from .infrastructure.clients.wiki_client import get_wiki_client
+from .services import trip_planning_service
+
 from .models import Trip
 
 
 @require_http_methods(["POST"])
 @csrf_exempt  # CSRF handled by central system
-@api_login_required  # Requires user authentication from central system
+# @api_login_required  # Requires user authentication from central system
 def create_trip_api(request):
     """API endpoint to create a new trip. Requires authentication."""
     try:
         # Parse JSON data
         data = json.loads(request.body)
+        print(data)
         # Validate required fields
-        required_fields = ['destination', 'start_date', 'end_date']
+        required_fields = ['destination', 'start_date', 'end_date', 'budget_level']
         for field in required_fields:
             if not data.get(field):
                 return JsonResponse({
                     'error': f'Missing required field: {field}'
                 }, status=400)
 
+        # Validate budget_level enum
+        valid_budget_levels = ['ECONOMY', 'MODERATE', 'LUXURY']
+        if data['budget_level'] not in valid_budget_levels:
+            return JsonResponse({
+                'error': f'Invalid budget_level. Must be one of: {", ".join(valid_budget_levels)}'
+            }, status=400)
+
         # User is guaranteed to be authenticated by @api_login_required
         user = request.user
 
-        # Create trip using service
-        service = TripPlanningServiceImpl()
-        trip = service.create_initial_trip(data, user)
+        # Extract user_id (hash string) from user object
+        user_id = str(user.id) if hasattr(user, 'id') else None
+        if not user_id:
+            return JsonResponse({
+                'error': 'User ID not found'
+            }, status=401)
+
+        # Create trip using shared service instance
+        trip = trip_planning_service.create_initial_trip(data, user_id)
 
         # Return success response
         return JsonResponse({
@@ -56,9 +72,11 @@ def get_trip_api(request, trip_id):
     """API endpoint to get trip details. Requires authentication."""
     try:
         # Only allow users to view their own trips
-        trip = Trip.objects.get(id=trip_id, user=request.user)
+        user_id = str(request.user.id) if hasattr(request.user, 'id') else None
+        trip = Trip.objects.get(id=trip_id, user_id=user_id)
         wiki = get_wiki_client(use_mock=True)
         dest_info = wiki.get_destination_basic_info(trip.requirements.destination_name)
+
 
         # Prepare response data
         trip_data = {
@@ -67,7 +85,7 @@ def get_trip_api(request, trip_id):
             'destination': trip.requirements.destination_name,
             'start_date': trip.requirements.start_at.isoformat(),
             'end_date': trip.requirements.end_at.isoformat(),
-            'budget': float(trip.requirements.budget) if trip.requirements.budget else None,
+            'budget_level': trip.requirements.budget_level,
             'travelers_count': trip.requirements.travelers_count,
             'total_cost': float(trip.calculate_total_cost()),
             'daily_plans': [
@@ -122,7 +140,8 @@ def regenerate_trip_api(request, trip_id):
     """API endpoint to regenerate trip with new styles. Requires authentication."""
     try:
         # Verify user owns this trip
-        trip_check = Trip.objects.filter(id=trip_id, user=request.user).exists()
+        user_id = str(request.user.id) if hasattr(request.user, 'id') else None
+        trip_check = Trip.objects.filter(id=trip_id, user_id=user_id).exists()
         if not trip_check:
             return JsonResponse({
                 'error': 'Trip not found or access denied'
@@ -131,8 +150,7 @@ def regenerate_trip_api(request, trip_id):
         data = json.loads(request.body)
         styles = data.get('styles', [])
 
-        service = TripPlanningServiceImpl()
-        trip = service.regenerate_by_styles(trip_id, styles)
+        trip = trip_planning_service.regenerate_by_styles(trip_id, styles)
 
         return JsonResponse({
             'success': True,
@@ -158,7 +176,8 @@ def analyze_budget_api(request, trip_id):
     """API endpoint to analyze trip budget. Requires authentication."""
     try:
         # Verify user owns this trip
-        trip_check = Trip.objects.filter(id=trip_id, user=request.user).exists()
+        user_id = str(request.user.id) if hasattr(request.user, 'id') else None
+        trip_check = Trip.objects.filter(id=trip_id, user_id=user_id).exists()
         if not trip_check:
             return JsonResponse({
                 'error': 'Trip not found or access denied'
@@ -167,8 +186,7 @@ def analyze_budget_api(request, trip_id):
         data = json.loads(request.body)
         budget_limit = float(data.get('budget_limit', 0))
 
-        service = TripPlanningServiceImpl()
-        result = service.analyze_costs_and_budget(trip_id, budget_limit)
+        result = trip_planning_service.analyze_costs_and_budget(trip_id, budget_limit)
 
         return JsonResponse({
             'total_cost': result.total_cost,

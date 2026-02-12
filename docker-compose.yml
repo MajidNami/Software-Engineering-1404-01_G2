@@ -7,8 +7,13 @@ services:
       - .env
     ports:
       - "8000:8000"
+    volumes:
+      - sqlite-data:/app/data
     networks:
       - app404
+
+volumes:
+  sqlite-data:
 
 networks:
   app404:
