@@ -1,14 +1,23 @@
+# =======================================================================================
+# COMPLETE API IMPLEMENTATION - api/views.py
+# =======================================================================================
+from _decimal import Decimal
+
 from django.http import JsonResponse, FileResponse
 from rest_framework import viewsets, status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
-from typing import Optional
+from typing import Optional, List, Dict
+from datetime import date, datetime
 
 from business.services import (
     TripService, TripDayService, TripItemService,
     DependencyService, ShareService, VotingService,
     ReviewService, MediaService
 )
+from business.generators import TripGenerator
+from business.helpers import AlternativesProvider
+
 from .serializers import (
     TripListSerializer, TripDetailSerializer, TripCreateUpdateSerializer,
     TripDaySerializer, TripItemSerializer, ItemDependencySerializer,
@@ -125,6 +134,207 @@ class TripViewSet(viewsets.ViewSet):
             status=status.HTTP_404_NOT_FOUND
         )
 
+
+    @action(detail=False, methods=['post'], url_path='generate')
+    def generate_trip(self, request):
+        """
+        POST /api/trips/generate/
+
+        موتور تولید سفر - الگوریتم اصلی ساخت برنامه سفر
+
+        ورودی:
+        {
+            "province": "اصفهان",                  // شهر/استان (اجباری)
+            "city": "اصفهان",                      // شهر دقیق (اختیاری)
+            "start_date": "2026-03-15",            // تاریخ شروع (اجباری)
+            "end_date": "2026-03-17",              // تاریخ پایان (اختیاری)
+            "interests": ["تاریخی", "فرهنگی"],     // علایق (اختیاری)
+            "budget_level": "MEDIUM",              // بودجه: ECONOMY/MEDIUM/LUXURY/UNLIMITED
+            "daily_available_hours": 12,           // تراکم/ساعات روزانه (اختیاری)
+            "travel_style": "COUPLE",              // سبک سفر (اختیاری)
+            "user_id": 123                         // کاربر (اختیاری)
+        }
+
+        خروجی:
+        - JSON کامل Trip با Days و Items
+        - محاسبه خودکار هزینه
+        - وضعیت FINALIZED
+
+        وابستگی:
+        - Facility Service (محمدحسین): لیست مکان‌ها
+        - Recommendation Service (محمدحسین): رتبه‌بندی
+        """
+
+        # 1. اعتبارسنجی ورودی‌های اجباری
+        province = request.data.get('province')
+        budget_level = request.data.get('budget_level')
+        start_date_str = request.data.get('start_date')
+
+        if not province:
+            return Response(
+                {
+                    "error": "province is required",
+                    "error_fa": "استان الزامی است"
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not budget_level:
+            return Response(
+                {
+                    "error": "budget_level is required",
+                    "error_fa": "سطح بودجه الزامی است"
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 2. اعتبارسنجی budget_level
+        valid_budgets = ['ECONOMY', 'MEDIUM', 'LUXURY', 'UNLIMITED']
+        if budget_level not in valid_budgets:
+            return Response(
+                {
+                    "error": f"budget_level must be one of: {', '.join(valid_budgets)}",
+                    "error_fa": "سطح بودجه نامعتبر است"
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not start_date_str:
+            return Response(
+                {
+                    "error": "start_date is required",
+                    "error_fa": "تاریخ شروع الزامی است"
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 3. پردازش تاریخ‌ها
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return Response(
+                {
+                    "error": "start_date must be in YYYY-MM-DD format",
+                    "error_fa": "فرمت تاریخ شروع نامعتبر است"
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # بررسی تاریخ گذشته
+        if start_date < date.today():
+            return Response(
+                {
+                    "error": "start_date cannot be in the past",
+                    "error_fa": "تاریخ شروع نمی‌تواند در گذشته باشد"
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        end_date = None
+        end_date_str = request.data.get('end_date')
+        if end_date_str:
+            try:
+                end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+                if end_date < start_date:
+                    return Response(
+                        {
+                            "error": "end_date must be after start_date",
+                            "error_fa": "تاریخ پایان باید بعد از تاریخ شروع باشد"
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                # حداکثر 30 روز
+                duration = (end_date - start_date).days + 1
+                if duration > 30:
+                    return Response(
+                        {
+                            "error": "Trip duration cannot exceed 30 days",
+                            "error_fa": "مدت سفر نمی‌تواند بیش از 30 روز باشد"
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+            except ValueError:
+                return Response(
+                    {
+                        "error": "end_date must be in YYYY-MM-DD format",
+                        "error_fa": "فرمت تاریخ پایان نامعتبر است"
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # 4. دریافت پارامترهای اختیاری
+        city = request.data.get('city')
+        interests = request.data.get('interests', [])
+        daily_available_hours = request.data.get('daily_available_hours', 12)
+        travel_style = request.data.get('travel_style', 'SOLO')
+        user_id = request.data.get('user_id')
+
+        # اعتبارسنجی daily_available_hours
+        if not isinstance(daily_available_hours, int) or daily_available_hours < 1 or daily_available_hours > 24:
+            daily_available_hours = 12
+
+        # اعتبارسنجی travel_style
+        valid_styles = ['SOLO', 'COUPLE', 'FAMILY', 'FRIENDS', 'BUSINESS']
+        if travel_style not in valid_styles:
+            travel_style = 'SOLO'
+
+        try:
+            # 5. تولید سفر با TripGenerator
+            generator = TripGenerator()
+
+            trip = generator.generate(
+                province=province,
+                city=city,
+                interests=interests,
+                budget_level=budget_level,
+                start_date=start_date,
+                end_date=end_date,
+                daily_available_hours=daily_available_hours,
+                travel_style=travel_style
+            )
+
+            # 6. اختصاص به کاربر (در صورت وجود)
+            if user_id:
+                try:
+                    trip.user_id = int(user_id)
+                    trip.save(update_fields=['user_id'])
+                except (ValueError, TypeError):
+                    pass  # Invalid user_id, keep as guest trip
+
+            # 7. برگرداندن نتیجه
+            serializer = TripDetailSerializer(trip)
+
+            return Response(
+                {
+                    "success": True,
+                    "message": "Trip generated successfully",
+                    "message_fa": "برنامه سفر با موفقیت ایجاد شد",
+                    "trip": serializer.data
+                },
+                status=status.HTTP_201_CREATED
+            )
+
+        except ValueError as e:
+            return Response(
+                {
+                    "error": str(e),
+                    "error_fa": "خطا در تولید برنامه سفر"
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            return Response(
+                {
+                    "error": f"Trip generation failed: {str(e)}",
+                    "error_fa": "خطای سیستمی در تولید سفر"
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+
     @action(detail=True, methods=['post'])
     def copy(self, request, pk=None):
         """POST /api/trips/{id}/copy/ - Copy an existing trip"""
@@ -198,43 +408,114 @@ class TripViewSet(viewsets.ViewSet):
     @action(detail=True, methods=['post'])
     def claim(self, request, pk=None):
         """
-        POST /api/trips/{id}/claim/ - Claim a guest trip as logged-in user
+        POST /api/trips/{id}/claim/
 
-        Converts a guest trip (user_id=null) to a user trip.
-        Use case: User creates trip without login, then logs in and claims it.
-        Requires authentication via JWT token.
+        اتصال مهمان به کاربر - تبدیل Trip مهمان به Trip کاربر
+
+        Use Case:
+        - کاربر بدون لاگین Trip ساخته (user_id = null)
+        - بعد لاگین می‌کنه
+        - با این API می‌تونه Trip رو claim کنه (user_id = logged_in_user)
+
+        ورودی:
+        - Token/Session کاربر لاگین شده
+        - Trip ID در URL
+
+        خروجی:
+        {
+            "success": true,
+            "message": "Trip claimed successfully",
+            "trip": { ... }  // Trip با user_id آپدیت شده
+        }
+
+        منطق:
+        1. بررسی لاگین بودن کاربر
+        2. بررسی trip وجود داشته باشه
+        3. بررسی trip قبلاً claim نشده باشه (user_id == null)
+        4. آپدیت user_id به کاربر فعلی
+        5. برگرداندن Trip آپدیت شده
+
+        وابستگی:
+        - صفر (فقط آپدیت database)
         """
-        # Check if user is authenticated
+
+        # 1. بررسی authentication
         if not request.user or not request.user.is_authenticated:
             return Response(
-                {"error": "Authentication required"},
+                {
+                    "error": "Authentication required",
+                    "error_fa": "لاگین الزامی است"
+                },
                 status=status.HTTP_401_UNAUTHORIZED
             )
 
-        # Get the trip
+        # 2. دریافت Trip
         trip = TripService.get_trip_detail(int(pk))
 
         if not trip:
             return Response(
-                {"error": "Trip not found"},
+                {
+                    "error": "Trip not found",
+                    "error_fa": "سفر یافت نشد"
+                },
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        # Check if already claimed
+        # 3. بررسی claim نشده بودن
         if trip.user_id is not None:
-            return Response(
-                {"error": "Trip is already claimed by another user"},
-                status=status.HTTP_400_BAD_REQUEST
+            # اگر قبلاً claim شده
+            if trip.user_id == request.user.id:
+                # همین کاربر claim کرده
+                return Response(
+                    {
+                        "success": False,
+                        "message": "You have already claimed this trip",
+                        "message_fa": "شما قبلاً این سفر را ثبت کرده‌اید"
+                    },
+                    status=status.HTTP_200_OK
+                )
+            else:
+                # کاربر دیگه claim کرده
+                return Response(
+                    {
+                        "error": "Trip is already claimed by another user",
+                        "error_fa": "این سفر قبلاً توسط کاربر دیگری ثبت شده"
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # 4. Claim کردن Trip
+        try:
+            updated_trip = TripService.update_trip(
+                int(pk),
+                {'user_id': request.user.id}
             )
 
-        # Claim the trip for authenticated user
-        updated_trip = TripService.update_trip(
-            int(pk), {'user_id': request.user.id})
+            if not updated_trip:
+                raise Exception("Failed to update trip")
 
-        return Response(
-            TripDetailSerializer(updated_trip).data,
-            status=status.HTTP_200_OK
-        )
+            # 5. برگرداندن نتیجه
+            serializer = TripDetailSerializer(updated_trip)
+
+            return Response(
+                {
+                    "success": True,
+                    "message": "Trip claimed successfully",
+                    "message_fa": "سفر با موفقیت به حساب شما منتقل شد",
+                    "trip": serializer.data
+                },
+                status=status.HTTP_200_OK
+            )
+
+        except Exception as e:
+            return Response(
+                {
+                    "error": f"Failed to claim trip: {str(e)}",
+                    "error_fa": "خطا در انتقال سفر"
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 
     @action(detail=True, methods=['get'])
     def export_pdf(self, request, pk=None):
@@ -678,6 +959,128 @@ class TripItemViewSet(viewsets.ViewSet):
         TripItemService.reorder_items(int(day_id), item_order)
         return Response({"success": True})
 
+    @action(detail=True, methods=['get'], url_path='alternatives')
+    def get_alternatives(self, request, pk=None):
+        """
+        GET /api/items/{id}/alternatives/
+
+        پیشنهاد جایگزین - لیست مکان‌های مشابه برای جایگزینی
+
+        Query Parameters:
+        - max_results: تعداد نتایج (پیش‌فرض: 5، حداکثر: 20)
+
+        خروجی:
+        {
+            "item_id": 123,
+            "current_place": {
+                "place_id": "place_001",
+                "title": "میدان نقش جهان",
+                "category": "HISTORICAL",
+                "lat": 32.6546,
+                "lng": 51.6777
+            },
+            "alternatives": [
+                {
+                    "id": "place_005",
+                    "title": "باغ چهلستون",
+                    "category": "HISTORICAL",
+                    "address": "اصفهان، خیابان استانداری",
+                    "lat": 32.6612,
+                    "lng": 51.6697,
+                    "entry_fee": 150000,
+                    "price_tier": "BUDGET",
+                    "rating": 4.6,
+                    "distance": 1.2,
+                    "recommendation_reason": "نزدیک‌ترین جاذبه مشابه"
+                }
+            ],
+            "count": 5
+        }
+
+        منطق:
+        - فیلتر بر اساس category
+        - مرتب‌سازی بر اساس distance
+        - فیلتر بر اساس price_tier (در محدوده بودجه Trip)
+
+        وابستگی:
+        - Facility Service (MongoDB geo-search)
+        """
+
+        # 1. دریافت item
+        item = TripItemService.get_item_by_id(int(pk))
+
+        if not item:
+            return Response(
+                {
+                    "error": "Item not found",
+                    "error_fa": "آیتم یافت نشد"
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # 2. دریافت اطلاعات trip برای location
+        trip = item.day.trip
+
+        # 3. دریافت max_results از query params
+        try:
+            max_results = int(request.query_params.get('max_results', 5))
+            max_results = max(1, min(max_results, 20))  # محدود به 1-20
+        except (ValueError, TypeError):
+            max_results = 5
+
+        try:
+            # 4. دریافت alternatives با AlternativesProvider
+            provider = AlternativesProvider()
+            alternatives = provider.get_alternatives(
+                original_place_id=item.place_ref_id,
+                province=trip.province,
+                city=trip.city,
+                category=item.category,
+                max_results=max_results
+            )
+
+            # 5. افزودن دلیل پیشنهاد به هر alternative
+            for i, alt in enumerate(alternatives):
+                if i == 0:
+                    alt['recommendation_reason'] = "نزدیک‌ترین جاذبه مشابه"
+                elif alt.get('rating', 0) > 4.5:
+                    alt['recommendation_reason'] = "بالاترین امتیاز کاربران"
+                elif alt.get('price_tier') == 'FREE':
+                    alt['recommendation_reason'] = "بازدید رایگان"
+                elif alt.get('price_tier') == 'BUDGET':
+                    alt['recommendation_reason'] = "مقرون‌به‌صرفه"
+                else:
+                    alt['recommendation_reason'] = f"در فاصله {alt.get('distance', 0):.1f} کیلومتری"
+
+            # 6. ساخت response
+            response_data = {
+                "success": True,
+                "item_id": item.item_id,
+                "current_place": {
+                    "place_id": item.place_ref_id,
+                    "title": item.title,
+                    "category": item.category,
+                    "lat": float(item.lat) if item.lat else None,
+                    "lng": float(item.lng) if item.lng else None,
+                    "estimated_cost": float(item.estimated_cost)
+                },
+                "alternatives": alternatives,
+                "count": len(alternatives)
+            }
+
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response(
+                {
+                    "error": f"Failed to get alternatives: {str(e)}",
+                    "error_fa": "خطا در دریافت پیشنهادات"
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+
     @action(detail=True, methods=['post'])
     def replace(self, request, pk=None):
         """
@@ -719,36 +1122,482 @@ class TripItemViewSet(viewsets.ViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        # TODO: Integration with Facility Service
-        # from externalServices.grpc.services.facility_client import FacilityClient
-        # facility_client = FacilityClient()
-        # new_place_data = facility_client.get_place_by_id(new_place_id)
-        # if not new_place_data:
-        #     return Response({"error": "Place not found in Facility Service"}, 404)
-
-        # Prepare update data - keep same time, update place details
-        update_data = {
-            'place_ref_id': new_place_id,
-            'title': new_place_data.get('title', item.title),
-            'category': new_place_data.get('category', item.category),
-            'address_summary': new_place_data.get('address', item.address_summary),
-            'estimated_cost': new_place_data.get('estimated_cost', item.estimated_cost)
-        }
-
-        if 'lat' in new_place_data:
-            update_data['lat'] = new_place_data['lat']
-        if 'lng' in new_place_data:
-            update_data['lng'] = new_place_data['lng']
-
         try:
+            # Get new place details from Facility Service
+            from externalServices.grpc.services.facility_client import FacilityClient
+
+            facility_client = FacilityClient()
+            new_place_data = facility_client.get_place_by_id(new_place_id)
+
+            if not new_place_data:
+                return Response(
+                    {"error": "Place not found in Facility Service"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Prepare update data - keep same time, update place details
+            update_data = {
+                'place_ref_id': new_place_id,
+                'title': new_place_data.get('title', item.title),
+                'category': new_place_data.get('category', item.category),
+                'address_summary': new_place_data.get('address', item.address_summary),
+                'estimated_cost': new_place_data.get('entry_fee', item.estimated_cost),
+                'price_tier': new_place_data.get('price_tier', item.price_tier),
+                'main_image_url': new_place_data.get('images', [''])[0] if new_place_data.get(
+                    'images') else item.main_image_url
+            }
+
+            if 'lat' in new_place_data:
+                update_data['lat'] = new_place_data['lat']
+            if 'lng' in new_place_data:
+                update_data['lng'] = new_place_data['lng']
+
+            # Update item
             updated_item = TripItemService.update_item(int(pk), update_data)
+
+            # Recalculate trip cost
+            trip = item.day.trip
+            from business.generators import TripGenerator
+            generator = TripGenerator()
+            generator._calculate_trip_cost(trip)
 
             return Response(
                 TripItemSerializer(updated_item).data,
                 status=status.HTTP_200_OK
+            )
+
+        except ImportError:
+            # Fallback if Facility Service not available
+            return Response(
+                {"error": "Facility Service integration not available. Please provide new_place_data."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
         except ValueError as e:
             return Response(
                 {"error": str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        except Exception as e:
+            return Response(
+                {"error": f"Replacement failed: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+@api_view(['POST'])
+def suggest_destinations(request):
+    """
+    POST /api/destinations/suggest/
+
+    پیشنهاد مقصد - پیشنهاد 3 شهر بر اساس فصل، بودجه و سبک سفر
+
+    ورودی:
+    {
+        "season": "spring",                    // فصل: spring/summer/fall/winter
+        "budget_level": "MEDIUM",              // بودجه: ECONOMY/MEDIUM/LUXURY/UNLIMITED
+        "travel_style": "COUPLE",              // سبک: SOLO/COUPLE/FAMILY/FRIENDS/BUSINESS
+        "interests": ["تاریخی", "طبیعت"]      // علایق (اختیاری)
+    }
+
+    خروجی:
+    {
+        "suggestions": [
+            {
+                "city": "اصفهان",
+                "province": "اصفهان",
+                "score": 95,
+                "reason": "بهترین شهر برای علاقه‌مندان به تاریخ و فرهنگ",
+                "highlights": ["میدان نقش جهان", "سی‌وسه‌پل"],
+                "best_season": "spring",
+                "estimated_cost": "2500000",
+                "duration_days": 3,
+                "description": "اصفهان با آب و هوای معتدل در بهار...",
+                "images": ["url1", "url2"]
+            }
+        ]
+    }
+
+    وابستگی:
+    - Wiki Service (محمدحسین): توضیحات و تصاویر شهرها
+    """
+
+    # 1. اعتبارسنجی ورودی
+    season = request.data.get('season', 'spring')
+    budget_level = request.data.get('budget_level')
+    travel_style = request.data.get('travel_style', 'SOLO')
+    interests = request.data.get('interests', [])
+
+    if not budget_level:
+        return Response(
+            {
+                "error": "budget_level is required",
+                "error_fa": "سطح بودجه الزامی است"
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # اعتبارسنجی season
+    valid_seasons = ['spring', 'summer', 'fall', 'winter']
+    if season not in valid_seasons:
+        season = 'spring'
+
+    # اعتبارسنجی budget_level
+    valid_budgets = ['ECONOMY', 'MEDIUM', 'LUXURY', 'UNLIMITED']
+    if budget_level not in valid_budgets:
+        return Response(
+            {
+                "error": f"budget_level must be one of: {', '.join(valid_budgets)}",
+                "error_fa": "سطح بودجه نامعتبر است"
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # اعتبارسنجی travel_style
+    valid_styles = ['SOLO', 'COUPLE', 'FAMILY', 'FRIENDS', 'BUSINESS']
+    if travel_style not in valid_styles:
+        travel_style = 'SOLO'
+
+    try:
+        # 2. پیشنهاد مقصدها بر اساس پارامترها
+        suggestions = _generate_destination_suggestions(
+            season=season,
+            budget_level=budget_level,
+            travel_style=travel_style,
+            interests=interests
+        )
+
+        return Response(
+            {
+                "success": True,
+                "count": len(suggestions),
+                "suggestions": suggestions,
+                "filters": {
+                    "season": season,
+                    "budget_level": budget_level,
+                    "travel_style": travel_style,
+                    "interests": interests
+                }
+            },
+            status=status.HTTP_200_OK
+        )
+
+    except Exception as e:
+        return Response(
+            {
+                "error": f"Failed to generate suggestions: {str(e)}",
+                "error_fa": "خطا در تولید پیشنهادات"
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+def _generate_destination_suggestions(
+        season: str,
+        budget_level: str,
+        travel_style: str,
+        interests: List[str]
+) -> List[Dict]:
+    """
+    منطق اصلی پیشنهاد مقصد
+
+    الگوریتم:
+    1. فیلتر شهرها بر اساس فصل مناسب
+    2. فیلتر بر اساس بودجه
+    3. امتیازدهی بر اساس interests
+    4. مرتب‌سازی بر اساس امتیاز
+    5. برگرداندن 3 تا برتر
+    """
+
+    # دیتابیس مقصدهای محبوب (در واقعیت از Facility/Wiki Service می‌آید)
+    destinations_db = [
+        {
+            "city": "اصفهان",
+            "province": "اصفهان",
+            "best_seasons": ["spring", "fall"],
+            "budget_min": "ECONOMY",
+            "categories": ["تاریخی", "فرهنگی", "معماری"],
+            "suitable_for": ["COUPLE", "FAMILY", "FRIENDS"],
+            "highlights": ["میدان نقش جهان", "سی‌وسه‌پل", "مسجد شیخ لطف‌الله"],
+            "description": "اصفهان نصف جهان با جاذبه‌های تاریخی بی‌نظیر و آب و هوای معتدل",
+            "estimated_cost_3days": {"ECONOMY": 1500000, "MEDIUM": 2500000, "LUXURY": 5000000},
+            "images": []
+        },
+        {
+            "city": "شیراز",
+            "province": "فارس",
+            "best_seasons": ["spring", "winter"],
+            "budget_min": "ECONOMY",
+            "categories": ["تاریخی", "فرهنگی", "باغ"],
+            "suitable_for": ["COUPLE", "FAMILY", "FRIENDS", "SOLO"],
+            "highlights": ["تخت جمشید", "حافظیه", "باغ ارم"],
+            "description": "شیراز شهر شعر و ادب و گل و بلبل با تاریخی کهن",
+            "estimated_cost_3days": {"ECONOMY": 1400000, "MEDIUM": 2300000, "LUXURY": 4500000},
+            "images": []
+        },
+        {
+            "city": "مشهد",
+            "province": "خراسان رضوی",
+            "best_seasons": ["spring", "summer", "fall"],
+            "budget_min": "ECONOMY",
+            "categories": ["مذهبی", "زیارتی", "فرهنگی"],
+            "suitable_for": ["FAMILY", "COUPLE", "FRIENDS"],
+            "highlights": ["حرم امام رضا", "بازار رضا", "موزه آستان قدس"],
+            "description": "مشهد شهر مقدس و پرزیارت با امکانات گردشگری عالی",
+            "estimated_cost_3days": {"ECONOMY": 1200000, "MEDIUM": 2000000, "LUXURY": 4000000},
+            "images": []
+        },
+        {
+            "city": "تهران",
+            "province": "تهران",
+            "best_seasons": ["spring", "fall"],
+            "budget_min": "MEDIUM",
+            "categories": ["شهری", "فرهنگی", "خرید"],
+            "suitable_for": ["BUSINESS", "SOLO", "FRIENDS"],
+            "highlights": ["برج میلاد", "کاخ گلستان", "بازار تهران"],
+            "description": "تهران پایتخت پرجنب‌وجوش با تنوع بالای امکانات",
+            "estimated_cost_3days": {"ECONOMY": 2000000, "MEDIUM": 3500000, "LUXURY": 7000000},
+            "images": []
+        },
+        {
+            "city": "رامسر",
+            "province": "مازندران",
+            "best_seasons": ["summer", "spring"],
+            "budget_min": "MEDIUM",
+            "categories": ["طبیعت", "ساحل", "خانوادگی"],
+            "suitable_for": ["FAMILY", "COUPLE"],
+            "highlights": ["جنگل‌های شمال", "ساحل خزر", "تله‌کابین"],
+            "description": "رامسر جزیره سبز ایران با طبیعت بکر و آب و هوای دلپذیر",
+            "estimated_cost_3days": {"ECONOMY": 1800000, "MEDIUM": 3000000, "LUXURY": 6000000},
+            "images": []
+        },
+        {
+            "city": "یزد",
+            "province": "یزد",
+            "best_seasons": ["spring", "fall", "winter"],
+            "budget_min": "ECONOMY",
+            "categories": ["تاریخی", "معماری", "کویری"],
+            "suitable_for": ["COUPLE", "FRIENDS", "SOLO"],
+            "highlights": ["شهر بادگیرها", "آتشکده", "باغ دولت‌آباد"],
+            "description": "یزد شهر کویری با معماری خاص و جاذبه‌های تاریخی منحصربه‌فرد",
+            "estimated_cost_3days": {"ECONOMY": 1300000, "MEDIUM": 2200000, "LUXURY": 4200000},
+            "images": []
+        }
+    ]
+
+    # امتیازدهی به هر مقصد
+    scored_destinations = []
+
+    for dest in destinations_db:
+        score = 0
+        reasons = []
+
+        # 1. فصل مناسب (+30)
+        if season in dest["best_seasons"]:
+            score += 30
+            season_names = {
+                "spring": "بهار",
+                "summer": "تابستان",
+                "fall": "پاییز",
+                "winter": "زمستان"
+            }
+            reasons.append(f"فصل {season_names[season]} برای این مقصد عالی است")
+
+        # 2. سبک سفر (+25)
+        if travel_style in dest["suitable_for"]:
+            score += 25
+            style_names = {
+                "SOLO": "تنها",
+                "COUPLE": "زوج",
+                "FAMILY": "خانوادگی",
+                "FRIENDS": "با دوستان",
+                "BUSINESS": "کاری"
+            }
+            reasons.append(f"مناسب برای سفر {style_names[travel_style]}")
+
+        # 3. تطبیق علایق (+15 برای هر تطبیق)
+        interest_matches = 0
+        for interest in interests:
+            if interest in dest["categories"]:
+                interest_matches += 1
+                score += 15
+
+        if interest_matches > 0:
+            reasons.append(f"دارای {interest_matches} جاذبه مورد علاقه شما")
+
+        # 4. بودجه (+20 اگر مناسب باشد)
+        budget_order = ["ECONOMY", "MEDIUM", "LUXURY", "UNLIMITED"]
+        dest_budget_idx = budget_order.index(dest["budget_min"])
+        user_budget_idx = budget_order.index(budget_level)
+
+        if user_budget_idx >= dest_budget_idx:
+            score += 20
+            reasons.append("در محدوده بودجه شما")
+        else:
+            score -= 30  # جریمه برای گران‌تر بودن
+
+        # 5. امتیاز پایه (+10)
+        score += 10
+
+        # ساخت نتیجه
+        if score > 0:  # فقط مقاصد با امتیاز مثبت
+            scored_destinations.append({
+                "city": dest["city"],
+                "province": dest["province"],
+                "score": score,
+                "reason": " | ".join(reasons[:2]),  # 2 دلیل اصلی
+                "highlights": dest["highlights"][:3],
+                "best_season": dest["best_seasons"][0],
+                "estimated_cost": str(dest["estimated_cost_3days"].get(budget_level, 0)),
+                "duration_days": 3,
+                "description": dest["description"],
+                "images": dest["images"],
+                "categories": dest["categories"]
+            })
+
+    # مرتب‌سازی بر اساس امتیاز
+    scored_destinations.sort(key=lambda x: x["score"], reverse=True)
+
+    # برگرداندن 3 مقصد برتر
+    return scored_destinations[:3]
+
+
+# =======================================================================================
+# API 4: محاسبه هزینه (Cost Calculation Service)
+# =======================================================================================
+
+def calculate_trip_cost(trip_id: int) -> Dict:
+    """
+    Service Function: calculate_trip_cost(trip_id)
+
+    محاسبه هزینه - محاسبه و آپدیت هزینه کل Trip
+
+    منطق:
+    1. جمع estimated_cost تمام Items در Trip
+    2. آپدیت فیلد total_estimated_cost در Trip
+    3. برگرداندن breakdown به تفکیک:
+       - Category (DINING, STAY, HISTORICAL, ...)
+       - Day (روز به روز)
+
+    ورودی:
+    - trip_id: شناسه Trip
+
+    خروجی:
+    {
+        "trip_id": 123,
+        "total_cost": 2500000.00,
+        "breakdown_by_category": {
+            "DINING": {
+                "amount": 800000,
+                "percentage": 32.0,
+                "count": 5
+            },
+            "STAY": {
+                "amount": 1500000,
+                "percentage": 60.0,
+                "count": 3
+            }
+        },
+        "breakdown_by_day": [
+            {
+                "day_index": 1,
+                "date": "2026-03-15",
+                "cost": 850000
+            }
+        ]
+    }
+
+    وابستگی:
+    - خوانده می‌شود توسی APIهای سیدعلی (cost_breakdown endpoint)
+    - خوانده می‌شود بعد از replace item
+    """
+    from django.db.models import Sum, Count
+    from data.models import Trip, TripDay, TripItem
+
+    # 1. دریافت Trip
+    try:
+        trip = Trip.objects.get(trip_id=trip_id)
+    except Trip.DoesNotExist:
+        return {
+            "error": "Trip not found",
+            "error_fa": "سفر یافت نشد"
+        }
+
+    # 2. محاسبه هزینه کل
+    items = TripItem.objects.filter(day__trip=trip)
+    total_cost = items.aggregate(
+        total=Sum('estimated_cost')
+    )['total'] or Decimal('0.00')
+
+    # 3. آپدیت Trip
+    trip.total_estimated_cost = total_cost
+    trip.save(update_fields=['total_estimated_cost'])
+
+    # 4. Breakdown by category
+    category_breakdown = items.values('category').annotate(
+        amount=Sum('estimated_cost'),
+        count=Count('item_id')
+    )
+
+    breakdown_by_category = {}
+    for item in category_breakdown:
+        category = item['category'] or 'OTHER'
+        amount = item['amount'] or Decimal('0.00')
+        percentage = float((amount / total_cost * 100) if total_cost > 0 else 0)
+
+        breakdown_by_category[category] = {
+            "amount": float(amount),
+            "percentage": round(percentage, 2),
+            "count": item['count']
+        }
+
+    # 5. Breakdown by day
+    days = TripDay.objects.filter(trip=trip).order_by('day_index')
+    breakdown_by_day = []
+
+    for day in days:
+        day_items = items.filter(day=day)
+        day_cost = day_items.aggregate(
+            total=Sum('estimated_cost')
+        )['total'] or Decimal('0.00')
+
+        breakdown_by_day.append({
+            "day_index": day.day_index,
+            "date": day.specific_date.isoformat(),
+            "cost": float(day_cost),
+            "items_count": day_items.count()
+        })
+
+    # 6. برگرداندن نتیجه
+    return {
+        "trip_id": trip_id,
+        "total_cost": float(total_cost),
+        "breakdown_by_category": breakdown_by_category,
+        "breakdown_by_day": breakdown_by_day,
+        "items_count": items.count()
+    }
+
+
+# API endpoint wrapper for calculate_trip_cost
+@api_view(['GET'])
+def get_trip_cost_breakdown(request, trip_id):
+    """
+    GET /api/trips/{trip_id}/cost/
+
+    API endpoint برای دریافت breakdown هزینه Trip
+    """
+    try:
+        result = calculate_trip_cost(int(trip_id))
+
+        if "error" in result:
+            return Response(result, status=status.HTTP_404_NOT_FOUND)
+
+        return Response(result, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response(
+            {
+                "error": f"Failed to calculate cost: {str(e)}",
+                "error_fa": "خطا در محاسبه هزینه"
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

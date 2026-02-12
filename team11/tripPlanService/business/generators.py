@@ -1,15 +1,21 @@
-
-# business/generators.py
+"""
+Trip Generator - Main algorithm for creating trips
+"""
 from typing import List, Dict, Optional
-from datetime import date, timedelta, time
+from datetime import date, timedelta, time, datetime
+from decimal import Decimal
+
+# Django imports
 from data.models import Trip, TripDay, TripItem
+
+# Local imports
 from .helpers import DestinationSuggester
-from .externalServices.facility_client import FacilityClient
+from externalServices.grpc.services.facility_client import FacilityClient
 
 
 class TripGenerator:
     """
-    الگوریتم اصلی ساخت Trip
+    Main algorithm for generating trip plans
     """
 
     def __init__(self):
@@ -17,37 +23,40 @@ class TripGenerator:
         self.facility_client = FacilityClient()
 
     def generate(
-        self,
-        province: str,
-        city: Optional[str],
-        interests: List[str],
-        budget_level: str,
-        start_date: date,
-        end_date: Optional[date] = None
+            self,
+            province: str,
+            city: Optional[str],
+            interests: List[str],
+            budget_level: str,
+            start_date: date,
+            end_date: Optional[date] = None,
+            daily_available_hours: int = 12,
+            travel_style: str = 'SOLO'
     ) -> Trip:
         """
-        الگوریتم اصلی ساخت Trip
+        Main trip generation algorithm
 
         Args:
-            province: استان (اجباری)
-            city: شهر (اختیاری)
-            interests: علاقه‌مندی‌ها (لیست)
-            budget_level: سطح بودجه (LOW/MEDIUM/HIGH)
-            start_date: تاریخ شروع (اجباری)
-            end_date: تاریخ پایان (اختیاری)
+            province: Province name (required)
+            city: City name (optional)
+            interests: List of user interests
+            budget_level: ECONOMY/MEDIUM/LUXURY/UNLIMITED
+            start_date: Trip start date
+            end_date: Trip end date (optional, default 3 days)
+            daily_available_hours: Hours available per day (default 12)
+            travel_style: SOLO/COUPLE/FAMILY/FRIENDS/BUSINESS
 
         Returns:
-            Trip: یک Trip کامل با Days و Items
+            Complete Trip object with days and items
         """
 
-        # 1. محاسبه Duration
+        # 1. Calculate duration
         if end_date is None:
-            # اگه end_date نداریم، پیش‌فرض 3 روز
-            end_date = start_date + timedelta(days=2)
+            end_date = start_date + timedelta(days=2)  # Default 3 days
 
         duration_days = (end_date - start_date).days + 1
 
-        # 2. دریافت لیست مکان‌های پیشنهادی
+        # 2. Get suggested places
         suggested_places = self.suggester.get_destinations(
             province=province,
             city=city,
@@ -56,193 +65,260 @@ class TripGenerator:
             num_days=duration_days
         )
 
-        # 3. ساخت Trip خالی
+        if not suggested_places:
+            raise ValueError("No places found for the given criteria")
+
+        # 3. Create Trip object
         trip = Trip.objects.create(
             title=f"سفر به {city or province}",
             province=province,
             city=city,
             start_date=start_date,
             end_date=end_date,
+            duration_days=duration_days,
             budget_level=budget_level,
-            interests=interests,
+            daily_available_hours=daily_available_hours,
+            travel_style=travel_style,
+            generation_strategy='MIXED',
             status='DRAFT'
         )
 
-        # 4. پر کردن روزها
+        # 4. Generate days
         current_date = start_date
+        place_index = 0
+
         for day_index in range(1, duration_days + 1):
-            self._generate_day(
+            place_index = self._generate_day(
                 trip=trip,
                 day_index=day_index,
                 date=current_date,
                 suggested_places=suggested_places,
-                budget_level=budget_level
+                budget_level=budget_level,
+                place_index=place_index
             )
             current_date += timedelta(days=1)
 
-        # 5. محاسبه هزینه کل
-        trip.recalculate_cost()
-        trip.status = 'ACTIVE'
+        # 5. Calculate total cost
+        self._calculate_trip_cost(trip)
+
+        trip.status = 'FINALIZED'
         trip.save()
 
         return trip
 
     def _generate_day(
-        self,
-        trip: Trip,
-        day_index: int,
-        date: date,
-        suggested_places: List[Dict],
-        budget_level: str
-    ):
+            self,
+            trip: Trip,
+            day_index: int,
+            date: date,
+            suggested_places: List[Dict],
+            budget_level: str,
+            place_index: int
+    ) -> int:
         """
-        پر کردن یک روز با Items
+        Generate items for one day
 
-        طبق Voice Note:
-        - هر روز شامل چندین VISIT و یک STAY
-        - حداقل duration: 1 ساعت
+        Returns:
+            Updated place_index for next day
         """
 
-        # ساخت Day
+        # Create TripDay
         trip_day = TripDay.objects.create(
             trip=trip,
             day_index=day_index,
-            date=date
+            specific_date=date
         )
 
-        # زمان شروع روز: 9 صبح
-        current_time = time(9, 0)
+        current_time = time(9, 0)  # Start at 9 AM
+        sort_order = 0
 
-        # 1. محل صبحانه (60 دقیقه)
-        breakfast = self._find_place(suggested_places, 'رستوران', 'VISIT')
+        # 1. Breakfast (1 hour)
+        breakfast = self._find_place(suggested_places, category='DINING', place_index=place_index)
         if breakfast:
             current_time = self._add_item(
                 trip_day=trip_day,
                 place_data=breakfast,
                 start_time=current_time,
                 duration_hours=1,
-                item_type='VISIT'
+                item_type='VISIT',
+                sort_order=sort_order
             )
+            sort_order += 1
+            place_index += 1
 
-        # 2. مکان بازدیدی 1 (2-3 ساعت)
-        visit1 = self._find_place(suggested_places, interests_match=True, item_type='VISIT')
-        if visit1:
+        # 2. Morning activity (2-3 hours)
+        morning_place = self._find_place(
+            suggested_places,
+            exclude_category='DINING',
+            place_index=place_index
+        )
+        if morning_place:
             current_time = self._add_item(
                 trip_day=trip_day,
-                place_data=visit1,
+                place_data=morning_place,
                 start_time=current_time,
                 duration_hours=2.5,
-                item_type='VISIT'
+                item_type='VISIT',
+                sort_order=sort_order
             )
+            sort_order += 1
+            place_index += 1
 
-        # 3. ناهار (60 دقیقه)
-        lunch = self._find_place(suggested_places, 'رستوران', 'VISIT')
+        # 3. Lunch (1 hour)
+        lunch = self._find_place(suggested_places, category='DINING', place_index=place_index)
         if lunch:
             current_time = self._add_item(
                 trip_day=trip_day,
                 place_data=lunch,
                 start_time=current_time,
                 duration_hours=1,
-                item_type='VISIT'
+                item_type='VISIT',
+                sort_order=sort_order
             )
+            sort_order += 1
+            place_index += 1
 
-        # 4. مکان بازدیدی 2 (2-3 ساعت)
-        visit2 = self._find_place(suggested_places, interests_match=True, item_type='VISIT')
-        if visit2:
+        # 4. Afternoon activity (2-3 hours)
+        afternoon_place = self._find_place(
+            suggested_places,
+            exclude_category='DINING',
+            place_index=place_index
+        )
+        if afternoon_place:
             current_time = self._add_item(
                 trip_day=trip_day,
-                place_data=visit2,
+                place_data=afternoon_place,
                 start_time=current_time,
                 duration_hours=2.5,
-                item_type='VISIT'
+                item_type='VISIT',
+                sort_order=sort_order
             )
+            sort_order += 1
+            place_index += 1
 
-        # 5. شام (60 دقیقه)
-        dinner = self._find_place(suggested_places, 'رستوران', 'VISIT')
+        # 5. Dinner (1 hour)
+        dinner = self._find_place(suggested_places, category='DINING', place_index=place_index)
         if dinner:
             current_time = self._add_item(
                 trip_day=trip_day,
                 place_data=dinner,
                 start_time=current_time,
                 duration_hours=1,
-                item_type='VISIT'
+                item_type='VISIT',
+                sort_order=sort_order
             )
+            sort_order += 1
+            place_index += 1
 
-        # 6. محل اقامت (11 ساعت = شب تا صبح)
-        stay = self._find_place(suggested_places, 'هتل', 'STAY')
-        if stay:
+        # 6. Accommodation (overnight)
+        hotel = self._find_place(suggested_places, category='STAY', place_index=0)
+        if hotel:
             self._add_item(
                 trip_day=trip_day,
-                place_data=stay,
+                place_data=hotel,
                 start_time=current_time,
-                duration_hours=11,
-                item_type='STAY'
+                duration_hours=11,  # 11 hours overnight
+                item_type='STAY',
+                sort_order=sort_order
             )
 
+        return place_index
+
     def _add_item(
-        self,
-        trip_day: TripDay,
-        place_data: Dict,
-        start_time: time,
-        duration_hours: float,
-        item_type: str
+            self,
+            trip_day: TripDay,
+            place_data: Dict,
+            start_time: time,
+            duration_hours: float,
+            item_type: str,
+            sort_order: int
     ) -> time:
         """
-        افزودن یک Item به TripDay
+        Add a TripItem to a TripDay
 
         Returns:
-            زمان پایان این Item (برای شروع Item بعدی)
+            End time of this item (for next item's start)
         """
-        from datetime import datetime, timedelta
-
-        # محاسبه end_time
+        # Calculate end time
         start_dt = datetime.combine(datetime.today(), start_time)
         end_dt = start_dt + timedelta(hours=duration_hours)
         end_time = end_dt.time()
 
-        # ساخت Item
+        # Calculate duration in minutes
+        duration_minutes = int(duration_hours * 60)
+
+        # Create TripItem
         TripItem.objects.create(
-            trip_day=trip_day,
+            day=trip_day,
             item_type=item_type,
-            place_id=place_data['id'],
+            place_ref_id=place_data['id'],
             title=place_data['title'],
-            category=place_data.get('category'),
-            address_summary=place_data.get('address'),
+            category=place_data.get('category', ''),
+            address_summary=place_data.get('address', ''),
             lat=place_data.get('lat'),
             lng=place_data.get('lng'),
             start_time=start_time,
             end_time=end_time,
-            estimated_cost=self._estimate_cost(place_data, duration_hours)
+            duration_minutes=duration_minutes,
+            sort_order=sort_order,
+            price_tier=place_data.get('price_tier', 'FREE'),
+            estimated_cost=Decimal(str(place_data.get('entry_fee', 0))),
+            main_image_url=place_data.get('images', [''])[0] if place_data.get('images') else ''
         )
 
         return end_time
 
     def _find_place(
-        self,
-        places: List[Dict],
-        category: Optional[str] = None,
-        item_type: Optional[str] = None,
-        interests_match: bool = False
+            self,
+            places: List[Dict],
+            category: Optional[str] = None,
+            exclude_category: Optional[str] = None,
+            place_index: int = 0
     ) -> Optional[Dict]:
         """
-        پیدا کردن یک مکان مناسب از لیست
+        Find a suitable place from the list
 
-        TODO: پیاده‌سازی دقیق‌تر با فیلترهای بیشتر
+        Args:
+            places: List of available places
+            category: Specific category to find
+            exclude_category: Category to exclude
+            place_index: Starting index in places list
+
+        Returns:
+            Place dictionary or None
         """
-        for place in places:
-            if category and place.get('category') == category:
-                return place
-            if interests_match:
-                # چک کردن match با interests
-                return place
+        if not places:
+            return None
+
+        # Filter by category
+        if category:
+            filtered = [p for p in places if p.get('category') == category]
+            if filtered and place_index < len(filtered):
+                return filtered[place_index % len(filtered)]
+            elif filtered:
+                return filtered[0]
+
+        # Exclude category
+        if exclude_category:
+            filtered = [p for p in places if p.get('category') != exclude_category]
+            if filtered and place_index < len(filtered):
+                return filtered[place_index % len(filtered)]
+            elif filtered:
+                return filtered[0]
+
+        # Return by index
+        if place_index < len(places):
+            return places[place_index]
 
         return places[0] if places else None
 
-    def _estimate_cost(self, place_data: Dict, duration_hours: float) -> float:
-        """
-        تخمین هزینه بر اساس نوع مکان و مدت زمان
+    def _calculate_trip_cost(self, trip: Trip):
+        """Calculate total cost for the trip"""
+        total = Decimal('0.00')
 
-        TODO: پیاده‌سازی دقیق‌تر با توجه به budget_level
-        """
-        base_cost = place_data.get('entry_fee', 0)
-        return base_cost
+        for day in trip.days.all():
+            for item in day.items.all():
+                total += item.estimated_cost
+
+        trip.total_estimated_cost = total
+        trip.save(update_fields=['total_estimated_cost'])

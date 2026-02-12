@@ -1,15 +1,9 @@
+import math
 from typing import List, Dict, Optional
 
 # External services - will be implemented by Mohammad Hossein
-try:
-    from .externalServices.facility_client import FacilityClient
-    from .externalServices.recommendation_client import RecommendationClient
-    EXTERNAL_SERVICES_AVAILABLE = True
-except ImportError:
-    # Fallback: External services not yet implemented
-    EXTERNAL_SERVICES_AVAILABLE = False
-    FacilityClient = None
-    RecommendationClient = None
+from externalServices.grpc.services.facility_client import FacilityClient
+from externalServices.grpc.services.recommendation_client import RecommendationClient
 
 
 class DestinationSuggester:
@@ -18,85 +12,96 @@ class DestinationSuggester:
     """
 
     def __init__(self):
-        if EXTERNAL_SERVICES_AVAILABLE:
+        def __init__(self):
             self.facility_client = FacilityClient()
             self.recom_client = RecommendationClient()
-        else:
-            # Mock clients for development
-            self.facility_client = None
-            self.recom_client = None
 
     def get_destinations(
-        self,
-        province: str,
-        city: Optional[str],
-        interests: List[str],
-        budget_level: str,
-        num_days: int
+            self,
+            province: str,
+            city: Optional[str],
+            interests: List[str],
+            budget_level: str,
+            num_days: int
     ) -> List[Dict]:
         """
-        دریافت لیست مکان‌های پیشنهادی
+        Get list of suggested destinations
 
         Returns:
-            لیستی از Dicts با فیلدهای: id, title, category, lat, lng, address
+            List of place dictionaries ranked by relevance
         """
 
-        # 1. دریافت لیست مکان‌ها از Facility Service
+        # 1. Get places from Facility Service
+        categories = self._map_interests_to_categories(interests)
+
         all_places = self.facility_client.search_places(
             province=province,
             city=city,
-            categories=self._map_interests_to_categories(interests)
+            categories=categories,
+            budget_level=budget_level,
+            limit=50
         )
 
-        # 2. فیلتر بر اساس budget_level
+        if not all_places:
+            return []
+
+        # 2. Filter by budget
         filtered_places = self._filter_by_budget(all_places, budget_level)
 
-        # 3. رتبه‌بندی با Recommendation Service
+        # 3. Rank by recommendation service
         ranked_places = self.recom_client.rank_places(
             places=filtered_places,
             user_interests=interests
         )
 
-        # 4. انتخاب تعداد مناسب (برای num_days روز)
-        # فرض: هر روز 3-4 مکان بازدیدی
-        num_needed = num_days * 4
+        # 4. Return enough places for all days
+        num_needed = num_days * 5  # 5 activities per day
         return ranked_places[:num_needed]
 
     def _map_interests_to_categories(self, interests: List[str]) -> List[str]:
         """
-        تبدیل interests کاربر به categories در Facility Service
+        Map user interests to place categories
 
-        مثال:
-        ['تاریخی', 'فرهنگی'] → ['موزه', 'بنای تاریخی', 'آثارباستانی']
+        Example:
+        ['تاریخی', 'فرهنگی'] → ['HISTORICAL', 'CULTURAL', 'RELIGIOUS']
         """
         mapping = {
-            'تاریخی': ['موزه', 'بنای تاریخی', 'آثارباستانی'],
-            'فرهنگی': ['تئاتر', 'سینما', 'کتابخانه', 'گالری'],
-            'طبیعت': ['پارک', 'جنگل', 'کوهستان', 'دریا'],
-            'خانوادگی': ['پارک', 'تفریحگاه', 'باغ']
+            'تاریخی': ['HISTORICAL', 'RELIGIOUS', 'CULTURAL'],
+            'فرهنگی': ['CULTURAL', 'HISTORICAL'],
+            'طبیعت': ['NATURAL', 'RECREATIONAL'],
+            'خانوادگی': ['RECREATIONAL', 'NATURAL'],
+            'مذهبی': ['RELIGIOUS', 'HISTORICAL'],
+            'غذا': ['DINING']
         }
 
         categories = []
         for interest in interests:
             categories.extend(mapping.get(interest, []))
 
-        return list(set(categories))  # حذف تکراری‌ها
+        # Remove duplicates and always include DINING and STAY
+        categories = list(set(categories))
+        if 'DINING' not in categories:
+            categories.append('DINING')
+        if 'STAY' not in categories:
+            categories.append('STAY')
+
+        return categories
 
     def _filter_by_budget(self, places: List[Dict], budget_level: str) -> List[Dict]:
-        """
-        فیلتر مکان‌ها بر اساس سطح بودجه
-        """
+        """Filter places by budget level"""
+
         budget_ranges = {
-            'LOW': (0, 200000),
-            'MEDIUM': (0, 500000),
-            'HIGH': (0, float('inf'))
+            'ECONOMY': ['FREE', 'BUDGET'],
+            'MEDIUM': ['FREE', 'BUDGET', 'MODERATE'],
+            'LUXURY': ['FREE', 'BUDGET', 'MODERATE', 'EXPENSIVE', 'LUXURY'],
+            'UNLIMITED': ['FREE', 'BUDGET', 'MODERATE', 'EXPENSIVE', 'LUXURY']
         }
 
-        min_cost, max_cost = budget_ranges.get(budget_level, (0, float('inf')))
+        allowed_tiers = budget_ranges.get(budget_level, ['FREE', 'BUDGET', 'MODERATE'])
 
         return [
             place for place in places
-            if min_cost <= place.get('entry_fee', 0) <= max_cost
+            if place.get('price_tier', 'FREE') in allowed_tiers
         ]
 
 
@@ -105,64 +110,66 @@ class AlternativesProvider:
     پیشنهاد مکان‌های جایگزین (برای API سیدعلی)
     """
 
+
     def __init__(self):
-        if EXTERNAL_SERVICES_AVAILABLE:
-            self.facility_client = FacilityClient()
-        else:
-            self.facility_client = None
+        self.facility_client = FacilityClient()
 
     def get_alternatives(
-        self,
-        original_place_id: str,
-        province: str,
-        city: Optional[str],
-        category: str
+            self,
+            original_place_id: str,
+            province: str,
+            city: Optional[str],
+            category: str,
+            max_results: int = 5
     ) -> List[Dict]:
         """
-        پیدا کردن مکان‌های مشابه برای جایگزینی
+        Find alternative places similar to the original
 
-        طبق User Story: کاربر می‌تونه یک Item رو با یکی از Alternatives جایگزین کنه
+        Returns:
+            List of up to 5 alternative places
         """
 
-        # 1. دریافت اطلاعات مکان اصلی
+        # 1. Get original place info
         original = self.facility_client.get_place_by_id(original_place_id)
 
-        # 2. جستجوی مکان‌های همون دسته‌بندی
+        if not original:
+            return []
+
+        # 2. Search for similar places
         alternatives = self.facility_client.search_places(
             province=province,
             city=city,
-            categories=[category]
+            categories=[category],
+            limit=20
         )
 
-        # 3. حذف مکان اصلی از لیست
+        # 3. Remove original from list
         alternatives = [
-            p for p in alternatives if p['id'] != original_place_id]
+            p for p in alternatives
+            if p['id'] != original_place_id
+        ]
 
-        # 4. رتبه‌بندی بر اساس فاصله از مکان اصلی
-        if original and 'lat' in original and 'lng' in original:
+        # 4. Rank by distance from original
+        if original.get('lat') and original.get('lng'):
             alternatives = self._rank_by_distance(
                 alternatives,
                 original['lat'],
                 original['lng']
             )
 
-        # 5. برگشت 5 گزینه برتر
-        return alternatives[:5]
+        return alternatives[:max_results]
 
     def _rank_by_distance(
-        self,
-        places: List[Dict],
-        ref_lat: float,
-        ref_lng: float
+            self,
+            places: List[Dict],
+            ref_lat: float,
+            ref_lng: float
     ) -> List[Dict]:
-        """
-        رتبه‌بندی مکان‌ها بر اساس فاصله
-        """
-        import math
+        """Rank places by distance from reference point"""
 
         def haversine(lat1, lon1, lat2, lon2):
-            """محاسبه فاصله بین دو نقطه"""
-            R = 6371  # شعاع زمین به کیلومتر
+            """Calculate distance between two points in km"""
+            R = 6371  # Earth radius in kilometers
             dlat = math.radians(lat2 - lat1)
             dlon = math.radians(lon2 - lon1)
             a = (math.sin(dlat / 2) ** 2 +
@@ -172,13 +179,17 @@ class AlternativesProvider:
             c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
             return R * c
 
+        # Calculate distance for each place
         for place in places:
-            place['distance'] = haversine(
-                ref_lat, ref_lng,
-                place.get('lat', 0),
-                place.get('lng', 0)
-            )
+            if place.get('lat') and place.get('lng'):
+                place['distance'] = haversine(
+                    ref_lat, ref_lng,
+                    place['lat'], place['lng']
+                )
+            else:
+                place['distance'] = float('inf')
 
+        # Sort by distance
         return sorted(places, key=lambda p: p['distance'])
 
 
@@ -188,41 +199,39 @@ class AvailabilityChecker:
     """
 
     def __init__(self):
-        if EXTERNAL_SERVICES_AVAILABLE:
-            self.facility_client = FacilityClient()
-        else:
-            self.facility_client = None
+        self.facility_client = FacilityClient()
 
     def check_place_availability(
-        self,
-        place_id: str,
-        date: str,
-        start_time: str,
-        end_time: str
+            self,
+            place_id: str,
+            date: str,
+            start_time: str,
+            end_time: str
     ) -> Dict:
         """
-        چک کردن آیا مکان در این زمان باز است
+        Check if a place is available at the specified time
+
+        Args:
+            place_id: Place ID
+            date: Date in YYYY-MM-DD format
+            start_time: Start time in HH:MM format
+            end_time: End time in HH:MM format
 
         Returns:
             {
                 'is_available': bool,
-                'reason': str (اگه available نباشه)
+                'reason': str,
+                'suggested_times': List[str]
             }
         """
 
-        # دریافت اطلاعات مکان از Facility Service
-        place = self.facility_client.get_place_by_id(place_id)
-
-        if not place:
-            return {'is_available': False, 'reason': 'مکان یافت نشد'}
-
-        # چک کردن opening_hours
-        opening_hours = place.get('opening_hours', {})
-
-        # TODO: پیاده‌سازی دقیق‌تر با توجه به ساختار opening_hours
-        # فعلاً فرض می‌کنیم همیشه available است
-
-        return {'is_available': True, 'reason': '', 'suggested_times': []}
+        # Use Facility Service to check availability
+        return self.facility_client.check_availability(
+            place_id=place_id,
+            date=date,
+            start_time=start_time,
+            end_time=end_time
+        )
 
 
 def validate_time_reschedule(item, new_start_time=None, new_end_time=None):
