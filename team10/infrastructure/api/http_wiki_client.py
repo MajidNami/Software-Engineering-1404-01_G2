@@ -14,10 +14,23 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class HttpWikiClient(WikiServicePort):
+    """
+    HTTP implementation of the WikiServicePort.
+    Connects to the external Wiki microservice to retrieve destination details.
+    """
     def __init__(self, base_url: str):
         self.base_url = base_url.rstrip("/")
 
     def get_destination_basic_info(self, destination_name: str) -> str:
+        """
+        Retrieves a summary or description for a specific destination.
+        
+        Sends a GET request to /api/wiki/content?place={destination_name}.
+        Prioritizes the 'summary' field; falls back to 'description'.
+        
+        :param destination_name: Name of the city or place (e.g., "Tehran").
+        :return: A string containing the summary/description, or a fallback message if not found.
+        """
 
         endpoint = f"{self.base_url}/api/wiki/content"
         params = {"place": destination_name}
