@@ -7,7 +7,7 @@ def test(request):
         "status": "ok",
         "count": len(trips),
         "trips": [
-            {"id": str(t.id), "destination": t.destination}
+            {"id": str(t.trip_id), "title": t.title, "province": t.province}
             for t in trips
         ]
     })
