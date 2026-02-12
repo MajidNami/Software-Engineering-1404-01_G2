@@ -89,7 +89,6 @@ class FacilityListSerializer(serializers.ModelSerializer):
     price_from = serializers.SerializerMethodField()
     price_tier = serializers.CharField(read_only=True)
     price_tier_display = serializers.CharField(source='get_price_tier_display', read_only=True)
-    distance_from_center = serializers.SerializerMethodField()
     amenities = serializers.SerializerMethodField()
     
     class Meta:
@@ -99,7 +98,7 @@ class FacilityListSerializer(serializers.ModelSerializer):
             'category', 'city', 'province', 'location',
             'avg_rating', 'review_count',
             'primary_image', 'price_from', 'price_tier', 'price_tier_display',
-            'distance_from_center', 'is_24_hour', 'amenities'
+            'is_24_hour', 'amenities'
         ]
     
     @extend_schema_field(OpenApiTypes.OBJECT)
@@ -135,16 +134,6 @@ class FacilityListSerializer(serializers.ModelSerializer):
                 'max': tier_range[1]
             }
         
-        return None
-    
-    @extend_schema_field(OpenApiTypes.FLOAT)
-    def get_distance_from_center(self, obj):
-        try:
-            if obj.city.location and obj.location:
-                distance = obj.calculate_distance_to(obj.city.location)
-                return round(distance, 2)
-        except:
-            pass
         return None
     
     @extend_schema_field(OpenApiTypes.OBJECT)
