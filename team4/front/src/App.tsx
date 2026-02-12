@@ -12,15 +12,17 @@ import CategoryFilter from './components/CategoryFilter';
 import PlaceCard from './components/PlaceCard';
 import RoutingPanel from './components/RoutingPanel';
 import FavoritesPanel from './components/FavoritesPanel';
-import { mockPlaces, Place } from './data/mockPlaces';
+import { Place } from './data/mockPlaces';
 import { Route } from './data/mockRoutes';
+import placesService from './services/placesService';
 // import { favoritesService, FavoritePlace } from './services/favoritesService';
 
 const MOCK_USER_ID = 'demo-user-123';
 
 function App() {
   const [mapCenter, setMapCenter] = useState<[number, number]>([40.7589, -73.9851]);
-  const [filteredPlaces, setFilteredPlaces] = useState<Place[]>(mockPlaces);
+  const [allPlaces, setAllPlaces] = useState<Place[]>([]);
+  const [filteredPlaces, setFilteredPlaces] = useState<Place[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [showRouting, setShowRouting] = useState(false);
@@ -29,11 +31,44 @@ function App() {
   const [route, setRoute] = useState<[number, number][] | null>(null);
   const [sourceMarker, setSourceMarker] = useState<[number, number] | null>(null);
   const [destinationMarker, setDestinationMarker] = useState<[number, number] | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   // const [favorites, setFavorites] = useState<FavoritePlace[]>([]);
   const [favoritePlaceIds, setFavoritePlaceIds] = useState<Set<string>>(new Set());
 
   const cardStyle = 
     "absolute right-4 top-4 w-96 max-w-[90vw] h-[90%] z-10 overflow-auto rounded-lg";
+
+  // Load facilities on mount
+  useEffect(() => {
+    loadFacilities();
+  }, []);
+
+  // Filter places when category changes
+  useEffect(() => {
+    if (selectedCategory === 'all') {
+      setFilteredPlaces(allPlaces);
+    } else {
+      setFilteredPlaces(allPlaces.filter((place) => place.category === selectedCategory));
+    }
+  }, [selectedCategory, allPlaces]);
+
+  const loadFacilities = async () => {
+    setIsLoading(true);
+    try {
+      const facilities = await placesService.getFacilities({ page_size: 100 });
+      setAllPlaces(facilities);
+      setFilteredPlaces(facilities);
+      
+      // Set initial map center to first facility if available
+      if (facilities.length > 0) {
+        setMapCenter([facilities[0].latitude, facilities[0].longitude]);
+      }
+    } catch (error) {
+      console.error('Failed to load facilities:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // useEffect(() => {
   //   loadFavorites();
@@ -49,12 +84,23 @@ function App() {
   //   }
   // };
 
-  const handleCategoryChange = (category: string) => {
+  const handleCategoryChange = async (category: string) => {
     setSelectedCategory(category);
-    if (category === 'all') {
-      setFilteredPlaces(mockPlaces);
-    } else {
-      setFilteredPlaces(mockPlaces.filter((place) => place.category === category));
+    setIsLoading(true);
+    
+    try {
+      if (category === 'all') {
+        const facilities = await placesService.getFacilities({ page_size: 100 });
+        setAllPlaces(facilities);
+        setFilteredPlaces(facilities);
+      } else {
+        const facilities = await placesService.getFacilitiesByCategory(category);
+        setFilteredPlaces(facilities);
+      }
+    } catch (error) {
+      console.error('Failed to filter facilities:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -62,9 +108,20 @@ function App() {
     setMapCenter([lat, lng]);
   };
 
-  const handlePlaceSelect = (place: Place) => {
-    setSelectedPlace(place);
-    setMapCenter([place.latitude, place.longitude]);
+  const handlePlaceSelect = async (place: Place) => {
+    // Fetch detailed information for the place
+    setIsLoading(true);
+    try {
+      const detailedPlace = await placesService.getFacilityDetails(place.id);
+      setSelectedPlace(detailedPlace || place);
+      setMapCenter([place.latitude, place.longitude]);
+    } catch (error) {
+      console.error('Failed to fetch place details:', error);
+      setSelectedPlace(place);
+      setMapCenter([place.latitude, place.longitude]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleRouteCalculated = (
@@ -192,37 +249,49 @@ function App() {
               <h3 className="text-lg font-semibold text-gray-800 mb-3">
                 Nearby Places ({filteredPlaces.length})
               </h3>
-              <div className="space-y-3">
-                {filteredPlaces.map((place) => (
-                  <button
-                    key={place.id}
-                    onClick={() => handlePlaceSelect(place)}
-                    className="w-full text-left p-3 border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-md transition-all"
-                  >
-                    <div className="flex items-start">
-                      <img
-                        src={place.images[0]}
-                        alt={place.name}
-                        className="w-16 h-16 object-cover rounded-lg mr-3"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-gray-800 truncate">
-                          {place.name}
-                        </h4>
-                        <p className="text-sm text-gray-600 capitalize">
-                          {place.category}
-                        </p>
-                        <div className="flex items-center mt-1">
-                          <span className="text-yellow-500 text-sm">★</span>
-                          <span className="text-sm font-medium text-gray-800 ml-1">
-                            {place.rating}
-                          </span>
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <span className="ml-3 text-gray-600">Loading places...</span>
+                </div>
+              ) : filteredPlaces.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <p>No places found</p>
+                  <p className="text-sm mt-2">Try changing your filters</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredPlaces.map((place) => (
+                    <button
+                      key={place.id}
+                      onClick={() => handlePlaceSelect(place)}
+                      className="w-full text-left p-3 border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-md transition-all"
+                    >
+                      <div className="flex items-start">
+                        <img
+                          src={place.images[0]}
+                          alt={place.name}
+                          className="w-16 h-16 object-cover rounded-lg mr-3"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-gray-800 truncate">
+                            {place.name}
+                          </h4>
+                          <p className="text-sm text-gray-600 capitalize">
+                            {place.category}
+                          </p>
+                          <div className="flex items-center mt-1">
+                            <span className="text-yellow-500 text-sm">★</span>
+                            <span className="text-sm font-medium text-gray-800 ml-1">
+                              {place.rating}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </aside>
