@@ -37,7 +37,7 @@ const FinalizeTrip: React.FC = () => {
         onConfirm: () => { },
     });
     const [isDialogLoading, setIsDialogLoading] = useState(false);
-    const { data, isLoading, error, request } = useApi(tripApi.getById);
+    const { data, isLoading, error, request } = useApi(getMockTrip);
 
     const tripId = Number(tripIdParam)
 
@@ -358,7 +358,7 @@ const FinalizeTrip: React.FC = () => {
                         onItemTimeChange={handleItemTimeChange}
                         onDeleteItem={handleDeleteItem}
                         onSuggestAlternative={handleSuggestAlternative}
-                        color="#276EF1"
+                        color="#00695C"
                     />
                 )}
 
@@ -371,7 +371,7 @@ const FinalizeTrip: React.FC = () => {
                         onItemTimeChange={handleItemTimeChange}
                         onDeleteItem={handleDeleteItem}
                         onSuggestAlternative={handleSuggestAlternative}
-                        color="#9333EA"
+                        color="#15a5b5"
                     />
                 )}
 
@@ -460,7 +460,7 @@ const FinalizeTrip: React.FC = () => {
                                         </div>
                                         <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
                                             <div
-                                                className="bg-gradient-to-r from-blue-500 to-blue-600 h-full rounded-full transition-all duration-300"
+                                                className="bg-gradient-to-r from-persian-gold to-forest-green h-full rounded-full transition-all duration-300"
                                                 style={{ width: `${catCost.percentage}%` }}
                                             ></div>
                                         </div>

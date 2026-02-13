@@ -8,6 +8,10 @@ export interface RangeSection {
 }
 
 interface CustomThumbParams {
+    index: number;
+    value: number;
+    isDragged: boolean;
+    props: any;
     sectionIndex: number;
     isDisabled: boolean;
     isStartThumb: boolean;
@@ -69,13 +73,20 @@ const MultiRangeSlider: React.FC<MultiRangeSliderProps> = ({
     }, [sections, activeColor, disabledColor, gapColor]);
 
     return (
-        <div className={className} style={{ ...style, width: "100%" }}>
+        <div className={className} style={{
+            ...style,
+            display: "flex",
+            alignItems: "center",
+            height: "100%",
+            flexDirection: "column",
+        }}>
             <Range
+                direction={Direction.Right}
                 values={flatValues}
                 step={step}
                 min={min}
                 max={max}
-                direction={Direction.Left}
+                rtl={true}
                 onChange={handleChange}
                 renderTrack={({ props, children }) => (
                     <div
@@ -83,23 +94,25 @@ const MultiRangeSlider: React.FC<MultiRangeSliderProps> = ({
                         onTouchStart={props.onTouchStart}
                         style={{
                             ...props.style,
-                            height: "36px",
-                            display: "flex",
+                            flexGrow: 1,
                             width: "100%",
+                            display: "flex",
+                            height: "60px",
                         }}
                     >
                         <div
                             ref={props.ref}
                             style={{
-                                height: "6px",
                                 width: "100%",
-                                borderRadius: "4px",
+                                height: "12px",
+                                borderRadius: "6px",
                                 background: getTrackBackground({
                                     values: flatValues,
                                     colors,
                                     min,
                                     max,
-                                    direction: Direction.Left,
+                                    direction: Direction.Right,
+                                    rtl: true,
                                 }),
                                 alignSelf: "center",
                             }}
@@ -115,7 +128,12 @@ const MultiRangeSlider: React.FC<MultiRangeSliderProps> = ({
 
                     // If user provided a custom renderThumb prop, use it
                     if (renderThumb) {
-                        return renderThumb({ ...params, sectionIndex, isDisabled, isStartThumb });
+                        return renderThumb({
+                            ...params,
+                            sectionIndex,
+                            isDisabled,
+                            isStartThumb
+                        });
                     }
 
                     // Default Thumb
@@ -125,28 +143,20 @@ const MultiRangeSlider: React.FC<MultiRangeSliderProps> = ({
                             key={params.props.key}
                             style={{
                                 ...params.props.style,
-                                height: "24px",
-                                width: "24px",
-                                borderRadius: "50%",
+                                height: "32px",
+                                width: "32px",
+                                borderRadius: "4px",
                                 backgroundColor: "#FFF",
-                                boxShadow: "0px 2px 6px rgba(0,0,0,0.2)",
                                 display: "flex",
                                 justifyContent: "center",
                                 alignItems: "center",
-                                cursor: isDisabled ? "not-allowed" : "pointer",
-                                outline: "none",
+                                boxShadow: "0px 2px 6px #AAA",
+                                fontSize: "14px",
+                                fontWeight: "bold",
+                                color: params.isDragged ? activeColor : "#888",
                             }}
                         >
-                            <div
-                                style={{
-                                    height: "10px",
-                                    width: "2px",
-                                    backgroundColor: isDisabled
-                                        ? "#cbd5e1"
-                                        : isStartThumb
-                                            ? "#0C2960" : activeColor,
-                                }}
-                            />
+                            {isStartThumb ? '>' : '<'}
                         </div>
                     );
                 }}

@@ -19,6 +19,9 @@ const MINUTES_PER_PIXEL = 0.3; // 0.5 minute per pixel (larger timeline)
 const CARD_MAX_WIDTH = 500;
 // (timeline spans `totalDays` so start/end constants not needed)
 
+const color1 = 'bg-[#00695C]'
+const color2 = 'bg-[#15a5b5]'
+
 const Timeline: React.FC<TimelineProps> = ({
     title,
     items,
@@ -28,15 +31,27 @@ const Timeline: React.FC<TimelineProps> = ({
     onSuggestAlternative,
     color,
 }) => {
-    // Convert time string (HH:MM) and day to minutes from trip start
+    // Refs
+    const trackContainerRef = useRef<HTMLDivElement | null>(null);
+    const innerTrackRef = useRef<HTMLDivElement | null>(null);
+    const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
+    const rafRef = useRef<number | null>(null);
+    const originalItemsRef = useRef<TripItemWithDay[]>([]);
+
+    // State
+    const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+    const [visibleDay, setVisibleDay] = useState<number>(1);
+    const [editingItemId, setEditingItemId] = useState<number | null>(null);
+    const [pendingChanges, setPendingChanges] = useState<{ [key: number]: { startTime: string; endTime: string } }>({});
+
+    // Helper functions
     const timeToMinutesFromTripStart = (time: string, dayNumber: number): number => {
         const [hours, minutes] = time.split(':').map(Number);
         const minutesInDay = hours * 60 + minutes;
-        const dayOffset = (dayNumber - 1) * 24 * 60; // Convert day to minutes
+        const dayOffset = (dayNumber - 1) * 24 * 60;
         return dayOffset + minutesInDay;
     };
 
-    // Convert minutes from trip start to time string (HH:MM)
     const minutesToTime = (minutes: number): string => {
         const minutesInDay = minutes % (24 * 60);
         const hours = Math.floor(minutesInDay / 60);
@@ -44,58 +59,130 @@ const Timeline: React.FC<TimelineProps> = ({
         return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
     };
 
-    // Calculate total timeline in minutes (all days)
+    // Constants
     const totalMinutes = totalDays * 24 * 60;
-
-    // Calculate total timeline width in pixels
     const timelineWidth = totalMinutes / MINUTES_PER_PIXEL;
 
-    // Convert items to range sections
+    // Convert items to range sections (using pending changes if available)
     const rangeSections: RangeSection[] = useMemo(() => {
-        return items.map((item) => ({
-            start: timeToMinutesFromTripStart(item.start_time, item.day_number),
-            end: timeToMinutesFromTripStart(item.end_time, item.day_number),
-        }));
-    }, [items, totalDays]);
+        return items.map((item) => {
+            const numericId = typeof item.id === 'number' ? item.id : parseInt(String(item.id).replace(/\D/g, ''), 10);
+            const pending = pendingChanges[numericId];
+            const startTime = pending?.startTime || item.start_time;
+            const endTime = pending?.endTime || item.end_time;
 
-    // Handle range changes
+            return {
+                start: timeToMinutesFromTripStart(startTime, item.day_number),
+                end: timeToMinutesFromTripStart(endTime, item.day_number),
+            };
+        });
+    }, [items, totalDays, pendingChanges]);
+
+    // Handle range changes (client-side only, don't submit to API)
     const handleRangeChange = (sections: RangeSection[]) => {
+        if (sections.length !== items.length) {
+            return; // Silently skip if lengths don't match (can happen during rapid updates)
+        }
+
         sections.forEach((section, index) => {
             const item = items[index];
-            if (item) {
-                const newStartTime = minutesToTime(section.start);
-                const newEndTime = minutesToTime(section.end);
+            if (!item) {
+                return; // Silently skip if item not found (can happen during rapid updates)
+            }
 
-                if (newStartTime !== item.start_time || newEndTime !== item.end_time) {
-                    onItemTimeChange(item.id, newStartTime, newEndTime);
-                }
+            const numericId = typeof item.id === 'number' ? item.id : parseInt(String(item.id).replace(/\D/g, ''), 10);
+            if (isNaN(numericId)) return;
+
+            // If another item is being edited, prevent changes to this one
+            if (editingItemId !== null && editingItemId !== numericId) {
+                return;
+            }
+
+            const newStart = section.start;
+            const newEnd = section.end;
+
+            // Enforce minimum duration of 60 minutes (1 hour)
+            const duration = newEnd - newStart;
+            if (duration < 60) {
+                return;
+            }
+
+            // Calculate which days these fall into
+            const startDay = Math.floor(newStart / (24 * 60)) + 1;
+            const endDay = Math.floor((newEnd - 1) / (24 * 60)) + 1;
+
+            // Prevent crossing day boundaries
+            if (startDay !== item.day_number || endDay !== item.day_number) {
+                return;
+            }
+
+            const newStartTime = minutesToTime(newStart);
+            const newEndTime = minutesToTime(newEnd);
+
+            const currentStartTime = pendingChanges[numericId]?.startTime || item.start_time;
+            const currentEndTime = pendingChanges[numericId]?.endTime || item.end_time;
+
+            if (newStartTime !== currentStartTime || newEndTime !== currentEndTime) {
+                // Update pending changes and mark as editing
+                setPendingChanges(prev => ({
+                    ...prev,
+                    [numericId]: { startTime: newStartTime, endTime: newEndTime }
+                }));
+                setEditingItemId(numericId);
             }
         });
     };
 
-    // Calculate card positions and widths
+    // Confirm pending changes
+    const handleConfirmChange = () => {
+        if (editingItemId === null) return;
+
+        const pending = pendingChanges[editingItemId];
+        if (pending) {
+            onItemTimeChange(editingItemId, pending.startTime, pending.endTime);
+        }
+
+        // Clear pending state
+        setPendingChanges(prev => {
+            const newPending = { ...prev };
+            delete newPending[editingItemId];
+            return newPending;
+        });
+        setEditingItemId(null);
+    };
+
+    // Cancel pending changes
+    const handleCancelChange = () => {
+        if (editingItemId === null) return;
+
+        // Clear pending changes for this item
+        setPendingChanges(prev => {
+            const newPending = { ...prev };
+            delete newPending[editingItemId];
+            return newPending;
+        });
+        setEditingItemId(null);
+    };
+
+    // Memoized values
     const cardPositions = useMemo(() => {
         return items.map((item) => {
-            const startMinutes = timeToMinutesFromTripStart(item.start_time, item.day_number);
-            const endMinutes = timeToMinutesFromTripStart(item.end_time, item.day_number);
+            const numericId = typeof item.id === 'number' ? item.id : parseInt(String(item.id).replace(/\D/g, ''), 10);
+            const pending = pendingChanges[numericId];
+            const startTime = pending?.startTime || item.start_time;
+            const endTime = pending?.endTime || item.end_time;
+
+            const startMinutes = timeToMinutesFromTripStart(startTime, item.day_number);
+            const endMinutes = timeToMinutesFromTripStart(endTime, item.day_number);
             const durationMinutes = endMinutes - startMinutes;
-            // Use exact same formula for both width and position
             const width = Math.min(durationMinutes / MINUTES_PER_PIXEL, CARD_MAX_WIDTH);
-            // RTL: position from left based on distance from max time
             const translateX = (totalMinutes - startMinutes) / MINUTES_PER_PIXEL - width;
 
             return { width, translateX };
         });
-    }, [items, totalDays]);
+    }, [items, totalDays, pendingChanges, totalMinutes]);
 
-    const trackContainerRef = useRef<HTMLDivElement | null>(null);
-    const innerTrackRef = useRef<HTMLDivElement | null>(null);
-    const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
-    const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-    const [visibleDay, setVisibleDay] = useState<number>(1);
-    const rafRef = useRef<number | null>(null);
-
-    // Scroll helpers
+    // Event handlers
     const scrollToCard = (index: number) => {
         if (index < 0 || index >= items.length) return;
         const cardElement = cardRefs.current[index];
@@ -108,7 +195,11 @@ const Timeline: React.FC<TimelineProps> = ({
         }
     };
 
-    // On mount, scroll to first item (rightmost in RTL)
+    // Effects
+    useEffect(() => {
+        originalItemsRef.current = [...items];
+    }, [items]);
+
     useEffect(() => {
         if (items.length > 0) {
             // Small delay to ensure layout is ready
@@ -202,7 +293,7 @@ const Timeline: React.FC<TimelineProps> = ({
         const jdStr = jd.toString().padStart(2, '0');
 
         return (
-            <span className="inline-block bg-persian-blue text-white px-3 py-1 rounded shadow text-sm text-gray-700">{`روز ${visibleDay} - ${weekday} ${jmStr}/${jdStr}`}</span>
+            <span className={`inline-block bg-[${color}] text-white px-3 py-1 rounded shadow text-sm text-gray-700`}>{`روز ${visibleDay} - ${weekday} ${jmStr}/${jdStr}`}</span>
         );
     };
 
@@ -215,14 +306,54 @@ const Timeline: React.FC<TimelineProps> = ({
                 <h3 className="text-xl font-bold text-gray-800">{title}</h3>
             </div>
 
-            {/* Visible Day (updates on scroll) */}
-            <div className="mb-4 text-center">
+            {/* Visible Day (updates on scroll) with inline edit buttons */}
+            <div className="mb-4 text-center flex justify-center items-center gap-3">
                 <VisibleDayLabel visibleDay={visibleDay} items={items} />
+                {editingItemId !== null && (
+                    <div className="flex gap-2">
+                        <button
+                            onClick={handleCancelChange}
+                            className="w-7 h-7 rounded-md bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shadow-md transition-all transform hover:scale-105"
+                            aria-label="Cancel changes"
+                        >
+                            <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                                <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                        </button>
+                        <button
+                            onClick={handleConfirmChange}
+                            className="w-7 h-7 rounded-md bg-green-500 hover:bg-green-600 text-white flex items-center justify-center shadow-md transition-all transform hover:scale-105"
+                            aria-label="Confirm changes"
+                        >
+                            <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                                <path d="M16 6L7.5 14.5L4 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Timeline Track */}
-            <div className="relative -me-[150px] -ms-[150px]" style={{ overflowX: 'auto', overflowY: 'hidden' }} ref={trackContainerRef}>
-                <div ref={innerTrackRef} style={{ width: `${timelineWidth}px`, minWidth: '100%', position: 'relative' }}>
+            <div
+                className="relative"
+                style={{
+                    overflowX: 'auto',
+                    overflowY: 'visible',
+                    marginLeft: '-150px',
+                    marginRight: '-150px',
+                    paddingTop: '10px',
+                    paddingBottom: '10px',
+                }}
+                ref={trackContainerRef}
+            >
+                <div
+                    ref={innerTrackRef}
+                    style={{
+                        width: `${timelineWidth}px`,
+                        minWidth: '100%',
+                        position: 'relative',
+                    }}
+                >
                     {/* Cards Container */}
                     <div className="relative mb-4" style={{ height: '240px' }}>
                         {items.map((item, index) => {
@@ -235,7 +366,7 @@ const Timeline: React.FC<TimelineProps> = ({
                                     className="absolute top-0 left-0"
                                     style={{
                                         transform: `translateX(${translateX}px)`,
-                                        transition: 'transform 0.2s ease',
+                                        transition: 'transform 0.2s ease, width 0.2s ease',
                                         width: `${Math.min(width, CARD_MAX_WIDTH)}px`,
                                     }}
                                 >
@@ -287,12 +418,21 @@ const Timeline: React.FC<TimelineProps> = ({
                         min={0}
                         max={totalMinutes}
                         step={15}
-                        onChange={() => { }}
+                        onChange={handleRangeChange}
                         activeColor={color}
                         gapColor="#e2e8f0"
-                        renderThumb={(params: any) => {
+                        renderThumb={(params) => {
                             const item = items[params.sectionIndex];
-                            const time = params.isStartThumb ? item?.start_time : item?.end_time;
+                            if (!item) return null; // Safety check
+
+                            const numericId = typeof item.id === 'number' ? item.id : parseInt(String(item.id).replace(/\D/g, ''), 10);
+                            const pending = pendingChanges[numericId];
+                            const startTime = pending?.startTime || item.start_time;
+                            const endTime = pending?.endTime || item.end_time;
+                            const time = params.isStartThumb ? startTime : endTime;
+
+                            // Check if this thumb should be disabled (another item is being edited)
+                            const isDisabled = editingItemId !== null && editingItemId !== numericId;
 
                             return (
                                 <div
@@ -300,22 +440,42 @@ const Timeline: React.FC<TimelineProps> = ({
                                     key={params.props.key}
                                     style={{
                                         ...params.props.style,
-                                        height: '32px',
-                                        width: '32px',
-                                        borderRadius: '50%',
-                                        backgroundColor: '#FFF',
-                                        boxShadow: '0px 2px 8px rgba(0,0,0,0.25)',
-                                        display: 'flex',
-                                        justifyContent: 'center',
-                                        alignItems: 'center',
-                                        cursor: 'grab',
-                                        outline: 'none',
-                                        border: `2px solid ${color}`,
+                                        height: "32px",
+                                        width: "32px",
+                                        borderRadius: "50%",
+                                        backgroundColor: isDisabled ? "#E5E7EB" : "#FFF",
+                                        display: "flex",
+                                        justifyContent: "center",
+                                        alignItems: "center",
+                                        boxShadow: isDisabled ? "0px 1px 3px #CCC" : "0px 2px 6px #AAA",
+                                        cursor: isDisabled ? "not-allowed" : "grab",
+                                        opacity: isDisabled ? 0.5 : 1,
+                                        pointerEvents: isDisabled ? "none" : "auto",
                                     }}
                                 >
+                                    <svg
+                                        width="20"
+                                        height="16"
+                                        viewBox="0 0 20 16"
+                                        fill="none"
+                                        style={{
+                                            color: isDisabled ? "#D1D5DB" : (params.isDragged ? color : "#9CA3AF"),
+                                        }}
+                                    >
+                                        <path d="M7 12L3 8L7 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                        <path d="M13 12L17 8L13 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
                                     <div
-                                        className="absolute top-full mt-2 text-xs font-semibold text-gray-700 whitespace-nowrap"
-                                        style={{ pointerEvents: 'none' }}
+                                        style={{
+                                            position: 'absolute',
+                                            top: '100%',
+                                            marginTop: '4px',
+                                            fontSize: '11px',
+                                            fontWeight: 600,
+                                            color: '#374151',
+                                            whiteSpace: 'nowrap',
+                                            pointerEvents: 'none',
+                                        }}
                                     >
                                         {time}
                                     </div>
