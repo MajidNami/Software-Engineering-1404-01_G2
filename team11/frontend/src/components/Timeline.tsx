@@ -52,11 +52,21 @@ const Timeline: React.FC<TimelineProps> = ({
         return dayOffset + minutesInDay;
     };
 
-    const minutesToTime = (minutes: number): string => {
-        const minutesInDay = minutes % (24 * 60);
-        const hours = Math.floor(minutesInDay / 60);
-        const mins = minutesInDay % 60;
-        return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+    const minutesToTime = (minutes: number, dayNumber: number, allowExtended: boolean = false): string => {
+        const dayOffset = (dayNumber - 1) * 24 * 60;
+        const minutesFromDayStart = minutes - dayOffset;
+
+        if (allowExtended) {
+            // Allow times >= 24:00 for items that extend into next day
+            const hours = Math.floor(minutesFromDayStart / 60);
+            const mins = minutesFromDayStart % 60;
+            return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+        } else {
+            const minutesInDay = minutesFromDayStart % (24 * 60);
+            const hours = Math.floor(minutesInDay / 60);
+            const mins = minutesInDay % 60;
+            return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+        }
     };
 
     // Constants
@@ -111,13 +121,19 @@ const Timeline: React.FC<TimelineProps> = ({
             const startDay = Math.floor(newStart / (24 * 60)) + 1;
             const endDay = Math.floor((newEnd - 1) / (24 * 60)) + 1;
 
-            // Prevent crossing day boundaries
-            if (startDay !== item.day_number || endDay !== item.day_number) {
+            // Allow items to extend into the next calendar day (but not beyond)
+            // Start must be in the item's day, end can be in the same day or next day
+            if (startDay !== item.day_number || endDay > item.day_number + 1) {
                 return;
             }
 
-            const newStartTime = minutesToTime(newStart);
-            const newEndTime = minutesToTime(newEnd);
+            const dayOffset = (item.day_number - 1) * 24 * 60;
+            const startMinutesFromDayStart = newStart - dayOffset;
+            const endMinutesFromDayStart = newEnd - dayOffset;
+
+            const newStartTime = minutesToTime(newStart, item.day_number, false);
+            // If end extends beyond 24 hours from day start, preserve the extended format
+            const newEndTime = minutesToTime(newEnd, item.day_number, endMinutesFromDayStart >= 24 * 60);
 
             const currentStartTime = pendingChanges[numericId]?.startTime || item.start_time;
             const currentEndTime = pendingChanges[numericId]?.endTime || item.end_time;
@@ -139,6 +155,7 @@ const Timeline: React.FC<TimelineProps> = ({
 
         const pending = pendingChanges[editingItemId];
         if (pending) {
+            console.log(pending.startTime, pending.endTime)
             onItemTimeChange(editingItemId, pending.startTime, pending.endTime);
         }
 
@@ -426,7 +443,15 @@ const Timeline: React.FC<TimelineProps> = ({
                             const numericId = typeof item.id === 'number' ? item.id : parseInt(String(item.id).replace(/\D/g, ''), 10);
                             const pending = pendingChanges[numericId];
                             const startTime = pending?.startTime || item.start_time;
-                            const endTime = pending?.endTime || item.end_time;
+                            let endTime = pending?.endTime || item.end_time;
+
+                            // Normalize endTime if it's >= 24:00
+                            const [endHour, endMinute] = endTime.split(':').map(Number);
+                            if (endHour >= 24) {
+                                const normalizedHour = endHour % 24;
+                                endTime = `${normalizedHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+                            }
+
                             const time = params.isStartThumb ? startTime : endTime;
 
                             // Check if this thumb should be disabled (another item is being edited)

@@ -44,7 +44,7 @@ export const destinationApi = {
 export const tripApi = {
     // 1. Create New Trip
     create: (data: CreateTripPayload): Promise<AxiosResponse<Trip>> => 
-        api.post('/trips/', data),
+        api.post('/trips/generate/', data),
 
     // 2. Get Trip Timeline (Full Details)
     getById: (tripId: number): Promise<AxiosResponse<Trip>> => 

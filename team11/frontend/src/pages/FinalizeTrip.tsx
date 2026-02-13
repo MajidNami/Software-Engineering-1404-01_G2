@@ -172,10 +172,25 @@ const FinalizeTrip: React.FC = () => {
         const allItems: TripItemWithDay[] = [];
         tripData.days.forEach((day) => {
             day.items.forEach((item) => {
+                const [startHour, startMinute] = item.start_time.split(':').map(Number);
+                const [endHour, endMinute] = item.end_time.split(':').map(Number);
+
+                let endTimeMinutes = endHour * 60 + endMinute;
+                const startTimeMinutes = startHour * 60 + startMinute;
+
+                let adjustedEndTime = item.end_time;
+                if (endTimeMinutes < startTimeMinutes) {
+                    endTimeMinutes += 60 * 24;
+                    const newEndHour = Math.floor(endTimeMinutes / 60);
+                    const newEndMinute = endTimeMinutes % 60;
+                    adjustedEndTime = `${String(newEndHour).padStart(2, '0')}:${String(newEndMinute).padStart(2, '0')}`;
+                }
+
                 allItems.push({
                     ...item,
                     day_number: day.day_number,
                     date: day.date,
+                    end_time: adjustedEndTime,
                 });
             });
         });
