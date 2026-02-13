@@ -18,12 +18,12 @@ services:
       - .env
     environment:
       # Backend settings.py expects this name:
-      TEAM8_DATABASE_URL: "${TEAM8_DATABASE_URL}"
+      TEAM12_DATABASE_URL: "${TEAM12_DATABASE_URL}"
       CORE_BASE_URL: "${CORE_BASE_URL}"
       AI_SERVICE_URL: "http://ai-service:8001"
     depends_on:
       postgres:
-        condition: service_healthy
+        condition: service_started
     networks:
       - app404
 

@@ -8,3 +8,5 @@ gunicorn==21.2.0
 requests==2.31.0
 Pillow==10.2.0
 django-filter==23.5
+google-generativeai
+requests
