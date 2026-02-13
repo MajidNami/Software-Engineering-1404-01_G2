@@ -202,37 +202,89 @@ const api = {
   },
 };
 
+const INITIAL_PLACES_LIMIT = 2000;   // بار اول حداکثر این تعداد مکان
+const PLACES_PAGE_SIZE = 300;
+const LOAD_MORE_CHUNK = 500;         // هر بار «بار بیشتر» چند مکان اضافه شود
+
 /**
- * Load places (paginated) and events from backend for map and sidebar.
- * به‌خاطر حجم زیاد دیتابیس، حداکثر MAX_PLACES_ON_MAP مکان بارگذاری می‌شود تا از خطا و کندی جلوگیری شود.
+ * بار اول: تا INITIAL_PLACES_LIMIT مکان و همهٔ رویدادها را می‌گیرد و در کش نگه می‌دارد.
+ * اگر کش وجود داشته باشد دوباره جستجو نمی‌کند مگر forceRefresh true باشد.
+ * @param {boolean} [forceRefresh=false]
  * @returns {Promise<{ places: Array, events: Array }>}
  */
-async function loadMapData() {
+async function loadMapData(forceRefresh = false) {
+  if (!forceRefresh && window._team13PlacesCache && window._team13EventsCache != null) {
+    return {
+      places: window._team13PlacesCache,
+      events: window._team13EventsCache,
+    };
+  }
   const baseUrl = window.location.origin + (API_BASE || '/team13');
-  const pageSize = 300;
-  const MAX_PLACES_ON_MAP = 2000;  // سقف تعداد مکان روی نقشه تا همهٔ دیتا یکجا نخواند
   let allPlaces = [];
   let page = 1;
   let hasMore = true;
-  while (hasMore && allPlaces.length < MAX_PLACES_ON_MAP) {
+  while (hasMore && allPlaces.length < INITIAL_PLACES_LIMIT) {
     const placesRes = await fetch(
-      `${baseUrl}/places/?format=json&page=${page}&page_size=${pageSize}`,
+      `${baseUrl}/places/?format=json&page=${page}&page_size=${PLACES_PAGE_SIZE}`,
       { method: 'GET', headers: { Accept: 'application/json' }, credentials: 'same-origin' }
     );
     if (!placesRes.ok) throw new Error('Places fetch failed: ' + placesRes.status);
     const placesData = await placesRes.json();
     const chunk = placesData.places || [];
     allPlaces = allPlaces.concat(chunk);
-    hasMore = placesData.has_more === true && chunk.length === pageSize && allPlaces.length < MAX_PLACES_ON_MAP;
+    hasMore = placesData.has_more === true && chunk.length === PLACES_PAGE_SIZE && allPlaces.length < INITIAL_PLACES_LIMIT;
     page += 1;
   }
+  window._team13PlacesCache = allPlaces.slice(0, INITIAL_PLACES_LIMIT);
+  window._team13PlacesNextPage = page;
+
   const eventsRes = await fetch(`${baseUrl}/events/?format=json`, { method: 'GET', headers: { Accept: 'application/json' }, credentials: 'same-origin' });
   if (!eventsRes.ok) throw new Error('Events fetch failed: ' + eventsRes.status);
   const eventsData = await eventsRes.json();
+  window._team13EventsCache = eventsData.events || [];
   return {
-    places: allPlaces.slice(0, MAX_PLACES_ON_MAP),
-    events: eventsData.events || [],
+    places: window._team13PlacesCache,
+    events: window._team13EventsCache,
   };
+}
+
+/**
+ * بار بعدی مکان‌ها را از سرور می‌گیرد و به کش اضافه می‌کند (به مرور زمان افزایش تعداد آیکون‌ها).
+ * @returns {Promise<{ places: Array, added: number }>} کل کش مکان‌ها و تعداد تازه‌اضافه‌شده
+ */
+async function loadMoreMapPlaces() {
+  const baseUrl = window.location.origin + (API_BASE || '/team13');
+  const cache = window._team13PlacesCache || [];
+  const startPage = window._team13PlacesNextPage != null ? window._team13PlacesNextPage : 1;
+  const existingIds = new Set(cache.map((p) => (p.place_id || p.id || '').toString()));
+  let added = [];
+  let page = startPage;
+  let hasMore = true;
+  const maxToAdd = LOAD_MORE_CHUNK;
+  while (hasMore && added.length < maxToAdd) {
+    const placesRes = await fetch(
+      `${baseUrl}/places/?format=json&page=${page}&page_size=${PLACES_PAGE_SIZE}`,
+      { method: 'GET', headers: { Accept: 'application/json' }, credentials: 'same-origin' }
+    );
+    if (!placesRes.ok) break;
+    const placesData = await placesRes.json();
+    const chunk = placesData.places || [];
+    for (const p of chunk) {
+      const id = (p.place_id || p.id || '').toString();
+      if (!existingIds.has(id)) {
+        existingIds.add(id);
+        added.push(p);
+        if (added.length >= maxToAdd) break;
+      }
+    }
+    hasMore = placesData.has_more === true && chunk.length === PLACES_PAGE_SIZE;
+    page += 1;
+  }
+  window._team13PlacesNextPage = page;
+  if (added.length > 0) {
+    window._team13PlacesCache = (window._team13PlacesCache || []).concat(added);
+  }
+  return { places: window._team13PlacesCache, added: added.length };
 }
 
 /**
@@ -526,6 +578,7 @@ if (typeof window !== 'undefined') {
     postJson,
     api,
     loadMapData,
+    loadMoreMapPlaces: typeof loadMoreMapPlaces !== 'undefined' ? loadMoreMapPlaces : undefined,
     emergency: (api && api.emergency) ? api.emergency.bind(api) : undefined,
     getRouteFromUserToPoint,
     getRouteFromTo,

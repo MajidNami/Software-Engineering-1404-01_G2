@@ -16,6 +16,7 @@ from django.db.models.functions import Coalesce
 from django.views.decorators.http import require_GET, require_POST
 from core.auth import api_login_required
 
+from .context_processors import team13_user_context
 from .neshan.config import get_web_key
 from .models import (
     Place,
@@ -77,17 +78,21 @@ def _distance_km(lat1, lon1, lat2, lon2):
     return R * c
 
 
+def _team13_context(request, extra=None):
+    """یکپارچه: context مشترک همهٔ صفحات team13 (وضعیت کاربر + کلید نقشه)."""
+    ctx = team13_user_context(request)
+    if extra:
+        ctx.update(extra)
+    return ctx
+
+
 @api_login_required
 def ping(request):
     return JsonResponse({"team": TEAM_NAME, "ok": True})
 
 
 def base(request):
-    return render(
-        request,
-        f"{TEAM_NAME}/index.html",
-        {"NESHAN_MAP_KEY": get_web_key() or ""},
-    )
+    return render(request, f"{TEAM_NAME}/index.html", _team13_context(request))
 
 
 # -----------------------------------------------------------------------------
@@ -273,7 +278,7 @@ def place_list(request):
             payload["has_more"] = (start + len(places_qs)) < total_count
         return JsonResponse(payload)
 
-    return render(request, f"{TEAM_NAME}/places_list.html", {
+    return render(request, f"{TEAM_NAME}/places_list.html", _team13_context(request, {
         "places": places,
         "filter_type": place_type or "",
         "filter_city": city or "",
@@ -283,7 +288,7 @@ def place_list(request):
         "current_lat": user_lat,
         "current_lng": user_lng,
         "is_team13_admin": is_team13_admin(request.user),
-    })
+    }))
 
 
 @require_GET
@@ -374,7 +379,7 @@ def place_detail(request, place_id):
             api["museum"] = detail["museum"]
         return JsonResponse(api)
 
-    return render(request, f"{TEAM_NAME}/place_detail.html", {"place": place, "detail": detail})
+    return render(request, f"{TEAM_NAME}/place_detail.html", _team13_context(request, {"place": place, "detail": detail}))
 
 
 @require_GET
@@ -807,14 +812,14 @@ def team13_admin_dashboard(request):
         place_name = trans.name if trans else str(img.target_id)
         pending_images_list.append({"image": img, "place_name": place_name})
 
-    return render(request, f"{TEAM_NAME}/admin_dashboard.html", {
+    return render(request, f"{TEAM_NAME}/admin_dashboard.html", _team13_context(request, {
         "pending_requests": pending_requests,
         "contributions_with_images": pending_requests,
         "pending_route_contributions": pending_routes,
         "pending_comments": pending_comments_list,
         "pending_images": pending_images_list,
         "map_index_url": reverse("team13:index"),
-    })
+    }))
 
 
 @require_POST
@@ -989,7 +994,7 @@ def event_list(request):
             ]
         })
 
-    return render(request, f"{TEAM_NAME}/events_list.html", {"events": events})
+    return render(request, f"{TEAM_NAME}/events_list.html", _team13_context(request, {"events": events}))
 
 
 @require_GET
@@ -1034,7 +1039,7 @@ def event_detail(request, event_id):
             "comments": [{"rating": c.rating, "created_at": c.created_at.isoformat() if c.created_at else None} for c in comments],
         })
 
-    return render(request, f"{TEAM_NAME}/event_detail.html", {"event": event, "detail": detail})
+    return render(request, f"{TEAM_NAME}/event_detail.html", _team13_context(request, {"event": event, "detail": detail}))
 
 
 @require_POST
@@ -1336,13 +1341,13 @@ def route_request(request):
         name = (t.name if t else None) or (p.translations.filter(lang="en").first().name if p.translations.filter(lang="en").first() else None) or str(p.place_id)
         places_for_select.append({"place_id": str(p.place_id), "name": name})
 
-    return render(request, f"{TEAM_NAME}/routes.html", {
+    return render(request, f"{TEAM_NAME}/routes.html", _team13_context(request, {
         "route_result": route_result,
         "places_for_select": places_for_select,
         "travel_mode": travel_mode,
         "source_place_id": src_id or "",
         "destination_place_id": dst_id or "",
-    })
+    }))
 
 
 # -----------------------------------------------------------------------------
@@ -1942,9 +1947,9 @@ def emergency_nearby(request):
             "radius_km": radius_km,
         })
 
-    return render(request, f"{TEAM_NAME}/emergency.html", {
+    return render(request, f"{TEAM_NAME}/emergency.html", _team13_context(request, {
         "emergency_places": emergency_places,
         "lat": lat,
         "lon": lon,
         "radius_km": radius_km,
-    })
+    }))

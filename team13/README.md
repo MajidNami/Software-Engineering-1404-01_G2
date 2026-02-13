@@ -55,6 +55,9 @@ py -3.11 manage.py runserver
 - **مسیریابی:** `http://localhost:8000/team13/routes/`
 - **مراکز امدادی نزدیک:** `http://localhost:8000/team13/emergency/`
 - **تست (نیاز به لاگین):** `http://localhost:8000/team13/ping/`
+- **پنل مدیریت تیم ۱۳:** `http://localhost:8000/team13/admin/` یا `http://localhost:8000/team13/admin-panel/`
+
+با **ایمیل `admin@gmail.com`** و **رمز عبور `admin`** می‌توان به پنل مدیریت دسترسی داشت (کاربر ادمین در `team13/apps.py` ساخته می‌شود).
 
 خروجی **JSON (API)** با اضافه کردن `?format=json` به هر یک از مسیرهای بالا یا با هدر `Accept: application/json` دریافت می‌شود.
 

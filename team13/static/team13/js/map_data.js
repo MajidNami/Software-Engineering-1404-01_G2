@@ -6,12 +6,56 @@
   var SAGE_GREEN = '#40916c';
   var EVENT_MARKER_COLOR = '#c1121f';
 
+  var MAP_DATA_CACHE_KEY = 'team13_map_data_cache';
+  var MAX_CACHED_PLACES = 2000;
+  var MAX_CACHED_EVENTS = 500;
+
+  function loadMapDataCache() {
+    try {
+      var raw = typeof localStorage !== 'undefined' && localStorage.getItem(MAP_DATA_CACHE_KEY);
+      if (!raw) return null;
+      var data = JSON.parse(raw);
+      if (!data || !Array.isArray(data.places) || !Array.isArray(data.events)) return null;
+      return {
+        places: data.places,
+        events: data.events,
+        placesNextPage: typeof data.placesNextPage === 'number' ? data.placesNextPage : 1
+      };
+    } catch (e) { /* ignore */ }
+    return null;
+  }
+
+  function saveMapDataCache() {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      var places = window._team13PlacesCache || [];
+      var events = window._team13EventsCache || [];
+      var nextPage = window._team13PlacesNextPage;
+      if (places.length === 0 && events.length === 0) return;
+      var payload = {
+        places: places.slice(0, MAX_CACHED_PLACES),
+        events: events.slice(0, MAX_CACHED_EVENTS),
+        placesNextPage: typeof nextPage === 'number' ? nextPage : 1,
+        savedAt: Date.now()
+      };
+      localStorage.setItem(MAP_DATA_CACHE_KEY, JSON.stringify(payload));
+    } catch (e) { /* ignore */ }
+  }
+
   if (typeof window !== 'undefined') {
     window.allMarkers = window.allMarkers || {};
     window.currentlyShownPoiMarker = window.currentlyShownPoiMarker || null;
     window.emergencyPoiMarker = window.emergencyPoiMarker || null;
     window._team13PoiIconsVisible = window._team13PoiIconsVisible !== false;
+    window._team13PoiFilter = window._team13PoiFilter || 'all'; /* 'all' | 'places' | 'events' | 'none' */
+    window._team13PlacesTypeFilter = window._team13PlacesTypeFilter || null; /* null = all types, or string[] e.g. ['food','hotel'] */
     window.isPlacementMode = false;
+    var cachedMap = loadMapDataCache();
+    if (cachedMap && (cachedMap.places.length > 0 || cachedMap.events.length > 0)) {
+      window._team13PlacesCache = cachedMap.places;
+      window._team13EventsCache = cachedMap.events;
+      window._team13PlacesNextPage = cachedMap.placesNextPage;
+    }
   }
 
   function getMap() {
@@ -43,6 +87,20 @@
     gym: { emoji: '🏋️', color: '#059669', label: 'ورزشگاه' },
     other: { emoji: '📍', color: SAGE_GREEN, label: 'سایر' },
   };
+
+  /** ترتیب و کلیدهای نوع مکان برای فیلتر (بدون تکرار restaurant؛ با food نمایش داده می‌شود) */
+  var PLACE_TYPES_FOR_FILTER = [
+    { key: 'food', label: 'رستوران' },
+    { key: 'hotel', label: 'هتل' },
+    { key: 'hospital', label: 'بیمارستان' },
+    { key: 'fire_station', label: 'آتش‌نشانی' },
+    { key: 'pharmacy', label: 'داروخانه' },
+    { key: 'clinic', label: 'کلینیک' },
+    { key: 'museum', label: 'موزه' },
+    { key: 'entertainment', label: 'تفریحی' },
+    { key: 'gym', label: 'ورزشگاه' },
+    { key: 'other', label: 'سایر' },
+  ];
 
   function getPoiIconConfig(type) {
     var t = (type || '').toLowerCase().trim();
@@ -228,9 +286,25 @@
       injectSidebarCards(places, events);
       bindRouteButtonInPopups(map);
       setPoiIconsVisible(window._team13PoiIconsVisible);
+      saveMapDataCache();
       var count = (places.length || 0) + (events.length || 0);
       if (count > 0 && window._team13PoiIconsVisible) {
         setTimeout(function () { setPoiIconsVisible(true); }, 250);
+      }
+      if (!window._team13LoadMoreTimerStarted && window.Team13Api && typeof window.Team13Api.loadMoreMapPlaces === 'function') {
+        window._team13LoadMoreTimerStarted = true;
+        setInterval(function () {
+          var m = getMap();
+          if (!m) return;
+          window.Team13Api.loadMoreMapPlaces().then(function (result) {
+            if (result.added > 0 && result.places && result.places.length) {
+              clearPlaceMarkersOnly(m);
+              addPlaceMarkers(m, result.places);
+              saveMapDataCache();
+              if (window.showToast) window.showToast('نمایش ' + result.places.length + ' مکان روی نقشه');
+            }
+          }).catch(function () {});
+        }, 45000);
       }
       return { places: places, events: events };
     });
@@ -250,15 +324,35 @@
     }
     if (window.team13PlaceLayerGroup) {
       map.removeLayer(window.team13PlaceLayerGroup);
+      window.team13PlaceLayerGroup.clearLayers && window.team13PlaceLayerGroup.clearLayers();
       window.team13PlaceLayerGroup = null;
     }
     if (window.team13EventLayerGroup) {
       map.removeLayer(window.team13EventLayerGroup);
+      window.team13EventLayerGroup.clearLayers && window.team13EventLayerGroup.clearLayers();
       window.team13EventLayerGroup = null;
     }
     if (window.team13CityEventLayerGroup) {
       map.removeLayer(window.team13CityEventLayerGroup);
       window.team13CityEventLayerGroup = null;
+    }
+  }
+
+  /** فقط لایهٔ مکان‌ها را پاک می‌کند (برای به‌روزرسانی پس از بار بیشتر). */
+  function clearPlaceMarkersOnly(map) {
+    if (!map) return;
+    var allMarkers = window.allMarkers || {};
+    Object.keys(allMarkers).forEach(function (id) {
+      if (id.indexOf('place-') !== 0) return;
+      var m = allMarkers[id];
+      if (m && typeof m.remove === 'function') m.remove();
+      delete allMarkers[id];
+    });
+    window.allMarkers = allMarkers;
+    if (window.team13PlaceLayerGroup) {
+      map.removeLayer(window.team13PlaceLayerGroup);
+      window.team13PlaceLayerGroup.clearLayers && window.team13PlaceLayerGroup.clearLayers();
+      window.team13PlaceLayerGroup = null;
     }
   }
 
@@ -332,9 +426,27 @@
     });
   }
 
-  /** مکان‌های دیتابیس را با طول و عرض جغرافیایی روی نقشه نمایش می‌دهد. هر مارکر با bindPopup به پاپ‌آپ متصل است؛ کلیک روی مارکر پاپ‌آپ را باز می‌کند (از طریق رفتار پیش‌فرض L.marker در wrapper). */
+  /** لایهٔ واحد مکان‌ها روی نقشه تا آیکون‌ها حتماً نمایش داده شوند. */
+  function getOrCreatePlaceLayerGroup(map) {
+    if (!map || !L) return null;
+    if (window.team13PlaceLayerGroup) return window.team13PlaceLayerGroup;
+    window.team13PlaceLayerGroup = L.layerGroup();
+    return window.team13PlaceLayerGroup;
+  }
+
+  /** لایهٔ واحد رویدادها روی نقشه. */
+  function getOrCreateEventLayerGroup(map) {
+    if (!map || !L) return null;
+    if (window.team13EventLayerGroup) return window.team13EventLayerGroup;
+    window.team13EventLayerGroup = L.layerGroup();
+    return window.team13EventLayerGroup;
+  }
+
+  /** مکان‌های دیتابیس را روی نقشه نمایش می‌دهد. نقشهٔ نشان (Mapbox) لایهٔ گروه را روی نقشه اضافه نمی‌کند؛ هر مارکر باید خودش addTo(map) شود. */
   function addPlaceMarkers(map, places) {
     if (!map || !L) return;
+    var layerGroup = getOrCreatePlaceLayerGroup(map);
+    if (!layerGroup) return;
     var allMarkers = Object.assign({}, window.allMarkers || {});
     (places || []).forEach(function (p) {
       var lat = parseFloat(p.latitude);
@@ -344,15 +456,21 @@
       var popupContent = buildPlacePopupContent(p, lat, lng);
       var icon = (p.is_user_contributed) ? createUserContributedPlaceIcon() : createPlaceIcon(p.type || p.category);
       var m = L.marker([lat, lng], { icon: icon }).bindPopup(popupContent);
+      var typeKey = ((p.type || p.category || '') + '').toLowerCase().trim() || 'other';
+      if (typeKey === 'restaurant') typeKey = 'food';
+      m._placeType = typeKey;
       allMarkers[id] = m;
-      if (window._team13PoiIconsVisible) m.addTo(map);
+      layerGroup.addLayer(m);
+      if (window._team13PoiIconsVisible && typeof m.addTo === 'function') m.addTo(map);
     });
     window.allMarkers = allMarkers;
   }
 
-  /** رویدادهای دیتابیس را با طول و عرض جغرافیایی روی نقشه نمایش می‌دهد. */
+  /** رویدادهای دیتابیس را روی نقشه نمایش می‌دهد. هر مارکر باید addTo(map) شود. */
   function addEventMarkers(map, events) {
     if (!map || !L) return;
+    var layerGroup = getOrCreateEventLayerGroup(map);
+    if (!layerGroup) return;
     var icon = createEventIcon();
     var allMarkers = Object.assign({}, window.allMarkers || {});
     (events || []).forEach(function (e) {
@@ -363,7 +481,8 @@
       var popupContent = buildEventPopupContent(e);
       var m = L.marker([lat, lng], { icon: icon }).bindPopup(popupContent);
       allMarkers[id] = m;
-      if (window._team13PoiIconsVisible) m.addTo(map);
+      layerGroup.addLayer(m);
+      if (window._team13PoiIconsVisible && typeof m.addTo === 'function') m.addTo(map);
     });
     window.allMarkers = allMarkers;
   }
@@ -867,8 +986,10 @@
   var searchResultMarker = null;
   var favoritePickMarker = null;
 
-  /** به‌روزرسانی لیست نتایج در سایدبار راست (هم جستجوی متنی هم جستجو در محدوده). */
-  function updateSidebarResults(items) {
+  /** به‌روزرسانی لیست نتایج در سایدبار راست (هم جستجوی متنی هم جستجو در محدوده).
+   * titleOpt: عنوان اختیاری مثلاً "مکان‌های این محدوده" برای نتایج جستجو در محوطه.
+   */
+  function updateSidebarResults(items, titleOpt) {
     var sidebarWrap = document.getElementById('team13-sidebar-search-results-wrap');
     var sidebarResultsEl = document.getElementById('team13-sidebar-search-results');
     var sidebarTitle = document.querySelector('#team13-sidebar-search-results-wrap .team13-sidebar-search-results-title');
@@ -879,8 +1000,10 @@
       return;
     }
     renderSearchResults(sidebarResultsEl, items);
-    if (sidebarTitle) sidebarTitle.textContent = 'نتایج جستجو' + (items.length ? ' (' + items.length + ')' : '');
+    var titleText = (titleOpt && titleOpt.trim()) ? titleOpt.trim() : 'نتایج جستجو';
+    if (sidebarTitle) sidebarTitle.textContent = titleText + (items.length ? ' (' + items.length + ')' : '');
     sidebarWrap.hidden = false;
+    sidebarWrap.scrollIntoView && sidebarWrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
   function initSearch() {
@@ -1025,6 +1148,7 @@
 
   // --- Emergency: انتخاب موقعیت (زنده یا نقشه) سپس نمایش مراکز در شعاع ۱۰ کیلومتر ---
   var emergencyMarkersLayer = null;
+  var emergencyCircleLayer = null;
 
   function showModalById(id) {
     var el = document.getElementById(id);
@@ -1133,7 +1257,12 @@
 
   function showEmergencyResults(centerLat, centerLng, places) {
     var map = getMap();
+    if (map && emergencyCircleLayer) {
+      try { map.removeLayer(emergencyCircleLayer); } catch (e) {}
+      emergencyCircleLayer = null;
+    }
     if (map && emergencyMarkersLayer) {
+      try { emergencyMarkersLayer.clearLayers && emergencyMarkersLayer.clearLayers(); } catch (e) {}
       try { map.removeLayer(emergencyMarkersLayer); } catch (e) {}
       emergencyMarkersLayer = null;
     }
@@ -1141,14 +1270,27 @@
       try { map.removeLayer(window.emergencyPoiMarker); } catch (e) {}
       window.emergencyPoiMarker = null;
     }
+    if (map && L && typeof L.circle === 'function') {
+      emergencyCircleLayer = L.circle([centerLat, centerLng], {
+        radius: EMERGENCY_RADIUS_KM * 1000,
+        color: '#dc2626',
+        fillColor: '#dc2626',
+        fillOpacity: 0.12,
+        weight: 2,
+      });
+      emergencyCircleLayer.addTo(map);
+    }
     emergencyMarkersLayer = L && typeof L.layerGroup === 'function' ? L.layerGroup() : null;
+    var minLat = centerLat, maxLat = centerLat, minLng = centerLng, maxLng = centerLng;
     if (map && emergencyMarkersLayer && L && typeof L.marker === 'function') {
-      var bounds = L.latLngBounds([centerLat, centerLng], [centerLat, centerLng]);
       (places || []).forEach(function (p) {
-        var lat = parseFloat(p.latitude);
-        var lng = parseFloat(p.longitude);
+        var lat = parseFloat(p.latitude || p.lat);
+        var lng = parseFloat(p.longitude || p.lng);
         if (isNaN(lat) || isNaN(lng)) return;
-        bounds.extend([lat, lng]);
+        if (lat < minLat) minLat = lat;
+        if (lat > maxLat) maxLat = lat;
+        if (lng < minLng) minLng = lng;
+        if (lng > maxLng) maxLng = lng;
         var name = (p.name_fa || p.type_display || '').trim() || 'مرکز امدادی';
         var icon = createEmergencyPoiIcon();
         if (!icon) return;
@@ -1156,10 +1298,20 @@
           '<div class="team13-popup" dir="rtl"><strong>' + escapeHtml(name) + '</strong><br><span class="text-muted">' + escapeHtml(p.type_display || '') + ' — ' + (p.distance_km != null ? p.distance_km + ' ک.م' : '') + '</span></div>'
         );
         emergencyMarkersLayer.addLayer(m);
+        if (typeof m.addTo === 'function') m.addTo(map);
       });
-      emergencyMarkersLayer.addTo(map);
-      if (places && places.length > 0 && bounds.isValid()) try { map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 }); } catch (e) {}
-      else if (centerLat != null && centerLng != null) try { map.setView([centerLat, centerLng], 12); } catch (e) {}
+      if (places && places.length > 0 && (minLat !== maxLat || minLng !== maxLng)) {
+        try {
+          map.fitBounds({
+            getSouthWest: function () { return { lat: minLat, lng: minLng }; },
+            getNorthEast: function () { return { lat: maxLat, lng: maxLng }; }
+          }, { padding: [40, 40], maxZoom: 14 });
+        } catch (e) {
+          if (centerLat != null && centerLng != null && typeof map.flyTo === 'function') map.flyTo({ lat: centerLat, lng: centerLng }, 12);
+        }
+      } else if (centerLat != null && centerLng != null && typeof map.flyTo === 'function') {
+        map.flyTo({ lat: centerLat, lng: centerLng }, 12);
+      }
     }
     var listEl = document.getElementById('team13-emergency-results-list');
     if (listEl) {
@@ -1953,29 +2105,53 @@
     );
   }
 
-  function setPoiIconsVisible(visible) {
+  /** نقشهٔ نشان (Mapbox): لایهٔ گروه addTo(map) ندارد؛ هر مارکر را جداگانه add/remove می‌کنیم. filter: 'all' | 'places' | 'events' | 'none' */
+  function setPoiIconsVisible(visible, filter) {
+    var f = filter !== undefined ? filter : (window._team13PoiFilter || 'all');
+    if (f === 'none') visible = false;
+    window._team13PoiFilter = f;
     window._team13PoiIconsVisible = !!visible;
     var map = getMap();
     if (!map || !L) return;
-    var allMarkers = window.allMarkers || {};
     var cityGroup = window.team13CityEventLayerGroup;
-    if (visible) {
-      if (cityGroup && typeof cityGroup.addTo === 'function') cityGroup.addTo(map);
-      Object.keys(allMarkers).forEach(function (id) {
-        var m = allMarkers[id];
-        if (m && typeof m.addTo === 'function') {
-          if (!m._onMap) m.addTo(map);
-        }
-      });
-    } else {
+    var allMarkers = window.allMarkers || {};
+    function showMarker(id, m) {
+      if (m && typeof m.addTo === 'function' && !m._onMap) m.addTo(map);
+    }
+    function hideMarker(id, m) {
+      if (m && (m._onMap || (map.hasLayer && map.hasLayer(m)))) {
+        if (typeof m.remove === 'function') m.remove();
+      }
+    }
+    function wantPlace(id) { return id.indexOf('place-') === 0; }
+    function wantEvent(id) { return id.indexOf('event-') === 0; }
+    if (!visible) {
       if (cityGroup && map.hasLayer && map.hasLayer(cityGroup)) map.removeLayer(cityGroup);
-      Object.keys(allMarkers).forEach(function (id) {
-        var m = allMarkers[id];
-        if (m && (m._onMap || (map.hasLayer && map.hasLayer(m)))) {
-          if (typeof m.remove === 'function') m.remove();
-          else if (map.removeLayer) map.removeLayer(m);
-        }
-      });
+      Object.keys(allMarkers).forEach(function (id) { hideMarker(id, allMarkers[id]); });
+    } else {
+      if (f === 'all') {
+        if (cityGroup && typeof cityGroup.addTo === 'function') cityGroup.addTo(map);
+        Object.keys(allMarkers).forEach(function (id) { showMarker(id, allMarkers[id]); });
+      } else if (f === 'places') {
+        if (cityGroup && map.hasLayer && map.hasLayer(cityGroup)) map.removeLayer(cityGroup);
+        var typeFilter = window._team13PlacesTypeFilter;
+        var allowedTypes = (typeFilter && typeFilter.length) ? typeFilter : null;
+        Object.keys(allMarkers).forEach(function (id) {
+          if (!wantPlace(id)) { hideMarker(id, allMarkers[id]); return; }
+          var m = allMarkers[id];
+          if (allowedTypes && m && m._placeType != null) {
+            var ok = allowedTypes.indexOf(m._placeType) !== -1;
+            if (ok) showMarker(id, m); else hideMarker(id, m);
+          } else {
+            showMarker(id, m);
+          }
+        });
+      } else if (f === 'events') {
+        if (cityGroup && typeof cityGroup.addTo === 'function') cityGroup.addTo(map);
+        Object.keys(allMarkers).forEach(function (id) {
+          if (wantEvent(id)) showMarker(id, allMarkers[id]); else hideMarker(id, allMarkers[id]);
+        });
+      }
     }
   }
 
@@ -1986,14 +2162,14 @@
       var on = window._team13PoiIconsVisible;
       btn.classList.toggle('team13-btn-poi-toggle-on', on);
       btn.classList.toggle('team13-btn-poi-toggle-off', !on);
-      btn.setAttribute('aria-label', on ? 'پنهان کردن آیکون مکان‌ها' : 'نمایش آیکون مکان‌ها');
-      btn.title = on ? 'پنهان کردن آیکون مکان‌ها و رویدادها' : 'نمایش آیکون مکان‌ها و رویدادها';
+      btn.setAttribute('aria-label', on ? 'فیلتر آیکون‌های نقشه' : 'نمایش آیکون مکان‌ها');
+      btn.title = on ? 'تغییر فیلتر آیکون‌های مکان و رویداد' : 'نمایش آیکون مکان‌ها و رویدادها';
     }
     updateButtonState();
+    window._team13UpdatePoiButtonState = updateButtonState;
     btn.addEventListener('click', function () {
-      window._team13PoiIconsVisible = !window._team13PoiIconsVisible;
       var map = getMap();
-      if (window._team13PoiIconsVisible && map && L) {
+      if (map && L) {
         var allMarkers = window.allMarkers || {};
         var hasMarkers = Object.keys(allMarkers).length > 0;
         if (!hasMarkers && (window._team13PlacesCache || window._team13EventsCache)) {
@@ -2001,9 +2177,100 @@
           addEventMarkers(map, window._team13EventsCache || []);
         }
       }
-      setPoiIconsVisible(window._team13PoiIconsVisible);
-      updateButtonState();
+      if (typeof window.team13ShowModal === 'function') {
+        window.team13ShowModal('team13-modal-poi-filter');
+      }
     });
+  }
+
+  window.Team13ApplyPoiFilter = function (value) {
+    if (value === 'none') {
+      window._team13PoiFilter = 'none';
+      window._team13PoiIconsVisible = false;
+    } else {
+      window._team13PoiFilter = value;
+      window._team13PoiIconsVisible = true;
+    }
+    setPoiIconsVisible(window._team13PoiIconsVisible, value);
+    savePoiFilterState();
+    if (typeof window._team13UpdatePoiButtonState === 'function') window._team13UpdatePoiButtonState();
+  };
+
+  function buildPlaceTypeCheckboxesOnce() {
+    var container = document.getElementById('team13-place-type-checkboxes');
+    if (!container || container.querySelector('.team13-place-type-check-item')) return;
+    PLACE_TYPES_FOR_FILTER.forEach(function (item) {
+      var label = document.createElement('label');
+      label.className = 'team13-place-type-label team13-place-type-check-item';
+      label.innerHTML = '<input type="checkbox" class="team13-place-type-check team13-place-type-check-one" data-place-type="' + escapeHtml(item.key) + '"> <span>' + escapeHtml(item.label) + '</span>';
+      container.appendChild(label);
+    });
+  }
+
+  window.Team13ShowPlaceTypesModal = function () {
+    buildPlaceTypeCheckboxesOnce();
+    var checkAll = document.getElementById('team13-place-type-check-all');
+    var container = document.getElementById('team13-place-type-checkboxes');
+    var typeFilter = window._team13PlacesTypeFilter;
+    var selectAll = !typeFilter || typeFilter.length === 0;
+    if (checkAll) checkAll.checked = selectAll;
+    if (container) {
+      container.querySelectorAll('.team13-place-type-check-one').forEach(function (cb) {
+        var key = cb.getAttribute('data-place-type');
+        cb.checked = selectAll || (typeFilter && typeFilter.indexOf(key) !== -1);
+        cb.disabled = !!selectAll && checkAll && checkAll.checked;
+      });
+    }
+    if (checkAll && container) {
+      checkAll.onchange = function () {
+        var allChecked = checkAll.checked;
+        container.querySelectorAll('.team13-place-type-check-one').forEach(function (cb) {
+          cb.checked = allChecked;
+          cb.disabled = allChecked;
+        });
+      };
+    }
+    if (container) {
+      container.querySelectorAll('.team13-place-type-check-one').forEach(function (cb) {
+        cb.onchange = function () {
+          if (!checkAll) return;
+          var anyUnchecked = false;
+          container.querySelectorAll('.team13-place-type-check-one').forEach(function (c) { if (!c.disabled && !c.checked) anyUnchecked = true; });
+          if (anyUnchecked) checkAll.checked = false;
+          var allChecked = true;
+          container.querySelectorAll('.team13-place-type-check-one').forEach(function (c) { if (!c.disabled && !c.checked) allChecked = false; });
+          if (allChecked) checkAll.checked = true;
+        };
+      });
+    }
+    if (typeof window.team13ShowModal === 'function') window.team13ShowModal('team13-modal-place-types');
+  };
+
+  window.Team13ApplyPlaceTypesFilter = function () {
+    var checkAll = document.getElementById('team13-place-type-check-all');
+    var container = document.getElementById('team13-place-type-checkboxes');
+    var selectAll = checkAll && checkAll.checked;
+    if (selectAll) {
+      window._team13PlacesTypeFilter = null;
+    } else if (container) {
+      var selected = [];
+      container.querySelectorAll('.team13-place-type-check-one:checked').forEach(function (cb) {
+        var k = cb.getAttribute('data-place-type');
+        if (k) selected.push(k);
+      });
+      window._team13PlacesTypeFilter = selected.length ? selected : null;
+    }
+    window._team13PoiFilter = 'places';
+    window._team13PoiIconsVisible = true;
+    setPoiIconsVisible(true, 'places');
+    savePoiFilterState();
+    if (typeof window._team13UpdatePoiButtonState === 'function') window._team13UpdatePoiButtonState();
+    if (typeof window.team13HideModal === 'function') window.team13HideModal('team13-modal-place-types');
+  };
+
+  function initPlaceTypesModalButton() {
+    var applyBtn = document.getElementById('team13-place-types-apply');
+    if (applyBtn) applyBtn.addEventListener('click', function () { if (typeof window.Team13ApplyPlaceTypesFilter === 'function') window.Team13ApplyPlaceTypesFilter(); });
   }
 
   function initAddPointerButton() {
@@ -2178,13 +2445,17 @@
 
     if (window.showToast) window.showToast('در حال جستجو در دیتابیس…');
     fetch(url, { method: 'GET', headers: { Accept: 'application/json' }, credentials: 'same-origin' })
-      .then(function (res) { return res.ok ? res.json() : Promise.reject(new Error('خطا در دریافت مکان‌ها')); })
+      .then(function (res) {
+        if (!res.ok) return Promise.reject(new Error('خطا در دریافت مکان‌ها: ' + res.status));
+        return res.json().catch(function () { return Promise.reject(new Error('پاسخ نامعتبر')); });
+      })
       .then(function (data) {
-        var filtered = (data && data.places) ? data.places : [];
+        var filtered = Array.isArray(data && data.places) ? data.places : [];
         applyDiscoveryResults(map, centerLat, centerLng, radiusM, filtered);
       })
-      .catch(function () {
+      .catch(function (err) {
         if (window.showToast) window.showToast('بارگذاری مکان‌های محدوده ناموفق بود.');
+        applyDiscoveryResults(map, centerLat, centerLng, radiusM, []);
       });
   }
 
@@ -2200,15 +2471,16 @@
 
     var layer = ensureDiscoveryMarkersLayer();
     if (layer) layer.clearLayers();
-    filtered.forEach(function (p) {
-      var lat = parseFloat(p.latitude);
-      var lng = parseFloat(p.longitude);
+    (filtered || []).forEach(function (p) {
+      var lat = parseFloat(p.latitude || p.lat);
+      var lng = parseFloat(p.longitude || p.lng);
       if (isNaN(lat) || isNaN(lng)) return;
       var popupContent = buildDiscoveryPlacePopup(p, lat, lng);
       var discoveryIcon = p.is_user_contributed ? createDiscoveryUserContributedIcon() : createDiscoveryPlaceIcon(p.type || p.category);
       var m = L.marker([lat, lng], { icon: discoveryIcon }).bindPopup(popupContent);
       m._team13DiscoveryPlace = p;
       if (discoveryMarkersLayer) discoveryMarkersLayer.addLayer(m);
+      if (map && typeof m.addTo === 'function') m.addTo(map);
     });
 
     if (discoveryMarkersLayer) discoveryMarkersLayer.eachLayer(function (layer) {
@@ -2245,7 +2517,7 @@
     });
 
     if (filtered.length > 0 && discoveryMarkersLayer) map.fitBounds(discoveryMarkersLayer.getBounds(), { padding: [40, 40], maxZoom: 15 });
-    if (window.showToast) window.showToast('یافت شد: ' + filtered.length + ' مکان');
+    if (window.showToast) window.showToast('یافت شد: ' + filtered.length + ' مکان — روی نقشه و در لیست سمت راست نمایش داده شدند.');
     var sidebarItems = filtered.map(function (p) {
       var name = (p.name_fa || p.name_en || p.type_display || '').trim() || (p.type || 'مکان');
       return {
@@ -2259,7 +2531,9 @@
         x: parseFloat(p.longitude),
       };
     });
-    updateSidebarResults(sidebarItems);
+    updateSidebarResults(sidebarItems, 'مکان‌های این محدوده');
+    var sidebarWrap = document.getElementById('team13-sidebar-search-results-wrap');
+    if (sidebarWrap && typeof window.Team13OpenSidebar === 'function') window.Team13OpenSidebar();
   }
 
   function initDiscoveryUI() {
@@ -2447,6 +2721,7 @@
     startUserLocationTracking();
     initCenterOnMeButton();
     initPoiToggleButton();
+    initPlaceTypesModalButton();
     initAddPointerButton();
   }
 

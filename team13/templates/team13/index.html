@@ -503,6 +503,40 @@
           </div>
         </div>
 
+        <!-- مودال فیلتر آیکون‌های نقشه (مکان‌ها / رویدادها) -->
+        <div id="team13-modal-poi-filter" class="team13-modal-overlay team13-modal-contribution-wrap" role="dialog" aria-labelledby="team13-modal-poi-filter-title" aria-modal="true" hidden>
+          <div class="team13-modal team13-modal-contribution" dir="rtl">
+            <h2 id="team13-modal-poi-filter-title" class="team13-modal-title">نمایش آیکون‌های نقشه</h2>
+            <p class="team13-modal-text">کدام آیکون‌ها را نمایش دهید؟</p>
+            <div class="team13-modal-actions team13-contribution-actions" style="flex-direction: column; gap: 10px;">
+              <button type="button" class="team13-btn-poi-filter-option team13-btn-modal-close" data-poi-filter="all">همه (مکان‌ها و رویدادها)</button>
+              <button type="button" class="team13-btn-poi-filter-option" data-poi-filter="places">فقط مکان‌ها</button>
+              <button type="button" class="team13-btn-poi-filter-option team13-btn-modal-close" data-poi-filter="events">فقط رویدادها</button>
+              <button type="button" class="team13-btn-poi-filter-option team13-btn-modal-close" data-poi-filter="none">همه را خاموش کن</button>
+              <button type="button" class="team13-btn-modal-close" data-close="team13-modal-poi-filter">انصراف</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- مودال انتخاب نوع مکان‌ها (وقتی کاربر «فقط مکان‌ها» را انتخاب کرد) -->
+        <div id="team13-modal-place-types" class="team13-modal-overlay team13-modal-contribution-wrap" role="dialog" aria-labelledby="team13-modal-place-types-title" aria-modal="true" hidden>
+          <div class="team13-modal team13-modal-contribution" dir="rtl">
+            <h2 id="team13-modal-place-types-title" class="team13-modal-title">انتخاب نوع مکان‌ها</h2>
+            <p class="team13-modal-text">کدام دسته از مکان‌ها روی نقشه نمایش داده شوند؟</p>
+            <div id="team13-place-type-check-all-wrap" class="team13-place-type-row" style="margin-bottom: 12px;">
+              <label class="team13-place-type-label">
+                <input type="checkbox" id="team13-place-type-check-all" class="team13-place-type-check" checked>
+                <span>همه</span>
+              </label>
+            </div>
+            <div id="team13-place-type-checkboxes" class="team13-place-type-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto; margin-bottom: 16px;"></div>
+            <div class="team13-modal-actions team13-contribution-actions">
+              <button type="button" id="team13-place-types-apply" class="team13-btn-yellow">اعمال</button>
+              <button type="button" class="team13-btn-modal-close" data-close="team13-modal-place-types">انصراف</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Main: map (flex-grow) -->
         <main class="team13-map-main">
           <div class="team13-map-search-wrap">
@@ -529,15 +563,14 @@
             <p class="team13-map-no-key" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;margin:0;padding:1rem;text-align:center;color:#666;font-size:0.95rem;z-index:1;">برای نمایش نقشهٔ نشان، کلید وب (NESHAN_API_KEY_WEB) را در فایل .env تنظیم کنید.</p>
             {% endif %}
           </div>
-          <button type="button" id="team13-btn-center-me" class="team13-btn-center-me" aria-label="موقعیت زنده من" title="نمایش موقعیت من روی نقشه (لایو)">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+          <button type="button" id="team13-btn-center-me" class="team13-map-ctrl-btn team13-map-ctrl-location team13-btn-center-me" aria-label="موقعیت زنده من" title="نمایش موقعیت من روی نقشه (لایو)">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
           </button>
-          <button type="button" id="team13-btn-poi-toggle" class="team13-btn-poi-toggle team13-btn-poi-toggle-on" aria-label="پنهان کردن آیکون مکان‌ها" title="نمایش/پنهان کردن آیکون مکان‌ها و رویدادها روی نقشه">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <button type="button" id="team13-btn-poi-toggle" class="team13-map-ctrl-btn team13-map-ctrl-poi team13-btn-poi-toggle team13-btn-poi-toggle-on" aria-label="پنهان کردن آیکون مکان‌ها" title="نمایش/پنهان کردن آیکون مکان‌ها و رویدادها روی نقشه">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
           </button>
-          <button type="button" id="team13-btn-add-pointer" class="team13-btn-add-pointer" aria-label="انتخاب نقطه" title="انتخاب نقطه روی نقشه">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-            <span class="team13-btn-add-pointer-label">انتخاب نقطه</span>
+          <button type="button" id="team13-btn-add-pointer" class="team13-map-ctrl-btn team13-map-ctrl-pinpoint team13-btn-add-pointer" aria-label="انتخاب نقطه" title="انتخاب نقطه روی نقشه">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="3" x2="12" y2="8"/><line x1="12" y1="16" x2="12" y2="21"/><line x1="3" y1="12" x2="8" y2="12"/><line x1="16" y1="12" x2="21" y2="12"/><circle cx="12" cy="12" r="2"/></svg>
           </button>
           <div id="team13-toast" class="team13-toast" aria-live="polite"></div>
         </main>
@@ -551,6 +584,7 @@
     <script src="https://static.neshan.org/sdk/mapboxgl/v1.13.2/neshan-sdk/v1.1.5/index.js"></script>
     <!-- دیکد کردن polyline مسیر نشان (مطابق مستندات رسم مسیر) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mapbox-polyline/1.2.1/polyline.js"></script>
+    <script src="{% static 'team13/js/auth_keepalive.js' %}"></script>
     <script src="{% static 'team13/js/api_client.js' %}"></script>
     <script src="{% static 'team13/js/neshan_map.js' %}"></script>
     <script src="{% static 'team13/js/map_init.js' %}"></script>
@@ -719,16 +753,18 @@
 
         function showModal(el) {
           if (el) { el.hidden = false; el.classList.add("team13-modal-open"); }
-          if (el && ["team13-modal-add-favorite","team13-modal-favorites-list","team13-modal-route-start","team13-modal-favorite-details","team13-modal-contribution","team13-modal-place-actions","team13-modal-place-rate","team13-modal-place-add-image","team13-modal-place-add-comment","team13-modal-emergency-source","team13-modal-emergency-results"].indexOf(el.id) !== -1)
+          if (el && ["team13-modal-add-favorite","team13-modal-favorites-list","team13-modal-route-start","team13-modal-favorite-details","team13-modal-contribution","team13-modal-place-actions","team13-modal-place-rate","team13-modal-place-add-image","team13-modal-place-add-comment","team13-modal-emergency-source","team13-modal-emergency-results","team13-modal-poi-filter","team13-modal-place-types"].indexOf(el.id) !== -1)
             document.body.classList.add("team13-favorite-modal-open");
         }
         function hideModal(el) {
           if (el) { el.hidden = true; el.classList.remove("team13-modal-open"); }
           if (el && el.id === "team13-modal-add-favorite" && window.Team13MapData && typeof window.Team13MapData.clearFavoritePickMarker === "function")
             window.Team13MapData.clearFavoritePickMarker();
-          if (el && ["team13-modal-add-favorite","team13-modal-favorites-list","team13-modal-route-start","team13-modal-favorite-details","team13-modal-contribution","team13-modal-place-actions","team13-modal-place-rate","team13-modal-place-add-image","team13-modal-place-add-comment","team13-modal-emergency-source","team13-modal-emergency-results"].indexOf(el.id) !== -1)
+          if (el && ["team13-modal-add-favorite","team13-modal-favorites-list","team13-modal-route-start","team13-modal-favorite-details","team13-modal-contribution","team13-modal-place-actions","team13-modal-place-rate","team13-modal-place-add-image","team13-modal-place-add-comment","team13-modal-emergency-source","team13-modal-emergency-results","team13-modal-poi-filter","team13-modal-place-types"].indexOf(el.id) !== -1)
             document.body.classList.remove("team13-favorite-modal-open");
         }
+        window.team13ShowModal = function (id) { var el = document.getElementById(id); if (el) showModal(el); };
+        window.team13HideModal = function (id) { var el = document.getElementById(id); if (el) hideModal(el); };
 
         function showAddFavoriteStep(stepName) {
           if (stepLogin) stepLogin.style.display = stepName === "login" ? "block" : "none";
@@ -1426,6 +1462,20 @@
           });
         });
 
+        document.querySelectorAll("[data-poi-filter]").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            var value = btn.getAttribute("data-poi-filter");
+            var poiModal = document.getElementById("team13-modal-poi-filter");
+            if (value === "places") {
+              if (poiModal) hideModal(poiModal);
+              if (typeof window.Team13ShowPlaceTypesModal === "function") window.Team13ShowPlaceTypesModal();
+            } else {
+              if (typeof window.Team13ApplyPoiFilter === "function") window.Team13ApplyPoiFilter(value);
+              if (poiModal) hideModal(poiModal);
+            }
+          });
+        });
+
         document.querySelectorAll(".team13-modal-overlay").forEach(function (overlay) {
           overlay.addEventListener("click", function (e) {
             if (e.target === overlay) {
@@ -1433,7 +1483,7 @@
               overlay.classList.remove("team13-modal-open");
               if (overlay.id === "team13-modal-add-favorite" && window.Team13MapData && typeof window.Team13MapData.clearFavoritePickMarker === "function")
                 window.Team13MapData.clearFavoritePickMarker();
-              if (["team13-modal-add-favorite","team13-modal-favorites-list","team13-modal-route-start","team13-modal-favorite-details","team13-modal-contribution","team13-modal-place-actions","team13-modal-place-rate","team13-modal-place-add-image","team13-modal-place-add-comment","team13-modal-emergency-source","team13-modal-emergency-results"].indexOf(overlay.id) !== -1)
+              if (["team13-modal-add-favorite","team13-modal-favorites-list","team13-modal-route-start","team13-modal-favorite-details","team13-modal-contribution","team13-modal-place-actions","team13-modal-place-rate","team13-modal-place-add-image","team13-modal-place-add-comment","team13-modal-emergency-source","team13-modal-emergency-results","team13-modal-poi-filter","team13-modal-place-types"].indexOf(overlay.id) !== -1)
                 document.body.classList.remove("team13-favorite-modal-open");
             }
           });

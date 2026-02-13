@@ -17,10 +17,6 @@ button {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(251, 192, 45, 0.4);
 }
-.team13-btn-center-me:hover {
-  transform: scale(1.05);
-  box-shadow: 0 0 14px rgba(251, 192, 45, 0.5);
-}
 .team13-route-mode-btn:hover {
   transform: scale(1.05);
 }
@@ -279,6 +275,25 @@ body.team13-map {
   margin-top: 20px;
   padding-top: 16px;
   border-top: 1px solid #eee;
+}
+.team13-place-type-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: #374151;
+}
+.team13-place-type-label input[type="checkbox"] {
+  cursor: pointer;
+  width: 1.1em;
+  height: 1.1em;
+}
+.team13-place-type-list {
+  padding: 4px 0;
+}
+.team13-place-type-row {
+  padding: 4px 0;
 }
 .team13-btn-contribution-submit {
   background: #fbc02d !important;
@@ -1003,95 +1018,77 @@ body.team13-map {
   inset: 0;
   z-index: 1;
 }
-/* دکمه لایو لوکیشن (موقعیت من روی نقشه) — بالا چپ */
-.team13-btn-center-me {
+/* دکمه‌های کنترل نقشه — بالا چپ، فقط آیکون، سه شکل و سه رنگ */
+.team13-map-ctrl-btn {
   position: absolute;
-  top: 0.75rem;
   left: 1rem;
   z-index: 1000;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
+  width: 44px;
+  height: 44px;
   border: none;
-  background: #2563eb;
   color: #fff;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.22);
   transition: transform 0.2s, box-shadow 0.2s;
 }
-.team13-btn-center-me:hover {
-  transform: scale(1.05);
-  box-shadow: 0 0 14px rgba(37, 99, 235, 0.5);
+.team13-map-ctrl-btn:hover {
+  transform: scale(1.08);
 }
-.team13-btn-center-me:disabled {
+
+/* ۱) موقعیت زنده — دایره، آبی */
+.team13-map-ctrl-location {
+  top: 0.75rem;
+  border-radius: 50%;
+  background: #2563eb;
+}
+.team13-map-ctrl-location:hover {
+  box-shadow: 0 0 16px rgba(37, 99, 235, 0.55);
+}
+.team13-map-ctrl-location:disabled {
   opacity: 0.7;
   cursor: wait;
 }
 
-/* دکمه نمایش/پنهان آیکون مکان‌ها و رویدادها — زیر دکمه لایو لوکیشن */
-.team13-btn-poi-toggle {
-  position: absolute;
-  top: 3.75rem;
-  left: 1rem;
-  z-index: 1000;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  border: none;
+/* ۲) نمایش/پنهان آیکون مکان‌ها — مربع گوشه‌گرد، فیروزه / خاکستری */
+.team13-map-ctrl-poi {
+  top: 3.5rem;
+  border-radius: 12px;
   background: #0d9488;
-  color: #fff;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
   transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
 }
-.team13-btn-poi-toggle:hover {
-  transform: scale(1.05);
-  box-shadow: 0 0 14px rgba(13, 148, 136, 0.5);
+.team13-map-ctrl-poi:hover {
+  box-shadow: 0 0 16px rgba(13, 148, 136, 0.55);
 }
 .team13-btn-poi-toggle.team13-btn-poi-toggle-off {
   background: #64748b;
-  color: rgba(255,255,255,0.9);
+  color: rgba(255,255,255,0.95);
 }
 .team13-btn-poi-toggle.team13-btn-poi-toggle-off:hover {
-  box-shadow: 0 0 14px rgba(100, 116, 139, 0.5);
+  box-shadow: 0 0 16px rgba(100, 116, 139, 0.5);
 }
 
-/* دکمه افزودن نقطه (Placement Mode) — زیر دکمه POI */
-.team13-btn-add-pointer {
-  position: absolute;
-  top: 6.75rem;
-  left: 1rem;
-  z-index: 1000;
-  padding: 0.5rem 0.75rem;
+/* ۳) انتخاب نقطه — مربع با گوشهٔ کمتر گرد، سبز */
+.team13-map-ctrl-pinpoint {
+  top: 6.25rem;
   border-radius: 8px;
-  border: none;
   background: #40916c;
-  color: #fff;
-  font-size: 0.875rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
   transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
 }
-.team13-btn-add-pointer:hover {
-  transform: scale(1.02);
-  box-shadow: 0 0 14px rgba(64, 145, 108, 0.5);
+.team13-map-ctrl-pinpoint:hover {
+  box-shadow: 0 0 16px rgba(64, 145, 108, 0.55);
 }
-.team13-btn-add-pointer.active-btn {
+.team13-map-ctrl-pinpoint.active-btn {
   background: #1b4332;
-  box-shadow: 0 0 0 2px #fff, 0 0 14px rgba(64, 145, 108, 0.7);
+  box-shadow: 0 0 0 2px #fff, 0 0 16px rgba(64, 145, 108, 0.65);
 }
-.team13-btn-add-pointer .team13-btn-add-pointer-label {
-  white-space: nowrap;
-}
+
+/* سازگاری با سلکتورهای قدیمی JS */
+.team13-btn-center-me { }
+.team13-btn-poi-toggle { }
+.team13-btn-add-pointer { }
 
 /* Panels wrap & panel visibility — 0.3s ease-in-out fade/slide */
 .team13-panels-wrap {
