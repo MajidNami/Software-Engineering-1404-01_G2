@@ -10,10 +10,20 @@ services:
     networks:
       - app404
     depends_on:
+      - frontend
       - backend
 
+  frontend:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    networks:
+      - app404
+
   backend:
-    build: .
+    build:
+      context: ./
+      dockerfile: Dockerfile
     env_file:
       - .env
     environment:
