@@ -9,7 +9,6 @@ services:
       - CORE_BASE_URL=http://core:8000
     networks:
       - app404
-<<<<<<< HEAD
     depends_on:
       - frontend
       - backend
@@ -37,8 +36,6 @@ services:
         condition: service_healthy
     networks:
       - app404
-=======
->>>>>>> b262acdee6bee2c1e0c132d1ffca5e7ce6a32a70
 
   postgres:
     image: postgis/postgis:16-3.4-alpine
