@@ -1,0 +1,90 @@
+[
+  {
+    "model": "team4.category",
+    "pk": 1,
+    "fields": {
+      "name_fa": "هتل",
+      "name_en": "Hotel",
+      "is_emergency": false,
+      "marker_color": "blue",
+      "created_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "team4.category",
+    "pk": 2,
+    "fields": {
+      "name_fa": "رستوران",
+      "name_en": "Restaurant",
+      "is_emergency": false,
+      "marker_color": "orange",
+      "created_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "team4.category",
+    "pk": 3,
+    "fields": {
+      "name_fa": "بیمارستان",
+      "name_en": "Hospital",
+      "is_emergency": true,
+      "marker_color": "red",
+      "created_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "team4.category",
+    "pk": 4,
+    "fields": {
+      "name_fa": "مرکز خرید",
+      "name_en": "Shopping Mall",
+      "is_emergency": false,
+      "marker_color": "purple",
+      "created_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "team4.category",
+    "pk": 5,
+    "fields": {
+      "name_fa": "موزه",
+      "name_en": "Museum",
+      "is_emergency": false,
+      "marker_color": "green",
+      "created_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "team4.category",
+    "pk": 6,
+    "fields": {
+      "name_fa": "کافه",
+      "name_en": "Cafe",
+      "is_emergency": false,
+      "marker_color": "yellow",
+      "created_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "team4.category",
+    "pk": 7,
+    "fields": {
+      "name_fa": "داروخانه",
+      "name_en": "Pharmacy",
+      "is_emergency": true,
+      "marker_color": "red",
+      "created_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "team4.category",
+    "pk": 8,
+    "fields": {
+      "name_fa": "درمانگاه",
+      "name_en": "Clinic",
+      "is_emergency": true,
+      "marker_color": "red",
+      "created_at": "2024-01-01T00:00:00Z"
+    }
+  }
+]

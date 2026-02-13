@@ -1,0 +1,26 @@
+# Django REST Framework
+djangorestframework>=3.14.0
+
+# Filtering support for DRF
+django-filter>=23.2
+
+# Image processing
+Pillow>=10.0.0
+
+# MySQL Database Adapter
+mysqlclient>=2.2.0
+
+# HTTP requests
+requests>=2.31.0
+
+python-dotenv
+# GeoDjango dependencies
+# Note: GDAL/GEOS must be installed at s
+# Windows: https://www.gisinternals.com/release.php
+# Linux: apt-get install gdal-bin libgdal-dev
+# macOS: brew install gdal
+
+# Optional: For development and testing
+# pytest>=7.4.0
+# pytest-django>=4.5.0
+# faker>=19.0.0

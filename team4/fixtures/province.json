@@ -1,0 +1,340 @@
+[
+  {
+    "province_id": 1,
+    "name_fa": "آذربایجان شرقی",
+    "name_en": "East Azarbaijan",
+    "location": {
+      "longitude": 46.2682109,
+      "latitude": 37.9035733
+    },
+    "created_at": "2026-02-08T17:29:15.968698+00:00",
+    "updated_at": "2026-02-08T17:29:15.968698+00:00"
+  },
+  {
+    "province_id": 2,
+    "name_fa": "آذربایجان غربی",
+    "name_en": "Western Azerbaijan",
+    "location": {
+      "longitude": 46.2682109,
+      "latitude": 37.9035733
+    },
+    "created_at": "2026-02-08T17:29:15.975828+00:00",
+    "updated_at": "2026-02-08T17:29:15.975828+00:00"
+  },
+  {
+    "province_id": 3,
+    "name_fa": "اردبیل",
+    "name_en": "Ardabil",
+    "location": {
+      "longitude": 47.8911209,
+      "latitude": 38.4853276
+    },
+    "created_at": "2026-02-08T17:29:15.981259+00:00",
+    "updated_at": "2026-02-08T17:29:15.981259+00:00"
+  },
+  {
+    "province_id": 4,
+    "name_fa": "اصفهان",
+    "name_en": "Esfahan",
+    "location": {
+      "longitude": 51.6679826,
+      "latitude": 32.6546275
+    },
+    "created_at": "2026-02-08T17:29:15.993279+00:00",
+    "updated_at": "2026-02-08T17:29:15.993279+00:00"
+  },
+  {
+    "province_id": 5,
+    "name_fa": "البرز",
+    "name_en": "Alborz",
+    "location": {
+      "longitude": 50.9289246,
+      "latitude": 35.9960467
+    },
+    "created_at": "2026-02-08T17:29:16.000273+00:00",
+    "updated_at": "2026-02-08T17:29:16.000273+00:00"
+  },
+  {
+    "province_id": 6,
+    "name_fa": "ایلام",
+    "name_en": "Ilam",
+    "location": {
+      "longitude": 46.670534,
+      "latitude": 33.2957618
+    },
+    "created_at": "2026-02-08T17:29:16.006276+00:00",
+    "updated_at": "2026-02-08T17:29:16.006276+00:00"
+  },
+  {
+    "province_id": 7,
+    "name_fa": "بوشهر",
+    "name_en": "Bushehr",
+    "location": {
+      "longitude": 50.820314,
+      "latitude": 28.9233837
+    },
+    "created_at": "2026-02-08T17:29:16.012262+00:00",
+    "updated_at": "2026-02-08T17:29:16.012262+00:00"
+  },
+  {
+    "province_id": 8,
+    "name_fa": "تهران",
+    "name_en": "Tehran",
+    "location": {
+      "longitude": 51.423056,
+      "latitude": 35.696111
+    },
+    "created_at": "2026-02-08T17:29:16.019261+00:00",
+    "updated_at": "2026-02-08T17:29:16.019261+00:00"
+  },
+  {
+    "province_id": 9,
+    "name_fa": "چهارمحال و بختیاری",
+    "name_en": "Chaharmahal and Bakhtiari",
+    "location": {
+      "longitude": 50.8456323,
+      "latitude": 31.9614348
+    },
+    "created_at": "2026-02-08T17:29:16.025263+00:00",
+    "updated_at": "2026-02-08T17:29:16.025263+00:00"
+  },
+  {
+    "province_id": 10,
+    "name_fa": "خراسان جنوبی",
+    "name_en": "South Khorasan",
+    "location": {
+      "longitude": 59.1041758,
+      "latitude": 32.5175643
+    },
+    "created_at": "2026-02-08T17:29:16.030260+00:00",
+    "updated_at": "2026-02-08T17:29:16.030260+00:00"
+  },
+  {
+    "province_id": 11,
+    "name_fa": "خراسان رضوی",
+    "name_en": "Khorasan Razavi",
+    "location": {
+      "longitude": 59.1041758,
+      "latitude": 32.5175643
+    },
+    "created_at": "2026-02-08T17:29:16.036261+00:00",
+    "updated_at": "2026-02-08T17:29:16.036261+00:00"
+  },
+  {
+    "province_id": 12,
+    "name_fa": "خراسان شمالی",
+    "name_en": "North Khorasan",
+    "location": {
+      "longitude": 57.1013188,
+      "latitude": 37.4710353
+    },
+    "created_at": "2026-02-08T17:29:16.043445+00:00",
+    "updated_at": "2026-02-08T17:29:16.043445+00:00"
+  },
+  {
+    "province_id": 13,
+    "name_fa": "خوزستان",
+    "name_en": "Khuzestan",
+    "location": {
+      "longitude": 49.041312,
+      "latitude": 31.4360149
+    },
+    "created_at": "2026-02-08T17:29:16.049447+00:00",
+    "updated_at": "2026-02-08T17:29:16.049447+00:00"
+  },
+  {
+    "province_id": 14,
+    "name_fa": "زنجان",
+    "name_en": "Zanjan",
+    "location": {
+      "longitude": 48.3988186,
+      "latitude": 36.5018185
+    },
+    "created_at": "2026-02-08T17:29:16.057088+00:00",
+    "updated_at": "2026-02-08T17:29:16.057088+00:00"
+  },
+  {
+    "province_id": 15,
+    "name_fa": "سمنان",
+    "name_en": "Semnan",
+    "location": {
+      "longitude": 54.4342138,
+      "latitude": 35.2255585
+    },
+    "created_at": "2026-02-08T17:29:16.063091+00:00",
+    "updated_at": "2026-02-08T17:29:16.063091+00:00"
+  },
+  {
+    "province_id": 16,
+    "name_fa": "سیستان و بلوچستان",
+    "name_en": "Sistan and Baluchistan",
+    "location": {
+      "longitude": 60.5820676,
+      "latitude": 27.5299906
+    },
+    "created_at": "2026-02-08T17:29:16.070090+00:00",
+    "updated_at": "2026-02-08T17:29:16.070090+00:00"
+  },
+  {
+    "province_id": 17,
+    "name_fa": "فارس",
+    "name_en": "Fars",
+    "location": {
+      "longitude": 53.045893,
+      "latitude": 29.1043813
+    },
+    "created_at": "2026-02-08T17:29:16.077088+00:00",
+    "updated_at": "2026-02-08T17:29:16.077088+00:00"
+  },
+  {
+    "province_id": 18,
+    "name_fa": "قزوین",
+    "name_en": "Qazvin",
+    "location": {
+      "longitude": 49.8547266,
+      "latitude": 36.0881317
+    },
+    "created_at": "2026-02-08T17:29:16.084087+00:00",
+    "updated_at": "2026-02-08T17:29:16.084087+00:00"
+  },
+  {
+    "province_id": 19,
+    "name_fa": "قم",
+    "name_en": "Qom",
+    "location": {
+      "longitude": 50.8759419,
+      "latitude": 34.6399443
+    },
+    "created_at": "2026-02-08T17:29:16.090089+00:00",
+    "updated_at": "2026-02-08T17:29:16.090089+00:00"
+  },
+  {
+    "province_id": 20,
+    "name_fa": "کردستان",
+    "name_en": "Kurdistan",
+    "location": {
+      "longitude": 49.041312,
+      "latitude": 31.4360149
+    },
+    "created_at": "2026-02-08T17:29:16.096089+00:00",
+    "updated_at": "2026-02-08T17:29:16.096089+00:00"
+  },
+  {
+    "province_id": 21,
+    "name_fa": "کرمان",
+    "name_en": "Kerman",
+    "location": {
+      "longitude": 57.0833628,
+      "latitude": 30.2839379
+    },
+    "created_at": "2026-02-08T17:29:16.103089+00:00",
+    "updated_at": "2026-02-08T17:29:16.103089+00:00"
+  },
+  {
+    "province_id": 22,
+    "name_fa": "کرمانشاه",
+    "name_en": "Kermanshah",
+    "location": {
+      "longitude": 47.065,
+      "latitude": 34.314167
+    },
+    "created_at": "2026-02-08T17:29:16.110087+00:00",
+    "updated_at": "2026-02-08T17:29:16.110087+00:00"
+  },
+  {
+    "province_id": 23,
+    "name_fa": "کهگیلویه و بویراحمد",
+    "name_en": "Kohgiloyeh Boyerahmad",
+    "location": {
+      "longitude": 51.60525,
+      "latitude": 30.6509479
+    },
+    "created_at": "2026-02-08T17:29:16.117090+00:00",
+    "updated_at": "2026-02-08T17:29:16.117090+00:00"
+  },
+  {
+    "province_id": 24,
+    "name_fa": "گلستان",
+    "name_en": "Golestan",
+    "location": {
+      "longitude": 55.1375834,
+      "latitude": 37.2898123
+    },
+    "created_at": "2026-02-08T17:29:16.123088+00:00",
+    "updated_at": "2026-02-08T17:29:16.123088+00:00"
+  },
+  {
+    "province_id": 25,
+    "name_fa": "گیلان",
+    "name_en": "Gilan",
+    "location": {
+      "longitude": 49.5924,
+      "latitude": 37.2809
+    },
+    "created_at": "2026-02-08T17:29:16.129088+00:00",
+    "updated_at": "2026-02-08T17:29:16.129088+00:00"
+  },
+  {
+    "province_id": 26,
+    "name_fa": "لرستان",
+    "name_en": "Lorestan",
+    "location": {
+      "longitude": 49.041312,
+      "latitude": 31.4360149
+    },
+    "created_at": "2026-02-08T17:29:16.135090+00:00",
+    "updated_at": "2026-02-08T17:29:16.135090+00:00"
+  },
+  {
+    "province_id": 27,
+    "name_fa": "مازندران",
+    "name_en": "Mazandaran",
+    "location": {
+      "longitude": 52.5318604,
+      "latitude": 36.2262393
+    },
+    "created_at": "2026-02-08T17:29:16.141603+00:00",
+    "updated_at": "2026-02-08T17:29:16.141603+00:00"
+  },
+  {
+    "province_id": 28,
+    "name_fa": "مرکزی",
+    "name_en": "Markazi",
+    "location": {
+      "longitude": 49.8547,
+      "latitude": 34.6123
+    },
+    "created_at": "2026-02-08T17:29:16.146609+00:00",
+    "updated_at": "2026-02-08T17:29:16.146609+00:00"
+  },
+  {
+    "province_id": 29,
+    "name_fa": "هرمزگان",
+    "name_en": "Hormozgan",
+    "location": {
+      "longitude": 57.0833628,
+      "latitude": 30.2839379
+    },
+    "created_at": "2026-02-08T17:29:16.153664+00:00",
+    "updated_at": "2026-02-08T17:29:16.153664+00:00"
+  },
+  {
+    "province_id": 30,
+    "name_fa": "همدان",
+    "name_en": "Hamedan",
+    "location": {
+      "longitude": 55.1375834,
+      "latitude": 27.138723
+    },
+    "created_at": "2026-02-08T17:29:16.159649+00:00",
+    "updated_at": "2026-02-08T17:29:16.159649+00:00"
+  },
+  {
+    "province_id": 31,
+    "name_fa": "یزد",
+    "name_en": "Yazd",
+    "location": null,
+    "created_at": "2026-02-08T17:29:16.167615+00:00",
+    "updated_at": "2026-02-08T17:29:16.167615+00:00"
+  }
+]

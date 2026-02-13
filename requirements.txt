@@ -6,7 +6,7 @@ mysqlclient
 PyMySQL
 gunicorn
 whitenoise
-
+djangorestframework>=3.14.0
 
 -r team1/requirements.txt
 -r team2/requirements.txt
