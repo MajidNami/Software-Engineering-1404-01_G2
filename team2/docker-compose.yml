@@ -44,7 +44,7 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
-    command: celery -A app404 worker -l info
+    command: celery -A team2 worker -l info
     env_file:
       - ../.env
     environment:
@@ -63,7 +63,7 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
-    command: celery -A app404 flower --port=5555
+    command: celery -A team2 flower --port=5555
     env_file:
       - ../.env
     environment:
