@@ -70,6 +70,8 @@ class ScoreCandidatePlacesView(APIView):
         score_map = {p.place_id: 1.0 for p in places}
         applied_any = False
 
+        
+
         if style:
             style = str(style).upper()
             if style not in styleIndex:
@@ -108,6 +110,10 @@ class ScoreCandidatePlacesView(APIView):
                     return error_response("trip_duration_days must be positive")
             except (ValueError, TypeError):
                 return error_response("trip_duration_days must be a number")
+
+        applied_any = True 
+        for p_id, val in scoreByBaseRate(places):
+            score_map[p_id] *= val
 
         scored_places = []
         for p_id, total in score_map.items():
@@ -153,6 +159,14 @@ class SuggestRegionsView(APIView):
 
             region_score = 1.0
             applied_any = False
+
+            total_base_rate_score = 0
+            for p in places:
+                total_base_rate_score += max(p.base_rate / 5.0, 0.1)
+            
+            avg_base_rate = total_base_rate_score / places.count()
+            region_score *= avg_base_rate
+            applied_any = True
 
             if season:
                 applied_any = True
@@ -228,6 +242,11 @@ class SuggestPlacesInRegionView(APIView):
                     for p_id, val in scoreByDuration(places, d_val): score_map[p_id] *= val
             except:
                 pass
+
+
+        applied_any = True
+        for p_id, val in scoreByBaseRate(places):
+            score_map[p_id] *= val
 
         scored_places = []
         for p_id, total in score_map.items():

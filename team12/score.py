@@ -101,5 +101,13 @@ def scoreByDuration(places, targetDuration):
     return result
 
 
+def scoreByBaseRate(places):
+    result = []
+    for place in places:
+        score = max(place.base_rate / 5.0, 0.1)
+        result.append((place.place_id, score))
+    return result
+
+
     
 
