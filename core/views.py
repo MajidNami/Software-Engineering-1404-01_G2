@@ -182,10 +182,12 @@ def logout_api(request):
     _clear_auth_cookies(resp, settings)
     return resp
 
+
 @api_login_required
 def me(request):
     u = request.user
     return JsonResponse({"ok": True, "user": {"email": u.email, "first_name": u.first_name, "last_name": u.last_name, "age": u.age}})
+
 
 @api_login_required
 def verify(request):
