@@ -3,6 +3,8 @@ from django.shortcuts import render
 from core.auth import api_login_required
 from rest_framework.views import APIView
 from django.views.decorators.http import require_http_methods
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 from .models import Place, Region
 from .score import *
 from .data_manager import *
@@ -21,7 +23,6 @@ def base(request):
 def error_response(message, code="INVALID_PARAMETER", status=400):
     return JsonResponse({"error": {"code": code, "message": message}}, status=status)
 
-
 @method_decorator(api_login_required, name='dispatch')
 @method_decorator(csrf_exempt, name='dispatch')
 class ScoreCandidatePlacesView(APIView):
@@ -37,17 +38,13 @@ class ScoreCandidatePlacesView(APIView):
             season = data.get('season')
             duration = data.get('duration')
 
-        if not candidate_ids:
-            return JsonResponse({"scored_places": []})
+            places = get_or_enrich_places(candidate_ids)
+            if not places:
+                return JsonResponse({"scored_places": []}, status=200)
 
-        places = get_or_enrich_places(candidate_ids)
-        if not places.exists():
-            return JsonResponse({"scored_places": []})
-
-        score_map = {p.place_id: 1.0 for p in places}
-        applied_any = False
-
-        
+            score_map = {p.place_id: 1.0 for p in places}
+            place_reasons = {p.place_id: p.ai_reason for p in places}
+            applied_any = False
 
             if style:
                 applied_any = True
