@@ -24,8 +24,10 @@ from data.models import (
 from data.repository import TripRepository, TripDayRepository, TripItemRepository
 from business.services import TripService, TripDayService
 from presentation.serializers import TripCreateUpdateSerializer
-from presentation.views import TripViewSet, TripDayViewSet, _check_trip_ownership
+from presentation.views import TripViewSet, TripDayViewSet, TripItemViewSet, _check_trip_ownership, _safe_int
+from presentation.serializers import TripItemCreateSerializer
 from presentation.pdf_generator import generate_html_content
+from business.generators import TripGenerator
 
 User = get_user_model()
 
@@ -399,3 +401,247 @@ class TestBug5TripDayCreate(BaseTestCase):
         # If 201, verify a day was created
         if response.status_code == 201:
             self.assertEqual(self.trip.days.count(), 3)  # was 2, now 3
+
+
+# ─── Bug 2b: Wrong Serializer for Item Create ─────────────────────
+
+class TestBug2bItemCreateSerializer(BaseTestCase):
+    """Bug 2b: TripItemViewSet.create should use TripItemCreateSerializer."""
+
+    def test_create_item_uses_correct_serializer(self):
+        """create() should accept all TripItemCreateSerializer fields."""
+        request = self.factory.post(
+            '/api/items/',
+            data=json.dumps({
+                'day_id': self.day1.day_id,
+                'item_type': 'VISIT',
+                'place_ref_id': 'place_new_001',
+                'title': 'مکان جدید',
+                'category': 'HISTORICAL',
+                'start_time': '14:00:00',
+                'end_time': '16:00:00',
+                'duration_minutes': 120,
+                'sort_order': 10,
+                'estimated_cost': '100000',
+                'price_tier': 'BUDGET',
+            }),
+            content_type='application/json'
+        )
+        view = TripItemViewSet.as_view({'post': 'create'})
+        response = view(request)
+        self.assertEqual(response.status_code, 201,
+                         f"Expected 201, got {response.status_code}: {response.data}")
+
+    def test_create_item_accepts_place_ref_id(self):
+        """place_ref_id should be accepted (it was dropped by TripItemSerializer)."""
+        request = self.factory.post(
+            '/api/items/',
+            data=json.dumps({
+                'day_id': self.day1.day_id,
+                'item_type': 'VISIT',
+                'place_ref_id': 'place_ref_test',
+                'title': 'تست place_ref_id',
+                'category': 'NATURAL',
+                'start_time': '10:00:00',
+                'end_time': '12:00:00',
+                'duration_minutes': 120,
+                'sort_order': 20,
+                'estimated_cost': '0',
+                'price_tier': 'FREE',
+            }),
+            content_type='application/json'
+        )
+        view = TripItemViewSet.as_view({'post': 'create'})
+        response = view(request)
+        self.assertEqual(response.status_code, 201)
+
+
+# ─── Bug 3: safe_int helper ────────────────────────────────────────
+
+class TestBug3SafeInt(TestCase):
+    """Bug 3: _safe_int should safely convert values."""
+
+    def test_valid_int(self):
+        self.assertEqual(_safe_int(42), 42)
+
+    def test_valid_string_int(self):
+        self.assertEqual(_safe_int('123'), 123)
+
+    def test_invalid_string_returns_none(self):
+        self.assertIsNone(_safe_int('abc'))
+
+    def test_none_returns_none(self):
+        self.assertIsNone(_safe_int(None))
+
+    def test_empty_string_returns_none(self):
+        self.assertIsNone(_safe_int(''))
+
+    def test_float_string(self):
+        self.assertIsNone(_safe_int('3.14'))
+
+
+# ─── Bug 9: user_id from JWT ──────────────────────────────────────
+
+class TestBug9JWTUserId(BaseTestCase):
+    """Bug 9: generate_trip should use jwt_user_id, not request body."""
+
+    @patch('presentation.views.TripGenerator')
+    def test_generate_trip_uses_jwt_user_id(self, MockGenerator):
+        """user should come from JWT middleware, not request.data."""
+        mock_gen = MockGenerator.return_value
+        mock_trip = MagicMock()
+        mock_trip.trip_id = 999
+        mock_trip.days = MagicMock()
+        mock_trip.days.all.return_value = []
+        mock_gen.generate.return_value = mock_trip
+
+        request = self.factory.post(
+            '/api/trips/generate/',
+            data=json.dumps({
+                'province': 'اصفهان',
+                'budget_level': 'MEDIUM',
+                'start_date': '2026-06-01',
+                'user_id': 9999,  # This should be IGNORED
+            }),
+            content_type='application/json'
+        )
+        # Set JWT user id (from middleware)
+        request.jwt_user_id = self.user1.id
+
+        view = TripViewSet.as_view({'post': 'generate_trip'})
+        response = view(request)
+
+        # The generator should have been called with user1 (from JWT),
+        # not with user id 9999 (from request body)
+        if mock_gen.generate.called:
+            call_kwargs = mock_gen.generate.call_args
+            user_arg = call_kwargs[1].get('user') if call_kwargs[1] else call_kwargs[0][0]
+            # user should be self.user1, not a user with id 9999
+            if user_arg is not None:
+                self.assertEqual(user_arg.id, self.user1.id)
+
+    @patch('presentation.views.TripGenerator')
+    def test_generate_trip_no_jwt_creates_guest_trip(self, MockGenerator):
+        """Without JWT, trip should be created without a user (guest)."""
+        mock_gen = MockGenerator.return_value
+        mock_trip = MagicMock()
+        mock_trip.trip_id = 888
+        mock_trip.days = MagicMock()
+        mock_trip.days.all.return_value = []
+        mock_gen.generate.return_value = mock_trip
+
+        request = self.factory.post(
+            '/api/trips/generate/',
+            data=json.dumps({
+                'province': 'شیراز',
+                'budget_level': 'ECONOMY',
+                'start_date': '2026-07-01',
+            }),
+            content_type='application/json'
+        )
+        request.jwt_user_id = None
+
+        view = TripViewSet.as_view({'post': 'generate_trip'})
+        response = view(request)
+
+        if mock_gen.generate.called:
+            call_kwargs = mock_gen.generate.call_args
+            user_arg = call_kwargs[1].get('user') if call_kwargs[1] else call_kwargs[0][0]
+            self.assertIsNone(user_arg)
+
+
+# ─── Bug 11: Hotel always place_index=0 ────────────────────────────
+
+class TestBug11HotelSelection(TestCase):
+    """Bug 11: Hotel should not always be the first one."""
+
+    def test_find_place_with_different_index(self):
+        """_find_place should return different hotels for different indices."""
+        gen = TripGenerator.__new__(TripGenerator)
+
+        places = [
+            {'id': 'hotel1', 'category': 'STAY', 'title': 'Hotel 1'},
+            {'id': 'hotel2', 'category': 'STAY', 'title': 'Hotel 2'},
+            {'id': 'hotel3', 'category': 'STAY', 'title': 'Hotel 3'},
+        ]
+
+        result0 = gen._find_place(places, category='STAY', place_index=0)
+        result1 = gen._find_place(places, category='STAY', place_index=1)
+        result2 = gen._find_place(places, category='STAY', place_index=2)
+
+        self.assertEqual(result0['id'], 'hotel1')
+        self.assertEqual(result1['id'], 'hotel2')
+        self.assertEqual(result2['id'], 'hotel3')
+
+    def test_find_place_wraps_around(self):
+        """When index exceeds list length, should wrap around."""
+        gen = TripGenerator.__new__(TripGenerator)
+
+        places = [
+            {'id': 'hotel1', 'category': 'STAY', 'title': 'Hotel 1'},
+            {'id': 'hotel2', 'category': 'STAY', 'title': 'Hotel 2'},
+        ]
+
+        result = gen._find_place(places, category='STAY', place_index=5)
+        self.assertIn(result['id'], ['hotel1', 'hotel2'])
+
+
+# ─── Bug 12: Duplicate places in a day ─────────────────────────────
+
+class TestBug12DuplicatePlaces(TestCase):
+    """Bug 12: _find_place should avoid already-used places."""
+
+    def test_find_place_skips_used_ids(self):
+        """Already used place IDs should be skipped."""
+        gen = TripGenerator.__new__(TripGenerator)
+
+        places = [
+            {'id': 'rest1', 'category': 'DINING', 'title': 'Restaurant 1'},
+            {'id': 'rest2', 'category': 'DINING', 'title': 'Restaurant 2'},
+            {'id': 'rest3', 'category': 'DINING', 'title': 'Restaurant 3'},
+        ]
+
+        used = {'rest1'}
+        result = gen._find_place(places, category='DINING', place_index=0, used_ids=used)
+        self.assertNotEqual(result['id'], 'rest1')
+        self.assertIn(result['id'], ['rest2', 'rest3'])
+
+    def test_find_place_all_used_allows_reuse(self):
+        """When all places are used, should still return something."""
+        gen = TripGenerator.__new__(TripGenerator)
+
+        places = [
+            {'id': 'rest1', 'category': 'DINING', 'title': 'Restaurant 1'},
+        ]
+
+        used = {'rest1'}
+        result = gen._find_place(places, category='DINING', place_index=0, used_ids=used)
+        self.assertIsNotNone(result)
+        self.assertEqual(result['id'], 'rest1')  # Only option
+
+    def test_find_place_no_used_ids(self):
+        """Without used_ids, should behave normally."""
+        gen = TripGenerator.__new__(TripGenerator)
+
+        places = [
+            {'id': 'park1', 'category': 'NATURE', 'title': 'Park 1'},
+            {'id': 'park2', 'category': 'NATURE', 'title': 'Park 2'},
+        ]
+
+        result = gen._find_place(places, category='NATURE', place_index=0)
+        self.assertEqual(result['id'], 'park1')
+
+    def test_find_place_excludes_used_with_category_filter(self):
+        """Used IDs should be excluded even with category filter."""
+        gen = TripGenerator.__new__(TripGenerator)
+
+        places = [
+            {'id': 'p1', 'category': 'DINING', 'title': 'Place 1'},
+            {'id': 'p2', 'category': 'NATURE', 'title': 'Place 2'},
+            {'id': 'p3', 'category': 'DINING', 'title': 'Place 3'},
+        ]
+
+        used = {'p1'}
+        result = gen._find_place(places, category='DINING', place_index=0, used_ids=used)
+        self.assertEqual(result['id'], 'p3')
+
