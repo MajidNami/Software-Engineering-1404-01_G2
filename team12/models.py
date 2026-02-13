@@ -28,6 +28,7 @@ class Place(models.Model):
     season = models.CharField(max_length=20, choices=SEASON_CHOICES)
     region = models.ForeignKey(Region, on_delete=models.CASCADE, related_name='places', null=True)
     image_url = models.URLField(blank=True, null=True)
+    base_rate = models.FloatField(default=0.0)
 
     ai_reason = models.TextField(blank=True, null=True)
 
