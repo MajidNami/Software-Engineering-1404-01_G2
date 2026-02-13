@@ -26,6 +26,11 @@ def get_or_enrich_places(candidate_place_ids):
         summary, tags = fetch_wiki_data(pid)
         ai_data = generate_ai_metadata_for_place(pid, summary, tags)
 
+        try:
+            safe_duration = int(ai_data.get("duration", 2))
+        except (ValueError, TypeError):
+            safe_duration = 2
+
         new_place = Place(
             place_id=pid,
             place_name=pid.replace("-", " ").title(),
@@ -33,7 +38,7 @@ def get_or_enrich_places(candidate_place_ids):
             region_name=ai_data.get("region_name", "نامشخص"),
             budget_level=ai_data.get("budget_level", "MODERATE"),
             travel_style=ai_data.get("travel_style", "FAMILY"),
-            duration=int(ai_data.get("duration", 2)),
+            duration=safe_duration,
             season=ai_data.get("season", "SPRING"),
             ai_reason=ai_data.get("ai_reason", "")
         )
