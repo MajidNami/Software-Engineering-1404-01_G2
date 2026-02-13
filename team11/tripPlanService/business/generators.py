@@ -1,3 +1,4 @@
+
 """
 Trip Generator - Main algorithm for creating trips
 """
@@ -134,9 +135,10 @@ class TripGenerator:
 
         current_time = time(9, 0)  # Start at 9 AM
         sort_order = 0
+        used_place_ids = set()  # Bug 12 fix: track used places per day
 
         # 1. Breakfast (1 hour)
-        breakfast = self._find_place(suggested_places, category='DINING', place_index=place_index)
+        breakfast = self._find_place(suggested_places, category='DINING', place_index=place_index, used_ids=used_place_ids)
         if breakfast:
             current_time = self._add_item(
                 trip_day=trip_day,
@@ -148,12 +150,14 @@ class TripGenerator:
             )
             sort_order += 1
             place_index += 1
+            used_place_ids.add(breakfast.get('id'))
 
         # 2. Morning activity (2-3 hours)
         morning_place = self._find_place(
             suggested_places,
             exclude_category='DINING',
-            place_index=place_index
+            place_index=place_index,
+            used_ids=used_place_ids
         )
         if morning_place:
             current_time = self._add_item(
@@ -166,9 +170,10 @@ class TripGenerator:
             )
             sort_order += 1
             place_index += 1
+            used_place_ids.add(morning_place.get('id'))
 
         # 3. Lunch (1 hour)
-        lunch = self._find_place(suggested_places, category='DINING', place_index=place_index)
+        lunch = self._find_place(suggested_places, category='DINING', place_index=place_index, used_ids=used_place_ids)
         if lunch:
             current_time = self._add_item(
                 trip_day=trip_day,
@@ -180,12 +185,14 @@ class TripGenerator:
             )
             sort_order += 1
             place_index += 1
+            used_place_ids.add(lunch.get('id'))
 
         # 4. Afternoon activity (2-3 hours)
         afternoon_place = self._find_place(
             suggested_places,
             exclude_category='DINING',
-            place_index=place_index
+            place_index=place_index,
+            used_ids=used_place_ids
         )
         if afternoon_place:
             current_time = self._add_item(
@@ -198,9 +205,10 @@ class TripGenerator:
             )
             sort_order += 1
             place_index += 1
+            used_place_ids.add(afternoon_place.get('id'))
 
         # 5. Dinner (1 hour)
-        dinner = self._find_place(suggested_places, category='DINING', place_index=place_index)
+        dinner = self._find_place(suggested_places, category='DINING', place_index=place_index, used_ids=used_place_ids)
         if dinner:
             current_time = self._add_item(
                 trip_day=trip_day,
@@ -212,9 +220,11 @@ class TripGenerator:
             )
             sort_order += 1
             place_index += 1
+            used_place_ids.add(dinner.get('id'))
 
         # 6. Accommodation (overnight)
-        hotel = self._find_place(suggested_places, category='STAY', place_index=0)
+        # Bug 11 fix: use place_index instead of hardcoded 0
+        hotel = self._find_place(suggested_places, category='STAY', place_index=place_index, used_ids=used_place_ids)
         if hotel:
             self._add_item(
                 trip_day=trip_day,
@@ -276,7 +286,8 @@ class TripGenerator:
             places: List[Dict],
             category: Optional[str] = None,
             exclude_category: Optional[str] = None,
-            place_index: int = 0
+            place_index: int = 0,
+            used_ids: set = None
     ) -> Optional[Dict]:
         """
         Find a suitable place from the list
@@ -286,6 +297,7 @@ class TripGenerator:
             category: Specific category to find
             exclude_category: Category to exclude
             place_index: Starting index in places list
+            used_ids: Set of place IDs already used (Bug 12 fix)
 
         Returns:
             Place dictionary or None
@@ -296,24 +308,24 @@ class TripGenerator:
         # Filter by category
         if category:
             filtered = [p for p in places if p.get('category') == category]
-            if filtered and place_index < len(filtered):
-                return filtered[place_index % len(filtered)]
-            elif filtered:
-                return filtered[0]
-
-        # Exclude category
-        if exclude_category:
+        elif exclude_category:
             filtered = [p for p in places if p.get('category') != exclude_category]
-            if filtered and place_index < len(filtered):
-                return filtered[place_index % len(filtered)]
-            elif filtered:
-                return filtered[0]
+        else:
+            filtered = places
 
-        # Return by index
-        if place_index < len(places):
-            return places[place_index]
+        # Bug 12 fix: exclude already used places
+        if used_ids:
+            not_used = [p for p in filtered if p.get('id') not in used_ids]
+            if not_used:
+                filtered = not_used
+            # If all are used, allow reuse (better than returning None)
 
-        return places[0] if places else None
+        if not filtered:
+            return None
+
+        if place_index < len(filtered):
+            return filtered[place_index % len(filtered)]
+        return filtered[0]
 
     def _calculate_trip_cost(self, trip: Trip):
         """Calculate total cost for the trip"""

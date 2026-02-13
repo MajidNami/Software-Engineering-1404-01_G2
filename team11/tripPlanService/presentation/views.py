@@ -28,6 +28,14 @@ from .serializers import (
 from .pdf_generator import generate_trip_pdf, get_filename_for_trip
 
 
+def _safe_int(value, field_name='id'):
+    """Safely convert value to int, raising ValueError with a clear message."""
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return None
+
+
 def test(request):
     """Test endpoint for development"""
     trips = TripService.get_all_trips()
@@ -304,7 +312,9 @@ class TripViewSet(viewsets.ViewSet):
         interests = request.data.get('interests', [])
         daily_available_hours = request.data.get('daily_available_hours', 12)
         travel_style = request.data.get('travel_style', 'SOLO')
-        user_id = request.data.get('user_id')
+
+        # Bug 9 fix: استفاده از JWT بجای request body برای شناسایی کاربر
+        user_id = getattr(request, 'jwt_user_id', None)
 
         # اعتبارسنجی daily_available_hours
         if not isinstance(daily_available_hours, int) or daily_available_hours < 1 or daily_available_hours > 24:
@@ -886,7 +896,7 @@ class TripItemViewSet(viewsets.ViewSet):
 
     def create(self, request):
         """POST /api/items/ - Create a new item"""
-        serializer = TripItemSerializer(data=request.data)
+        serializer = TripItemCreateSerializer(data=request.data)
 
         if not serializer.is_valid():
             return Response(
