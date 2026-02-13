@@ -105,6 +105,7 @@ function App() {
 
   const handleCategoryChange = async (category: string) => {
     setSelectedCategory(category);
+    setFilteredPlaces([]);
     setIsLoading(true);
     
     try {
@@ -282,7 +283,7 @@ function App() {
   };
 
   const handleNearbyPlaces = (places: Place[]) => {
-    setAllPlaces(places);
+    setFilteredPlaces(places);
   }
 
   return (
@@ -361,9 +362,9 @@ function App() {
                 مکان های نزدیک ({filteredPlaces.length})
               </h3>
               {isLoading ? (
-                <div className="flex items-center justify-center py-8">
+                <div className="flex items-center justify-center py-8 gap-3">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  <span className="ml-3 text-gray-600">بارگذاری...</span>
+                  <span className="text-gray-600">بارگذاری...</span>
                 </div>
               ) : filteredPlaces.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">

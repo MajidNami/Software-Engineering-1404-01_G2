@@ -89,6 +89,18 @@ interface FacilityListResponse {
   results: BackendFacility[];
 }
 
+interface NearbyFacility {
+  place: BackendFacility;
+  distance_meters: number;
+}
+
+interface NearbyFacilityListResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: NearbyFacility[];
+}
+
 // Transform backend facility to frontend Place format
 const transformFacilityToPlace = (facility: BackendFacility, reviews: Review[] = []): Place => {
   const [lng, lat] = facility.location?.coordinates || [0, 0];
@@ -135,24 +147,30 @@ class PlacesService {
    * Fetch all facilities from backend
    */
   async getFacilities(params?: {
-    category?: string;
-    city?: string;
-    province?: string;
-    page?: number;
-    page_size?: number;
-  }): Promise<Place[]> {
-    try {
-      const url = new URL(getApiUrl(API_CONFIG.ENDPOINTS.FACILITIES));
-      
-      // Add query parameters
-      if (params?.page) {
-        url.searchParams.append('page', params.page.toString());
-      }
-      if (params?.page_size) {
-        url.searchParams.append('page_size', params.page_size.toString());
-      }
+  category?: string;
+  city?: string;
+  province?: string;
+  page?: number;
+  page_size?: number;
+}): Promise<Place[]> {
+  try {
+    const url = new URL(getApiUrl(API_CONFIG.ENDPOINTS.FACILITIES));
 
-      const response = await fetch(url.toString(), {
+    // Add query parameters
+    if (params?.page) {
+      url.searchParams.append('page', params.page.toString());
+    }
+
+    // Optional page_size
+    if (params?.page_size) {
+      url.searchParams.append('page_size', params.page_size.toString());
+    }
+
+    let allFacilities: BackendFacility[] = [];
+    let nextUrl: string | null = url.toString();
+
+    while (nextUrl) {
+      const response = await fetch(nextUrl, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -165,15 +183,24 @@ class PlacesService {
       }
 
       const data: FacilityListResponse = await response.json();
-      
-      // Transform backend data to frontend format
-      return data.results.map(facility => transformFacilityToPlace(facility));
-    } catch (error) {
-      console.error('Error fetching facilities:', error);
-      // Return empty array on error instead of throwing
-      return [];
+
+      // Collect results
+      allFacilities = [...allFacilities, ...data.results];
+
+      // Move to next page
+      nextUrl = data.next;
     }
+
+    // Transform everything at the end
+    return allFacilities.map(facility =>
+      transformFacilityToPlace(facility)
+    );
+
+  } catch (error) {
+    console.error('Error fetching all facilities:', error);
+    return [];
   }
+}
 
   /**
    * Fetch facilities with filters (using POST for complex queries)
@@ -198,13 +225,36 @@ class PlacesService {
         body: JSON.stringify(filters),
       });
 
+      let allFacilities: BackendFacility[] = [];
+      let nextUrl: string | null = url.toString();
+
+      while (nextUrl) {
+        const response = await fetch(nextUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(filters),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data: FacilityListResponse = await response.json();
+
+        // Collect results
+        allFacilities = [...allFacilities, ...data.results];
+
+        // Move to next page
+        nextUrl = data.next;
+      }
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
-      const data: FacilityListResponse = await response.json();
       
-      return data.results.map(facility => transformFacilityToPlace(facility));
+      return allFacilities.map(facility => transformFacilityToPlace(facility));
     } catch (error) {
       console.error('Error searching facilities:', error);
       return [];
@@ -321,6 +371,54 @@ class PlacesService {
       }));
     } catch (error) {
       console.error('Error searching facilities:', error);
+      return [];
+    }
+  }
+
+  // fetch nearby facilities
+  async getNearbyFacilities(params: {
+    lat: number;
+    lng: number;
+    radius: number;
+    categories?: string[];
+    price_tiers?: string[];
+    page?: number;
+    page_size?: number;
+  }): Promise<Place[]> {
+    try {
+      const url = new URL(getApiUrl(API_CONFIG.ENDPOINTS.FACILITIES) + "nearby/");
+
+      url.searchParams.append('lat', params.lat.toString());
+      url.searchParams.append('lng', params.lng.toString());
+      url.searchParams.append('radius', params.radius.toString());
+      
+      // Add query parameters
+      if (params?.page) {
+        url.searchParams.append('page', params.page.toString());
+      }
+      if (params?.page_size) {
+        url.searchParams.append('page_size', params.page_size.toString());
+      }
+
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data: NearbyFacilityListResponse = await response.json();
+      console.log(data);
+      
+      // Transform backend data to frontend format
+      return data.results.map(facility => transformFacilityToPlace(facility.place));
+    } catch (error) {
+      console.error('Error fetching facilities:', error);
+      // Return empty array on error instead of throwing
       return [];
     }
   }

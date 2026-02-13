@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && powershell -Command \"Copy-Item -Path '../static/team4/index.html' -Destination '../templates/team4/index.html' -Force\"",
+    "build": "vite build && cp ../static/team4/index.html ../templates/team4/index.html",
     "deploy": "npm run build && powershell -ExecutionPolicy Bypass -File ../deploy_front.ps1",
     "lint": "eslint .",
     "preview": "vite preview",

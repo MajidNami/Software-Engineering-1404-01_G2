@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { useMapEvents } from "react-leaflet";
 import { Place } from "../data/mockPlaces";
 import { Search } from "lucide-react";
+import placesService from "../services/placesService";
 
 interface Props {
   onFindPlaces: (places: Place[]) => void;
@@ -12,12 +13,12 @@ const MapCenterListener = ({ onFindPlaces }: Props) => {
   const [showButton, setShowButton] = useState(false);
   const [loading, setLoading] = useState(false);
   const centerRef = useRef<LatLng | null>(null);
-
-  const searchText = ""
+  const [center, setCenter] = useState<LatLng | null>(null);
 
   const map = useMapEvents({
     moveend() {
       centerRef.current = map.getCenter();
+      setCenter(map.getCenter());
       setShowButton(true);
     },
   });
@@ -27,15 +28,20 @@ const MapCenterListener = ({ onFindPlaces }: Props) => {
       {showButton && (
         <button
           className="flex gap-2 items-center bg-white pointer-events-auto py-3 px-4 border-2 border-gray-200 rounded-full font-bold"
-          onClick={() => {
+          onClick={async () => {
             setLoading(true);
-            // const foundPlaces = fetchNearbyPlaces(
-            //   centerRef.current?.lat,
-            //   centerRef.current?.lng
-            // );
-            const foundPlaces: Place[] = [];
-            // setShowButton(false);
+            const foundPlaces = await placesService.getNearbyFacilities(
+              {
+                lat: center ? center.lat : 0,
+                lng: center ? center.lng : 0,
+                radius: 20000
+              }
+            );
+
             onFindPlaces(foundPlaces);
+            console.log(foundPlaces);
+            setShowButton(false);
+            setLoading(false);
           }}
         >
           <Search className="text-green-500 w-6 h-6" />
