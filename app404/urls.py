@@ -22,17 +22,13 @@ from core.web_auth_views import login_page, signup_page, logout_page
 
 urlpatterns = [
     path("", home, name="home"),
-
     path("auth/", login_page, name="auth"),
     path("auth/signup/", signup_page, name="signup"),
     path("auth/logout/", logout_page, name="logout"),
-
     path("admin/", admin.site.urls),
     path("api/", include("core.urls")),
+    
+    path("team9/", include("team9.urls")),
+    path("team4/", include("team4.urls")),
+
 ]
-
-
-for app in settings.TEAM_APPS:
-    urlpatterns.append(path(f"{app}/", include(f"{app}.urls")))
-
-

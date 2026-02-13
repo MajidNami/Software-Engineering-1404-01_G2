@@ -1,24 +1,21 @@
-{% load static %}
 <!DOCTYPE html>
-<html lang="fa" dir="rtl">
+<html dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Group 9 - Map Service</title>
-    <link rel="stylesheet" href="{% static 'team9/styles/style.css' %}">
-    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100..900&display=swap" rel="stylesheet">
+    <title>خوش آمدید</title>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" />
+    <style>
+        body { font-family: 'Vazirmatn'; display: flex; justify-content: center; align-items: center; height: 100vh; background: #f0f2f5; }
+        .card { background: white; padding: 40px; border-radius: 20px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .btn { background: #10b981; color: white; padding: 15px 30px; text-decoration: none; border-radius: 10px; font-size: 1.2rem; display: inline-block; margin-top: 20px; transition: 0.3s; }
+        .btn:hover { background: #059669; transform: translateY(-3px); }
+    </style>
 </head>
 <body>
-    <h1>Map Service</h1>
-    <h3>پیاده‌سازی توسط گروه 9</h3>
-    <hr style="width: 50%; margin: 20px auto; opacity: 0.3;">
-    
-    <div style="border: 2px dashed #ccc; padding: 50px; border-radius: 10px; margin: 20px 0;">
-        <p>محل قرارگیری رابط کاربری میکرو سرویس</p>
-        <p>(Microservice UI Placeholder)</p>
+    <div class="card">
+        <h1>سامانه جامع نقشه گردشگری</h1>
+        <p>برای مشاهده هتل‌ها، رستوران‌ها و جاذبه‌های ایران وارد شوید.</p>
+        <a href="map/" class="btn">ورود به نقشه 🗺️</a>
     </div>
-
-    <a href="/" class="back-btn"> بازگشت به داشبورد اصلی</a>
-    
 </body>
 </html>
+
