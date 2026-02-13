@@ -35,4 +35,27 @@ export const api = {
     request('POST', `/versions/${encodeURIComponent(versionName)}/publish/`),
   vote: (articleName, value) =>
     request('POST', '/vote/', { article_name: articleName, value }),
+  requestPublish: (versionName) =>
+    request('POST', '/publish-requests/create/', { version_name: versionName }),
+  listPublishRequests: (articleName) =>
+    request('GET', `/publish-requests/article/${encodeURIComponent(articleName)}/`),
+  myPublishRequests: (articleName) =>
+    request('GET', `/publish-requests/mine/${encodeURIComponent(articleName)}/`),
+  approvePublishRequest: (pk) =>
+    request('POST', `/publish-requests/${pk}/approve/`),
+  rejectPublishRequest: (pk) =>
+    request('POST', `/publish-requests/${pk}/reject/`),
+  newestArticles: () => request('GET', '/articles/newest/'),
+  topRatedArticles: () => request('GET', '/articles/top-rated/'),
+  topArticlesByTag: () => request('GET', '/articles/top-by-tag/'),
+  wikiContent: async (query) => {
+    const res = await fetch(`/wiki/content/?q=${encodeURIComponent(query)}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    });
+    const data = await res.json();
+    if (!res.ok) throw { status: res.status, data };
+    return data;
+  },
 };

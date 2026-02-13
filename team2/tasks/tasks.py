@@ -1,5 +1,7 @@
+import copy
 import json
 import logging
+import re
 import sys
 
 from celery import shared_task
@@ -31,43 +33,29 @@ def tag_article(self, article_name):
 
     existing_tags = list(Tag.objects.values_list("name", flat=True))
 
-    prompt = f"""
-You are a content classification assistant.
+    prompt = f"""You are a content classification assistant. Your ONLY output must be a single valid JSON object with no extra text, no markdown fences, no explanation.
 
-Your job:
-1. Select relevant tags from the EXISTING TAGS list below.
-2. Only suggest NEW tags if absolutely necessary.
-3. Return output strictly in JSON format like this:
+Select relevant tags from EXISTING TAGS. Only suggest NEW tags if absolutely necessary. Maximum 5 total tags. Use concise Farsi tags. Prefer existing tags.
 
-{{
-  "selected_existing_tags": ["tag1", "tag2"],
-  "new_tags": ["new_tag1"]
-}}
+Output format (respond with ONLY this JSON, nothing else):
+{{"selected_existing_tags": ["tag1"], "new_tags": ["new_tag1"]}}
 
-4. DONT PUT ANYTHING ELSE IN THE RESPONSE. JUST THE JSON STRING. DONT PUT ```json
-
-Guidelines:
-- Use concise farsi tags
-- Avoid duplicates
-- Maximum 5 total tags
-- Prefer existing tags whenever possible
-
-EXISTING TAGS:
-{existing_tags}
+EXISTING TAGS: {existing_tags}
 
 ARTICLE:
-\"\"\"
-{content}
-\"\"\"
-"""
+{content}"""
 
     try:
         response = _get_client().models.generate_content(model=MODEL_NAME, contents=prompt)
-        if response.text.startswith("```json"):
-            response.text = response.text[9:]
-        if response.text.endswith("```"):
-            response.text = response.text[:-3]
-        data = json.loads(response.text)
+        
+        text = response.text.strip()
+        if text.startswith("```"):
+            text = re.sub(r'^```(?:json)?\s*', '', text)
+            text = re.sub(r'```\s*$', '', text)
+        match = re.search(r'\{[^{}]*\}', text, re.DOTALL)
+        if match:
+            text = match.group(0)
+        data = json.loads(text)
 
         selected_existing = data.get("selected_existing_tags", [])
         new_tags = data.get("new_tags", [])

@@ -69,21 +69,35 @@ export default function SearchPage() {
       {results !== null && (
         <div>
           {results.length > 0 ? (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {results.map((item, idx) => (
                 <Link
                   key={idx}
                   to={`/articles/${encodeURIComponent(item.article_name || item.name || item)}`}
                   className="block bg-white border border-gray-200 rounded-xl p-4 hover:border-forest transition-colors shadow-sm"
                 >
-                  <div className="flex items-center gap-3">
-                    <FileText className="w-5 h-5 text-forest flex-shrink-0" />
-                    <div className="min-w-0">
+                  <div className="flex items-start gap-3">
+                    <FileText className="w-5 h-5 text-forest flex-shrink-0 mt-0.5" />
+                    <div className="min-w-0 flex-1">
                       <span className="font-medium text-dark text-sm">
                         {item.article_name || item.name || item}
                       </span>
                       {item.summary && (
-                        <p className="text-xs text-gray-500 mt-1 truncate">{item.summary}</p>
+                        <div className="mt-2 bg-light border border-gray-100 rounded-lg p-3">
+                          <p className="text-sm text-gray-600 leading-relaxed">{item.summary}</p>
+                        </div>
+                      )}
+                      {item.tags && item.tags.length > 0 && (
+                        <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                          {item.tags.map((tag, i) => (
+                            <span
+                              key={i}
+                              className="bg-forest/10 text-forest text-xs font-medium px-2 py-0.5 rounded-full"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
                       )}
                     </div>
                   </div>

@@ -12,6 +12,7 @@ export default function EditVersionPage() {
   const [publishLoading, setPublishLoading] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+  const [isCreator, setIsCreator] = useState(null)
 
   useEffect(() => {
     const fetchVersion = async () => {
@@ -21,6 +22,18 @@ export default function EditVersionPage() {
         setVersion(data)
         setContent(data.content || '')
         setError('')
+
+        const article = await api.getArticle(data.article)
+        try {
+          const myArts = await api.myArticles()
+          if (myArts && myArts.length > 0) {
+            setIsCreator(String(article.creator_id) === String(myArts[0].creator_id))
+          } else {
+            setIsCreator(false)
+          }
+        } catch {
+          setIsCreator(false)
+        }
       } catch (err) {
         setError('خطا در بارگذاری نسخه.')
       } finally {
@@ -49,8 +62,13 @@ export default function EditVersionPage() {
     setMessage('')
     try {
       await api.updateVersion(name, content)
-      await api.publishVersion(name)
-      setMessage('نسخه با موفقیت منتشر شد!')
+      if (isCreator) {
+        await api.publishVersion(name)
+        setMessage('نسخه با موفقیت منتشر شد!')
+      } else {
+        await api.requestPublish(name)
+        setMessage('درخواست انتشار با موفقیت ارسال شد!')
+      }
     } catch (err) {
       setMessage(err.data?.detail || 'خطا در انتشار نسخه.')
     } finally {
@@ -87,6 +105,15 @@ export default function EditVersionPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {version.article && (
+            <Link
+              to={`/articles/${encodeURIComponent(version.article)}/manage`}
+              className="inline-flex items-center gap-1.5 bg-gray-200 hover:bg-gray-300 text-dark text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+            >
+              <ArrowRight className="w-4 h-4" />
+              بازگشت به مدیریت
+            </Link>
+          )}
           <Link
             to={`/versions/${encodeURIComponent(name)}/preview`}
             className="inline-flex items-center gap-1.5 bg-gray-200 hover:bg-gray-300 text-dark text-sm font-medium px-4 py-2 rounded-lg transition-colors"
@@ -108,7 +135,9 @@ export default function EditVersionPage() {
             className="inline-flex items-center gap-1.5 bg-forest hover:bg-leaf text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
           >
             <Send className="w-4 h-4" />
-            {publishLoading ? 'در حال انتشار...' : 'انتشار'}
+            {publishLoading
+              ? (isCreator ? 'در حال انتشار...' : 'در حال ارسال...')
+              : (isCreator ? 'انتشار' : 'درخواست انتشار')}
           </button>
         </div>
       </div>
@@ -120,9 +149,9 @@ export default function EditVersionPage() {
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          dir="ltr"
-          className="w-full min-h-[60vh] p-5 text-sm text-dark font-mono leading-relaxed resize-y focus:outline-none"
-          placeholder="Write your markdown content here..."
+          dir="auto"
+          className="w-full min-h-[60vh] p-5 text-sm text-dark leading-relaxed resize-y focus:outline-none"
+          placeholder="محتوای مارک‌داون خود را اینجا بنویسید..."
         />
       </div>
 

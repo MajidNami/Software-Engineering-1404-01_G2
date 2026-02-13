@@ -1,3 +1,4 @@
+import re
 import time
 import logging
 
@@ -8,15 +9,17 @@ from django.db import transaction
 from rest_framework import status
 
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from core.auth import api_login_required
 from .authentication import JWTMiddlewareAuthentication
-from .models import Article, Version, Vote
+from django.db.models import Prefetch
+from .models import Article, Version, Vote, PublishRequest, Tag
 from celery import chord
 from .serializers import (
     ArticleSerializer, VersionSerializer, CreateArticleSerializer,
     CreateVersionFromVersionSerializer, CreateEmptyVersionSerializer, VoteSerializer,
+    PublishRequestSerializer, CreatePublishRequestSerializer,
 )
 from .tasks.tasks import summarize_article, tag_article
 from .tasks.indexing import index_article_version, search_articles_semantic
@@ -73,7 +76,7 @@ def create_article(request):
 
 @api_view(['GET'])
 @authentication_classes(AUTH_CLASSES)
-@permission_classes(PERM_CLASSES)
+@permission_classes([AllowAny])
 def get_article(request, article_name):
     article = get_object_or_404(Article, name=article_name)
     return Response(ArticleSerializer(article).data)
@@ -170,6 +173,12 @@ def publish_version(request, version_name):
     version = get_object_or_404(Version, name=version_name)
     article = version.article
 
+    if str(article.creator_id) != str(request.user.id):
+        return Response(
+            {"detail": "Only the article creator can publish directly."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
     article.current_version = version
     article.save()
 
@@ -226,7 +235,7 @@ def create_empty_version(request):
 
 @api_view(['GET'])
 @authentication_classes(AUTH_CLASSES)
-@permission_classes(PERM_CLASSES)
+@permission_classes([AllowAny])
 def search_articles(request):
     query = request.GET.get("q", "").strip()
     if not query:
@@ -242,3 +251,236 @@ def search_articles(request):
 
     resp = Response({"query": query, "results": results})
     return resp
+
+
+@api_view(['GET'])
+@authentication_classes(AUTH_CLASSES)
+@permission_classes([AllowAny])
+def wiki_content(request):
+    query = request.GET.get("q", "").strip()
+    if not query:
+        return Response({"detail": "Query parameter 'q' is required."}, status=400)
+
+    try:
+        results = search_articles_semantic(query, size=1)
+    except Exception as e:
+        return Response(
+            {"detail": f"Search service unavailable: {e}"},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    if not results:
+        return Response({"detail": "No results found."}, status=404)
+
+    hit = results[0]
+    article_name = hit["article_name"]
+
+    try:
+        article = Article.objects.select_related('current_version').get(name=article_name)
+    except Article.DoesNotExist:
+        return Response({"detail": "Article not found."}, status=404)
+
+    version = article.current_version
+    content = version.content if version else ""
+    summary = version.summary if version else ""
+    tags = hit.get("tags", [])
+
+    images = re.findall(r'!\[.*?\]\((https?://\S+?)\)', content)
+
+    return Response({
+        "tags": tags,
+        "summary": summary,
+        "description": content,
+        "images": images,
+        "url": f"/articles/{article_name}",
+        "updated_at": article.updated_at.isoformat() if article.updated_at else None,
+    })
+
+
+@api_view(['POST'])
+@authentication_classes(AUTH_CLASSES)
+@permission_classes(PERM_CLASSES)
+def request_publish(request):
+    serializer = CreatePublishRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    version_name = serializer.validated_data['version_name']
+    version = get_object_or_404(Version, name=version_name)
+    article = version.article
+
+    if PublishRequest.objects.filter(
+        version=version, requester_id=request.user.id, status='pending'
+    ).exists():
+        return Response(
+            {"detail": "You already have a pending request for this version."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    pub_request = PublishRequest.objects.create(
+        version=version,
+        article=article,
+        requester_id=request.user.id,
+    )
+
+    return Response(PublishRequestSerializer(pub_request).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET'])
+@authentication_classes(AUTH_CLASSES)
+@permission_classes(PERM_CLASSES)
+def list_publish_requests(request, article_name):
+    article = get_object_or_404(Article, name=article_name)
+
+    if str(article.creator_id) != str(request.user.id):
+        return Response(
+            {"detail": "Only the article creator can view publish requests."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    requests_qs = PublishRequest.objects.filter(
+        article=article, status='pending'
+    ).select_related('version')
+
+    return Response(PublishRequestSerializer(requests_qs, many=True).data)
+
+
+@api_view(['GET'])
+@authentication_classes(AUTH_CLASSES)
+@permission_classes(PERM_CLASSES)
+def my_publish_requests(request, article_name):
+    article = get_object_or_404(Article, name=article_name)
+
+    requests_qs = PublishRequest.objects.filter(
+        article=article, requester_id=request.user.id
+    ).select_related('version').order_by('-created_at')
+
+    return Response(PublishRequestSerializer(requests_qs, many=True).data)
+
+
+@api_view(['POST'])
+@authentication_classes(AUTH_CLASSES)
+@permission_classes(PERM_CLASSES)
+def approve_publish_request(request, pk):
+    pub_request = get_object_or_404(PublishRequest, pk=pk)
+    article = pub_request.article
+
+    if str(article.creator_id) != str(request.user.id):
+        return Response(
+            {"detail": "Only the article creator can approve requests."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    if pub_request.status != 'pending':
+        return Response(
+            {"detail": "This request has already been processed."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    pub_request.status = 'approved'
+    pub_request.save()
+
+    version = pub_request.version
+    article.current_version = version
+    article.save()
+
+    chord(
+        [tag_article.s(article.name), summarize_article.s(article.name)]
+    )(index_article_version.s(version.name))
+
+    return Response(PublishRequestSerializer(pub_request).data)
+
+
+@api_view(['POST'])
+@authentication_classes(AUTH_CLASSES)
+@permission_classes(PERM_CLASSES)
+def reject_publish_request(request, pk):
+    pub_request = get_object_or_404(PublishRequest, pk=pk)
+    article = pub_request.article
+
+    if str(article.creator_id) != str(request.user.id):
+        return Response(
+            {"detail": "Only the article creator can reject requests."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    if pub_request.status != 'pending':
+        return Response(
+            {"detail": "This request has already been processed."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    pub_request.status = 'rejected'
+    pub_request.save()
+
+    return Response(PublishRequestSerializer(pub_request).data)
+
+
+@api_view(['GET'])
+@authentication_classes(AUTH_CLASSES)
+@permission_classes([AllowAny])
+def newest_articles(request):
+    articles = Article.objects.filter(
+        current_version__isnull=False
+    ).select_related('current_version').order_by('-updated_at')[:10]
+
+    data = []
+    for a in articles:
+        v = a.current_version
+        data.append({
+            "name": a.name,
+            "summary": v.summary if v else "",
+            "score": a.score,
+        })
+    return Response(data)
+
+
+@api_view(['GET'])
+@authentication_classes(AUTH_CLASSES)
+@permission_classes([AllowAny])
+def top_rated_articles(request):
+    articles = Article.objects.filter(
+        current_version__isnull=False
+    ).select_related('current_version').order_by('-score')[:10]
+
+    data = []
+    for a in articles:
+        v = a.current_version
+        data.append({
+            "name": a.name,
+            "summary": v.summary if v else "",
+            "score": a.score,
+        })
+    return Response(data)
+
+
+@api_view(['GET'])
+@authentication_classes(AUTH_CLASSES)
+@permission_classes([AllowAny])
+def top_articles_by_tag(request):
+    tags = Tag.objects.all()
+    result = []
+
+    for tag in tags:
+        articles = Article.objects.filter(
+            current_version__isnull=False,
+            current_version__tags=tag,
+        ).select_related('current_version').order_by('-score')[:3]
+
+        if not articles:
+            continue
+
+        items = []
+        for a in articles:
+            v = a.current_version
+            items.append({
+                "name": a.name,
+                "summary": v.summary if v else "",
+                "score": a.score,
+            })
+
+        result.append({
+            "tag": tag.name,
+            "articles": items,
+        })
+
+    return Response(result)

@@ -1,87 +1,31 @@
 import { useState, useEffect } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
-import { ThumbsUp, ThumbsDown, GitBranch, Eye, Edit3, ArrowRight, Loader2, Plus } from 'lucide-react'
+import { useParams, Link } from 'react-router-dom'
+import { Edit3, ArrowRight, Loader2 } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { api } from '../api'
 
 export default function ArticlePage() {
   const { name } = useParams()
-  const navigate = useNavigate()
   const [article, setArticle] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [voteLoading, setVoteLoading] = useState(false)
-  const [message, setMessage] = useState('')
-  const [newVersionSource, setNewVersionSource] = useState('')
-  const [newVersionName, setNewVersionName] = useState('')
-  const [createLoading, setCreateLoading] = useState(false)
-  const [emptyVersionName, setEmptyVersionName] = useState('')
-  const [emptyCreateLoading, setEmptyCreateLoading] = useState(false)
-
-  const fetchArticle = async () => {
-    setLoading(true)
-    try {
-      const data = await api.getArticle(name)
-      setArticle(data)
-      setError('')
-    } catch (err) {
-      setError('خطا در بارگذاری مقاله.')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   useEffect(() => {
+    const fetchArticle = async () => {
+      setLoading(true)
+      try {
+        const data = await api.getArticle(name)
+        setArticle(data)
+        setError('')
+      } catch (err) {
+        setError('خطا در بارگذاری مقاله.')
+      } finally {
+        setLoading(false)
+      }
+    }
     fetchArticle()
   }, [name])
-
-  const handleVote = async (value) => {
-    setVoteLoading(true)
-    setMessage('')
-    try {
-      const data = await api.vote(name, value)
-      setArticle((prev) => ({ ...prev, score: data.score }))
-      setMessage(`رأی ثبت شد! امتیاز: ${data.score}`)
-    } catch (err) {
-      setMessage(err.data?.detail || 'خطا در ثبت رأی.')
-    } finally {
-      setVoteLoading(false)
-    }
-  }
-
-  const handleCreateVersion = async (e) => {
-    e.preventDefault()
-    if (!newVersionSource || !newVersionName.trim()) return
-    setCreateLoading(true)
-    setMessage('')
-    try {
-      await api.createVersionFromVersion(newVersionSource, newVersionName.trim())
-      setNewVersionSource('')
-      setNewVersionName('')
-      await fetchArticle()
-      setMessage('نسخه جدید با موفقیت ایجاد شد!')
-    } catch (err) {
-      setMessage(err.data?.detail || 'خطا در ایجاد نسخه.')
-    } finally {
-      setCreateLoading(false)
-    }
-  }
-
-  const handleCreateEmptyVersion = async (e) => {
-    e.preventDefault()
-    if (!emptyVersionName.trim()) return
-    setEmptyCreateLoading(true)
-    setMessage('')
-    try {
-      await api.createEmptyVersion(name, emptyVersionName.trim())
-      setEmptyVersionName('')
-      await fetchArticle()
-      setMessage('نسخه خالی با موفقیت ایجاد شد!')
-    } catch (err) {
-      setMessage(err.data?.detail || 'خطا در ایجاد نسخه.')
-    } finally {
-      setEmptyCreateLoading(false)
-    }
-  }
 
   if (loading) {
     return (
@@ -102,196 +46,70 @@ export default function ArticlePage() {
     )
   }
 
-  const versions = article?.versions || []
   const currentVersion = article?.current_version
+  const content = currentVersion?.content || ''
+  const summary = currentVersion?.summary || ''
+  const tags = currentVersion?.tags || []
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-start justify-between flex-wrap gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-dark">{article.name}</h1>
-              <p className="text-gray-500 text-sm mt-1">
-                ایجادکننده: <span className="text-gray-700">{article.creator_id}</span>
-              </p>
-              {currentVersion && (
-                <p className="text-gray-500 text-sm mt-1">
-                  نسخه فعلی: <span className="text-forest font-medium">{currentVersion.name}</span>
-                </p>
-              )}
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1 bg-light rounded-lg px-3 py-2 border border-gray-200">
-                <button
-                  onClick={() => handleVote(1)}
-                  disabled={voteLoading}
-                  className="text-forest hover:text-leaf disabled:opacity-50 transition-colors p-1"
-                  title="رأی مثبت"
-                >
-                  <ThumbsUp className="w-5 h-5" />
-                </button>
-                <span className="text-dark font-bold min-w-[2rem] text-center">
-                  {article.score}
-                </span>
-                <button
-                  onClick={() => handleVote(-1)}
-                  disabled={voteLoading}
-                  className="text-red-500 hover:text-red-400 disabled:opacity-50 transition-colors p-1"
-                  title="رأی منفی"
-                >
-                  <ThumbsDown className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-          </div>
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
+        <div>
+          <h1 className="text-xl font-bold text-dark">{article.name}</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            ایجادکننده: <span className="text-gray-700">{article.creator_id}</span>
+            {currentVersion && (
+              <> · نسخه فعلی: <span className="text-forest font-medium">{currentVersion.name}</span></>
+            )}
+          </p>
         </div>
-
-        <div className="p-6">
-          <h2 className="text-lg font-bold text-dark mb-4 flex items-center gap-2">
-            <GitBranch className="w-5 h-5 text-forest" />
-            نسخه‌ها
-          </h2>
-
-          {versions.length > 0 ? (
-            <div className="space-y-3 mb-6">
-              {versions.map((v) => (
-                <div
-                  key={v.name}
-                  className={`flex items-center justify-between flex-wrap gap-3 p-4 rounded-xl border ${
-                    currentVersion?.name === v.name
-                      ? 'border-forest bg-forest/5'
-                      : 'border-gray-200 bg-gray-50'
-                  }`}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-dark text-sm truncate">{v.name}</span>
-                      {currentVersion?.name === v.name && (
-                        <span className="text-xs bg-forest text-white px-2 py-0.5 rounded-full whitespace-nowrap">
-                          فعلی
-                        </span>
-                      )}
-                    </div>
-                    {v.summary && (
-                      <p className="text-xs text-gray-500 mt-1 truncate">{v.summary}</p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Link
-                      to={`/versions/${encodeURIComponent(v.name)}/preview`}
-                      className="inline-flex items-center gap-1.5 bg-gray-200 hover:bg-gray-300 text-dark text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      پیش‌نمایش
-                    </Link>
-                    <Link
-                      to={`/versions/${encodeURIComponent(v.name)}/edit`}
-                      className="inline-flex items-center gap-1.5 bg-forest hover:bg-leaf text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                      ویرایش
-                    </Link>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-500 text-sm mb-6">نسخه‌ای موجود نیست.</p>
-          )}
-
-          <div className="bg-light border border-gray-200 rounded-xl p-5">
-            <h3 className="text-sm font-bold text-dark mb-3 flex items-center gap-2">
-              <Plus className="w-4 h-4 text-forest" />
-              ایجاد نسخه جدید از نسخه موجود
-            </h3>
-            <form onSubmit={handleCreateVersion} className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">نسخه مبدأ</label>
-                <select
-                  value={newVersionSource}
-                  onChange={(e) => setNewVersionSource(e.target.value)}
-                  className="w-full bg-white border border-gray-300 rounded-lg py-2 px-3 text-sm text-dark focus:outline-none focus:ring-2 focus:ring-forest focus:border-transparent"
-                >
-                  <option value="">انتخاب نسخه...</option>
-                  {versions.map((v) => (
-                    <option key={v.name} value={v.name}>{v.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">نام نسخه جدید</label>
-                <input
-                  type="text"
-                  value={newVersionName}
-                  onChange={(e) => setNewVersionName(e.target.value)}
-                  placeholder="مثلاً: article-v2"
-                  className="w-full bg-white border border-gray-300 rounded-lg py-2 px-3 text-sm text-dark placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-forest focus:border-transparent"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={createLoading || !newVersionSource || !newVersionName.trim()}
-                className="inline-flex items-center gap-1.5 bg-forest hover:bg-leaf text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {createLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    در حال ایجاد...
-                  </>
-                ) : (
-                  <>
-                    <GitBranch className="w-4 h-4" />
-                    ایجاد نسخه
-                  </>
-                )}
-              </button>
-            </form>
-          </div>
-
-          <div className="bg-light border border-gray-200 rounded-xl p-5 mt-4">
-            <h3 className="text-sm font-bold text-dark mb-3 flex items-center gap-2">
-              <Plus className="w-4 h-4 text-forest" />
-              ایجاد نسخه خالی
-            </h3>
-            <form onSubmit={handleCreateEmptyVersion} className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">نام نسخه</label>
-                <input
-                  type="text"
-                  value={emptyVersionName}
-                  onChange={(e) => setEmptyVersionName(e.target.value)}
-                  placeholder="مثلاً: article-v3"
-                  className="w-full bg-white border border-gray-300 rounded-lg py-2 px-3 text-sm text-dark placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-forest focus:border-transparent"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={emptyCreateLoading || !emptyVersionName.trim()}
-                className="inline-flex items-center gap-1.5 bg-forest hover:bg-leaf text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {emptyCreateLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    در حال ایجاد...
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-4 h-4" />
-                    ایجاد نسخه خالی
-                  </>
-                )}
-              </button>
-            </form>
-          </div>
+        <div className="flex items-center gap-2">
+          <Link
+            to={`/articles/${encodeURIComponent(name)}/manage`}
+            className="inline-flex items-center gap-1.5 bg-forest hover:bg-leaf text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+          >
+            <Edit3 className="w-4 h-4" />
+            ویرایش
+          </Link>
         </div>
       </div>
 
-      {message && (
-        <div className="mt-4 bg-white border border-gray-200 rounded-lg p-3 text-sm text-center text-gray-700 shadow-sm">
-          {message}
+      {summary && (
+        <div className="bg-light border border-gray-200 rounded-xl p-4 mb-4">
+          <h3 className="text-sm font-semibold text-gray-600 mb-1">خلاصه</h3>
+          <p className="text-gray-700 text-sm">{summary}</p>
         </div>
       )}
+
+      {tags.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap mb-4">
+          {tags.map((tag) => (
+            <span
+              key={tag.name}
+              className="bg-forest/10 text-forest text-xs font-medium px-2.5 py-1 rounded-full"
+            >
+              {tag.name}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+        <div className="border-b border-gray-200 px-4 py-2 bg-gray-50">
+          <span className="text-xs font-medium text-gray-500">محتوای مقاله</span>
+        </div>
+        <div className="p-6" dir="auto">
+          {content ? (
+            <div className="prose prose-sm max-w-none prose-headings:text-dark prose-p:text-gray-700 prose-a:text-forest prose-strong:text-dark prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-gray-900 prose-pre:text-gray-100">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {content}
+              </ReactMarkdown>
+            </div>
+          ) : (
+            <p className="text-gray-500 text-sm text-center py-8">هنوز محتوایی ثبت نشده است.</p>
+          )}
+        </div>
+      </div>
 
       <footer className="border-t border-gray-300 mt-8 pt-6 text-center">
         <a

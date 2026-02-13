@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { FileText, ArrowRight, Loader2 } from 'lucide-react'
 import { api } from '../api'
 
-export default function MyArticlesPage() {
+export default function MyArticlePage() {
   const [articles, setArticles] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -60,35 +60,32 @@ export default function MyArticlesPage() {
 
       {articles.length > 0 && (
         <div className="space-y-3">
-          {articles.map((article) => (
-            <Link
-              key={article.name}
-              to={`/articles/${encodeURIComponent(article.name)}`}
-              className="block bg-white border border-gray-200 rounded-xl p-4 hover:border-forest transition-colors shadow-sm"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <FileText className="w-5 h-5 text-forest flex-shrink-0" />
-                  <div className="min-w-0">
-                    <span className="font-medium text-dark text-sm">{article.name}</span>
-                    {article.current_version && (
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        نسخه فعلی: {article.current_version.name}
-                      </p>
+          {articles.map((article) => {
+            const summary = article.current_version?.summary || ''
+
+            return (
+              <Link
+                key={article.name}
+                to={`/articles/${encodeURIComponent(article.name)}`}
+                className="block bg-white border border-gray-200 rounded-xl p-4 hover:border-forest transition-colors shadow-sm"
+              >
+                <div className="flex items-start gap-3">
+                  <FileText className="w-5 h-5 text-forest flex-shrink-0 mt-0.5" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-dark text-sm">{article.name}</span>
+                      <span className="text-xs text-gray-400 flex-shrink-0">
+                        امتیاز: <span className="font-medium text-dark">{article.score}</span>
+                      </span>
+                    </div>
+                    {summary && (
+                      <p className="text-sm text-gray-600 mt-1.5 leading-relaxed">{summary}</p>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="text-xs text-gray-500">
-                    امتیاز: <span className="font-medium text-dark">{article.score}</span>
-                  </span>
-                  <span className="text-xs text-gray-400">
-                    {article.versions?.length || 0} نسخه
-                  </span>
-                </div>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            )
+          })}
         </div>
       )}
 

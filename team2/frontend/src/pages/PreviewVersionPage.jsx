@@ -98,7 +98,7 @@ export default function PreviewVersionPage() {
         <div className="border-b border-gray-200 px-4 py-2 bg-gray-50">
           <span className="text-xs font-medium text-gray-500">Markdown Preview</span>
         </div>
-        <div className="p-6" dir="ltr">
+        <div className="p-6" dir="auto">
           {version.content ? (
             <div className="prose prose-sm max-w-none prose-headings:text-dark prose-p:text-gray-700 prose-a:text-forest prose-strong:text-dark prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-gray-900 prose-pre:text-gray-100">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>

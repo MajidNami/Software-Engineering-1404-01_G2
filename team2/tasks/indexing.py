@@ -2,7 +2,9 @@ import logging
 
 from celery import shared_task
 from django.conf import settings
-from team2.models import Version
+from team2.models import Article, Version
+
+logger = logging.getLogger(__name__)
 
 INDEX_NAME = "articles"
 _ES = None
@@ -28,9 +30,36 @@ def index_article_version(self, results, version_name):
     }
 
     try:
-        _get_es().index(index=INDEX_NAME, id=version.name, document=body)
+        _get_es().index(index=INDEX_NAME, id=version.article.name, document=body)
     except Exception as exc:
         raise self.retry(exc=exc)
+
+
+@shared_task(bind=True, max_retries=1, default_retry_delay=30)
+def index_all_articles(self):
+    es = _get_es()
+    articles = Article.objects.filter(
+        current_version__isnull=False
+    ).select_related('current_version')
+
+    indexed = 0
+    for article in articles:
+        version = article.current_version
+        body = {
+            "article_name": article.name,
+            "version_name": version.name,
+            "content": version.content,
+            "summary": version.summary,
+            "tags": [tag.name for tag in version.tags.all()],
+        }
+        try:
+            es.index(index=INDEX_NAME, id=article.name, document=body)
+            indexed += 1
+        except Exception:
+            logger.exception("Failed to index article %s", article.name)
+
+    logger.info("Startup indexing complete: %d articles indexed.", indexed)
+    return indexed
 
 
 def search_articles_semantic(query, size=10):
