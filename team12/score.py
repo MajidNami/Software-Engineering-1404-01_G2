@@ -29,7 +29,7 @@ budgetMtx = [
 
 
 styleIndex = {
-    'SINGLE' : 0,
+    'SOLO' : 0,
     'COUPLE' : 1,
     'FAMILY' : 2,
     'BUSINESS' : 3,
