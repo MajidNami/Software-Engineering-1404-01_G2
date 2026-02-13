@@ -26,9 +26,8 @@ class Place(models.Model):
     travel_style = models.CharField(max_length=20, choices=STYLE_CHOICES)
     duration = models.IntegerField()
     season = models.CharField(max_length=20, choices=SEASON_CHOICES)
-    image_url = models.URLField(blank=True, null=True)
-    season = models.CharField(max_length=20, choices=SEASON_CHOICES)
     region = models.ForeignKey(Region, on_delete=models.CASCADE, related_name='places', null=True)
+    image_url = models.URLField(blank=True, null=True)
 
     def __str__(self):
         return self.place_name
