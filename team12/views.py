@@ -40,7 +40,7 @@ class RecommendAPIView(APIView):
         return Response({"error": "Invalid Endpoint"}, status=404)
 
     def handle_recommend_places(self, data):
-        required = ["candidate_place_id", "Travel_style", "Budget_level", "Trip_duration"]
+        required = ["candidate_place", "Travel_style", "Budget_level", "Trip_duration"]
         if not all(k in data for k in required):
             return Response({"error": "Missing fields for place recommendation"}, status=400)
             
@@ -86,12 +86,6 @@ class RecommendAPIView(APIView):
         scored_places.sort(key=lambda x: x['score'], reverse=True)
 
         return JsonResponse({"scored_places": scored_places})
-        
-        result = [
-            {"place_id": data.get("candidate_place_id"), "score": 0.95},
-            {"place_id": "other_id", "score": 0.85}
-        ]
-        return JsonResponse({"scored_places": result})
 
     def handle_recommend_regions(self, data):
         required = ["Limit", "Season"]
