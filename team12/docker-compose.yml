@@ -16,6 +16,8 @@ services:
     build:
       context: ../
       dockerfile: team12/Dockerfile
+    # Added timeout to Gunicorn to prevent worker kill during AI processing
+    command: gunicorn app404.wsgi:application --bind 0.0.0.0:8002 --timeout 300
     env_file:
       - .env
     environment:

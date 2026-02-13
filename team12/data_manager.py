@@ -1,23 +1,54 @@
 import requests
+import json
 from django.conf import settings
 from .models import Place, Region
 from .ai_service import generate_ai_metadata_for_place
 
 CORE_URL = getattr(settings, 'CORE_BASE_URL', 'http://core:8000')
 
+# Mock data for other teams' services (Wiki, Engagement, Facilities)
 MOCK_WIKI_DATA = {
-    "tehran milad tower": (
-    "برج میلاد بلندترین آسمان‌خراش ایران و ششمین برج مخابراتی بلند جهان است که امکانات تفریحی، رستوران و دید ۳۶۰ درجه به تهران دارد.",
-    ["برج", "تهران", "مدرن", "تفریحی"], "جاذبه شهری"),
-    "isfahan si o se pol": (
-    "سی و سه پل یکی از شاهکارهای معماری صفوی و از مشهورترین پل‌های تاریخی ایران است که روی زاینده‌رود اصفهان قرار دارد.",
-    ["تاریخی", "پل", "اصفهان"], "جاذبه تاریخی")
+    "tehran milad tower": {
+        "summary": "برج میلاد بلندترین آسمان‌خراش ایران و ششمین برج مخابراتی بلند جهان است.",
+        "tags": ["برج", "تهران", "مدرن", "تفریحی"],
+        "category": "جاذبه شهری"
+    },
+    "isfahan si o se pol": {
+        "summary": "سی و سه پل یکی از شاهکارهای معماری صفوی و از مشهورترین پل‌های تاریخی ایران است.",
+        "tags": ["تاریخی", "پل", "اصفهان"],
+        "category": "جاذبه تاریخی"
+    }
 }
 
 MOCK_ENGAGEMENT_DATA = {
-    "tehran-milad-tower": 4.5,
-    "isfahan-si-o-se-pol": 4.8
+    "tehran-milad-tower": {"ratingSummary": {"avg": 4.5}},
+    "isfahan-si-o-se-pol": {"ratingSummary": {"avg": 4.8}}
 }
+
+MOCK_FACILITIES_DATA = {
+    "results": [
+        {"id": 1, "name": "Laleh Hotel", "type": "HOTEL", "lat": 35.79, "lng": 51.38},
+        {"id": 2, "name": "Nayeb Restaurant", "type": "RESTAURANT", "lat": 35.74, "lng": 51.37}
+    ]
+}
+
+# Mock data for Team 12's own endpoints (as per team12.yaml)
+MOCK_REGIONS_LIST = [
+    {
+        "region_id": "tehran",
+        "region_name": "تهران",
+        "match_score": 0.95,
+        "cover_image": "http://localhost:8000/static/images/tehran.jpg",
+        "ai_reason": "پایتختی با ترکیبی از مدرنیته و تاریخ، مناسب برای سفرهای خانوادگی در بهار."
+    },
+    {
+        "region_id": "isfahan",
+        "region_name": "اصفهان",
+        "match_score": 0.88,
+        "cover_image": "http://localhost:8000/static/images/isfahan.jpg",
+        "ai_reason": "شهر گنبدهای فیروزه‌ای، ایده‌آل برای علاقه‌مندان به معماری و هنر."
+    }
+]
 
 
 def fetch_wiki_data(place_name):
@@ -25,18 +56,20 @@ def fetch_wiki_data(place_name):
         url = f"{CORE_URL}/api/wiki/content?place={place_name}"
         resp = requests.get(url, timeout=2)
         if resp.status_code == 200:
+            print(f"DEBUG: Fetched real Wiki data for {place_name}")
             data = resp.json()
-            summary = data.get("summary")
-            if summary:
-                return summary, data.get("tags", []), data.get("category", "")
-    except:
-        pass
+            return data.get("summary"), data.get("tags", []), data.get("category", "")
+    except Exception as e:
+        print(f"DEBUG: Wiki API failed, using Mock. Error: {str(e)}")
 
     mock_key = place_name.lower()
-    if mock_key in MOCK_WIKI_DATA:
-        return MOCK_WIKI_DATA[mock_key]
+    data = MOCK_WIKI_DATA.get(mock_key, {
+        "summary": "یک جاذبه گردشگری زیبا در ایران.",
+        "tags": ["گردشگری", "ایران"],
+        "category": "عمومی"
+    })
+    return data["summary"], data["tags"], data["category"]
 
-    return "یک جاذبه گردشگری بسیار زیبا و دیدنی در ایران.", ["گردشگری", "ایران"], "عمومی"
 
 
 def fetch_engagement_data(place_id):
@@ -44,24 +77,51 @@ def fetch_engagement_data(place_id):
         url = f"{CORE_URL}/api/v1/engagement?entityType=place&entityId={place_id}&commentLimit=0&includeMedia=false"
         resp = requests.get(url, timeout=2)
         if resp.status_code == 200:
+            print(f"DEBUG: Fetched real Engagement data for {place_id}")
             summary = resp.json().get("ratingSummary", {})
-            if summary and summary.get("avg"):
-                return float(summary.get("avg", 0.0))
-    except:
-        pass
+            return float(summary.get("avg", 0.0))
+    except Exception as e:
+        print(f"DEBUG: Engagement API failed, using Mock. Error: {str(e)}")
 
-    return MOCK_ENGAGEMENT_DATA.get(place_id, 3.8)
+    mock_data = MOCK_ENGAGEMENT_DATA.get(place_id, {"ratingSummary": {"avg": 3.8}})
+    return float(mock_data["ratingSummary"]["avg"])
 
 
-def fetch_nearby_facilities(lat, lng, radius=10000):
-    try:
-        url = f"{CORE_URL}/team4/api/facilities/nearby/?lat={lat}&lng={lng}&radius={radius}"
-        resp = requests.get(url, timeout=2)
-        if resp.status_code == 200:
-            return resp.json().get("results", [])
-    except:
-        pass
-    return []
+def get_suggested_regions():
+    # Use database if exists, else use Mock
+    regions = Region.objects.all()
+    if regions.exists():
+        destinations = []
+        for r in regions:
+            destinations.append({
+                "region_id": r.region_id,
+                "region_name": r.region_name,
+                "match_score": 0.85,
+                "cover_image": f"http://localhost:8000/static/images/{r.region_id}.jpg",
+                "ai_reason": f"منطقه‌ای جذاب در {r.region_name} که با سلیقه شما سازگار است."
+            })
+        return destinations
+    return MOCK_REGIONS_LIST
+
+
+def get_places_by_region(region_id):
+    # Filter places by region_id
+    places = Place.objects.filter(region__region_id=region_id)
+    if places.exists():
+        scored_places = []
+        for p in places:
+            scored_places.append({
+                "place_id": p.place_id,
+                "score": 0.9,
+                "ai_reason": p.ai_reason or "مکان پیشنهادی بر اساس تحلیل هوش مصنوعی."
+            })
+        return scored_places
+
+    # Return Mock if no data in DB for this region
+    return [
+        {"place_id": f"{region_id}-attraction-1", "score": 0.92, "ai_reason": "جاذبه برتر این منطقه."},
+        {"place_id": f"{region_id}-attraction-2", "score": 0.85, "ai_reason": "مکانی دیدنی با امتیاز بالا."}
+    ]
 
 
 def get_or_enrich_places(candidate_place_ids):
@@ -78,7 +138,7 @@ def get_or_enrich_places(candidate_place_ids):
 
         try:
             safe_duration = int(ai_data.get("duration", 2) or 2)
-        except (ValueError, TypeError):
+        except:
             safe_duration = 2
 
         r_id = ai_data.get("region_id") or "unknown"
@@ -89,22 +149,14 @@ def get_or_enrich_places(candidate_place_ids):
             defaults={'region_name': r_name}
         )
 
-        raw_budget = ai_data.get("budget_level") or "MODERATE"
-        raw_style = ai_data.get("travel_style") or "FAMILY"
-        raw_season = ai_data.get("season") or "SPRING"
-
-        safe_season = raw_season.upper()
-        if safe_season == "AUTUMN":
-            safe_season = "FALL"
-
         new_place = Place(
             place_id=pid,
             place_name=place_name,
             region=region_obj,
-            budget_level=raw_budget.upper(),
-            travel_style=raw_style.upper(),
+            budget_level=(ai_data.get("budget_level") or "MODERATE").upper(),
+            travel_style=(ai_data.get("travel_style") or "FAMILY").upper(),
             duration=safe_duration,
-            season=safe_season,
+            season=(ai_data.get("season") or "SPRING").upper().replace("AUTUMN", "FALL"),
             base_rate=base_rate,
             ai_reason=ai_data.get("ai_reason") or "مقصدی جذاب برای سفر."
         )
