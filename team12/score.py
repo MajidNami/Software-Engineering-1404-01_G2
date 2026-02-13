@@ -82,7 +82,7 @@ def scoreByBudget(places, targetBudget):
     tb = budgetIndex[targetBudget]
 
     for place in places:
-        badget = budgetIndex[place.budget_level]
+        budget = budgetIndex[place.budget_level]
         placeId = place.place_id
         score = budgetMtx[tb][budget]
         result.append((placeId, score))
