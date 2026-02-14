@@ -1,49 +1,39 @@
 import requests
-from django.utils import timezone
-from .models import UserInteraction, UserProfileFeature
+import sqlite3
+import uuid
+from datetime import datetime
 
-def sync_and_store_data(user_id):
-    COMMENT_API = f"http://comment-service/api/ratings/user={user_id}"
-    WIKI_API_BASE = "http://wiki-service/api/wiki/content?place="
-
+def sync_from_team8(user_id):
+    
+    URL = f"http://127.0.0.1:8001/api/ratings/user={user_id}"
+    
     try:
-        response = requests.get(COMMENT_API)
-        if response.status_code != 200:
-            return "Error: Could not fetch comments"
-        
-        user_logs = response.json() #[ {placeId, rate, created_at}, ... ]
-
-        for log in user_logs:
-            place_id = log['placeId']
+        response = requests.get(URL)
+        if response.status_code == 200:
+            data = response.json()
             
-            wiki_res = requests.get(f"{WIKI_API_BASE}{place_id}")
-            category = "Unknown"
-            if wiki_res.status_code == 200:
-                category = wiki_res.json().get('category', 'Unknown')
-
-            #save or updata in UserInteraction 
-            UserInteraction.objects.update_or_create(
-                user_id=user_id,
-                item_id=place_id,
-                interaction_type='rate',
-                defaults={
-                    'value': float(log['rate']),
-                    'created_at': log['created_at'],
-                    'item_type': 'place'
-                }
-            )
-
-            feature, created = UserProfileFeature.objects.get_or_create(
-                user_id=user_id,
-                category=category,
-                defaults={'weight': 0, 'source': 'interaction'}
-            )
-            #sum score
-            feature.weight += float(log['rate'])
-            feature.updated_at = timezone.now()
-            feature.save()
-
-        return True
+            conn = sqlite3.connect('team3.sqlite3')
+            cursor = conn.cursor()
+            
+            for item in data:
+                cursor.execute("""
+                    INSERT OR REPLACE INTO user_interactions 
+                    (interaction_id, user_id, item_id, item_type, interaction_type, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (
+                    str(uuid.uuid4()), 
+                    user_id, 
+                    item.get('placeId'),
+                    'place', 
+                    'rate', 
+                    datetime.now().isoformat()
+                ))
+            
+            conn.commit()
+            conn.close()
+            print(f"Successfully synced data for {user_id} from Team 8")
+        else:
+            print(f"Failed to fetch: Status {response.status_code}")
+            
     except Exception as e:
-        print(f"Sync Error: {e}")
-        return False
+        print(f"Error connecting to Team 8: {e}")
