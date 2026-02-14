@@ -5,27 +5,111 @@ services:
       - "${TEAM_PORT}:80"
     volumes:
       - ./gateway.conf:/etc/nginx/conf.d/default.conf:ro
-    environment:
-      - CORE_BASE_URL=http://core:8000
+    depends_on:
+      - frontend
+      - backend
     networks:
       - app404
-  #   depends_on:
-  #     - frontend
-  #     - backend
 
-  # frontend:
-  #   image: traefik/whoami
-  #   command: ["-port=5173"]
-  #   networks:
-  #     - app404
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    networks:
+      - app404
 
-  # backend:
-  #   image: traefik/whoami
-  #   command: ["-port=3000"]
-  #   networks:
-  #     - app404
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      # Backend settings.py expects this name:
+      TEAM8_DATABASE_URL: "${TEAM8_DATABASE_URL}"
+
+      CORE_BASE_URL: "${CORE_BASE_URL}"
+      AI_SERVICE_URL: "http://ai-service:8001"
+
+      # Backend settings.py expects these names:
+      S3_BUCKET_NAME: "${S3_BUCKET_NAME}"
+      S3_ENDPOINT_URL: "http://minio:9000"
+      S3_ACCESS_KEY: "${S3_ACCESS_KEY}"
+      S3_SECRET_KEY: "${S3_SECRET_KEY}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    networks:
+      - app404
+
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    networks:
+      - app404
+
+  # Official MinIO (no host ports)
+  minio:
+    image: ${MINIO_IMAGE}
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD}"
+      MINIO_REGION_NAME: "${MINIO_REGION_NAME}"
+    command: ["server", "/data", "--console-address", ":9001"]
+    volumes:
+      - minio-data:/data
+    networks:
+      - app404
+
+  # Create bucket automatically (developers don't do extra steps)
+  minio-mc:
+    image: quay.io/minio/mc:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      until mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"; do
+        echo "waiting for minio...";
+        sleep 1;
+      done;
+      mc mb -p "local/$MINIO_BUCKET" || true;
+      tail -f /dev/null
+    depends_on:
+      - minio
+    networks:
+      - app404
+
+  # If you really use GeoDjango/PostGIS, use postgis image:
+  postgres:
+    image: postgis/postgis:16-3.4-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${TEAM8_POSTGRES_DB}
+      POSTGRES_USER: ${TEAM8_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${TEAM8_POSTGRES_PASSWORD}
+    volumes:
+      - team8-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${TEAM8_POSTGRES_USER} -d ${TEAM8_POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    networks:
+      - app404
 
 networks:
   app404:
     external: true
     name: app404_net
+
+volumes:
+  minio-data:
+  team8-pgdata:
+

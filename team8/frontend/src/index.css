@@ -1,0 +1,26 @@
+@import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
+
+:root {
+  --forest-green: #2E7D32;
+  --leaf-green: #43A047;
+  --persian-gold: #FFB300;
+  --bg-light: #F1F8E9;
+  --text-dark: #1A1A1A;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Vazirmatn', sans-serif;
+  background-color: var(--bg-light);
+  color: var(--text-dark);
+  direction: rtl;
+}
+
+#root {
+  min-height: 100vh;
+}

@@ -1,0 +1,63 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.4-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${TEAM8_POSTGRES_DB}
+      POSTGRES_USER: ${TEAM8_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${TEAM8_POSTGRES_PASSWORD}
+    volumes:
+      - team8-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${TEAM8_POSTGRES_USER} -d ${TEAM8_POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    networks:
+      - team8-dev
+    ports:
+      - "5432:5432"
+
+  minio:
+    image: ${MINIO_IMAGE}
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD}"
+      MINIO_REGION_NAME: "${MINIO_REGION_NAME}"
+    command: ["server", "/data", "--console-address", ":9001"]
+    volumes:
+      - minio-data:/data
+    networks:
+      - team8-dev
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+  minio-mc:
+    image: quay.io/minio/mc:latest
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD}"
+      MINIO_BUCKET: "${MINIO_BUCKET}"
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      until mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"; do
+        echo "waiting for minio...";
+        sleep 1;
+      done;
+      mc mb -p "local/$MINIO_BUCKET" || true;
+      tail -f /dev/null
+    depends_on:
+      - minio
+    networks:
+      - team8-dev
+
+networks:
+  team8-dev:
+
+volumes:
+  team8-pgdata:
+  minio-data:
+

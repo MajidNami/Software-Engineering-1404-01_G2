@@ -1,0 +1,56 @@
+[
+  {
+    "placeId": "tehran-golestan-palace",
+    "cityId": "tehran",
+    "placeName": "Golestan Palace",
+    "coordinates": [35.6781, 51.4205]
+  },
+  {
+    "placeId": "tehran-azadi-tower",
+    "cityId": "tehran",
+    "placeName": "Azadi Tower",
+    "coordinates": [35.6997, 51.338]
+  },
+  {
+    "placeId": "tehran-milad-tower",
+    "cityId": "tehran",
+    "placeName": "Milad Tower",
+    "coordinates": [35.7448, 51.3753]
+  },
+  {
+    "placeId": "isfahan-naqsh-jahan",
+    "cityId": "isfahan",
+    "placeName": "Naqsh-e Jahan Square",
+    "coordinates": [32.6572, 51.6776]
+  },
+  {
+    "placeId": "isfahan-si-o-se-pol",
+    "cityId": "isfahan",
+    "placeName": "Si-o-se-pol Bridge",
+    "coordinates": [32.6443, 51.6675]
+  },
+  {
+    "placeId": "shiraz-hafezieh",
+    "cityId": "shiraz",
+    "placeName": "Hafezieh",
+    "coordinates": [29.6227, 52.5589]
+  },
+  {
+    "placeId": "shiraz-pasargadae",
+    "cityId": "shiraz",
+    "placeName": "Pasargadae",
+    "coordinates": [30.201, 53.1796]
+  },
+  {
+    "placeId": "tabriz-arg",
+    "cityId": "tabriz",
+    "placeName": "Arg of Tabriz",
+    "coordinates": [38.0733, 46.2968]
+  },
+  {
+    "placeId": "mashhad-haram",
+    "cityId": "mashhad",
+    "placeName": "Imam Reza Shrine",
+    "coordinates": [36.2882, 59.6158]
+  }
+]
