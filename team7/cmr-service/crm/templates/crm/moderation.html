@@ -1,0 +1,95 @@
+{% extends "crm/base.html" %}
+{% block title %}Moderation{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>Moderation Dashboard</h2>
+  <p class="muted">Moderator ID: <code>{{ moderator_id }}</code></p>
+  <div class="row">
+    <div class="card" style="flex:1;">
+      <h3>Pending Comments</h3>
+      <p class="muted">Loads comments with status <span class="pill">pending</span> (all targets).</p>
+      <button class="primary" onclick="loadPendingComments()">Refresh</button>
+      <div id="pendingComments" class="muted" style="margin-top:10px;">—</div>
+    </div>
+    <div class="card" style="flex:1;">
+      <h3>Pending Reports</h3>
+      <p class="muted">Loads reports with status <span class="pill">pending</span>.</p>
+      <button class="primary" onclick="loadPendingReports()">Refresh</button>
+      <div id="pendingReports" class="muted" style="margin-top:10px;">—</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const MOD_ID = "{{ moderator_id }}";
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    ...opts,
+    headers: {
+      ...(opts.headers || {}),
+      "Content-Type": opts.body instanceof FormData ? undefined : "application/json",
+      "X-Moderator-Id": MOD_ID,
+    }
+  });
+  return res.json();
+}
+
+async function loadPendingComments() {
+  const box = document.getElementById("pendingComments");
+  box.textContent = "Loading...";
+  const data = await api(`/api/comments/?status=pending`);
+  if (!data.ok) { box.textContent = data.error; return; }
+  const items = data.data || [];
+  if (!items.length) { box.textContent = "No pending comments."; return; }
+
+  box.innerHTML = items.map(c => `
+    <div class="card" style="margin:10px 0;">
+      <div class="muted"><span class="badge">${c.status}</span> • target: <code>${c.target_id}</code> • by <strong>${c.user_name}</strong></div>
+      <div style="margin-top:8px;">${escapeHtml(c.body)}</div>
+      <div class="hr"></div>
+      <button class="secondary" onclick="setCommentStatus('${c.id_comment}','approved')">Approve</button>
+      <button class="danger" onclick="setCommentStatus('${c.id_comment}','rejected')">Reject</button>
+    </div>
+  `).join("");
+}
+
+async function setCommentStatus(id, status) {
+  const res = await api(`/api/comments/${id}/status/`, {method:"POST", body: JSON.stringify({status})});
+  if (!res.ok) alert(res.error); else loadPendingComments();
+}
+
+async function loadPendingReports() {
+  const box = document.getElementById("pendingReports");
+  box.textContent = "Loading...";
+  const data = await api(`/api/reports/pending/?moderator_user_id=${MOD_ID}`);
+  if (!data.ok) { box.textContent = data.error; return; }
+  const items = data.data || [];
+  if (!items.length) { box.textContent = "No pending reports."; return; }
+
+  box.innerHTML = items.map(r => `
+    <div class="card" style="margin:10px 0;">
+      <div class="muted"><span class="badge">${r.status}</span> • by <strong>${r.reporter_username}</strong></div>
+      <div class="muted">reason: ${escapeHtml(r.reason || "")}</div>
+      <div class="muted">details: ${escapeHtml(r.details || "")}</div>
+      <div class="muted">comment: <code>${r.id_comment || ""}</code> • media: <code>${r.id_media || ""}</code></div>
+      <div class="hr"></div>
+      <button class="secondary" onclick="setReportStatus('${r.id_report}','valid')">Valid (reject content)</button>
+      <button onclick="setReportStatus('${r.id_report}','invalid')">Invalid</button>
+    </div>
+  `).join("");
+}
+
+async function setReportStatus(id, status) {
+  const res = await api(`/api/reports/${id}/status/`, {method:"POST", body: JSON.stringify({status})});
+  if (!res.ok) alert(res.error); else loadPendingReports();
+}
+
+function escapeHtml(str) {
+  return (str || "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
+}
+
+loadPendingComments();
+loadPendingReports();
+</script>
+{% endblock %}

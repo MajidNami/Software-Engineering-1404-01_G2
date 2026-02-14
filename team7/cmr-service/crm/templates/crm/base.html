@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}CRM Service{% endblock %}</title>
+
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 0; background: #f6f7fb; }
+    header { background: #111827; color: white; padding: 14px 18px; }
+    main { max-width: 1000px; margin: 0 auto; padding: 18px; }
+    .card { background: white; border-radius: 14px; padding: 14px; margin: 12px 0; box-shadow: 0 6px 22px rgba(0,0,0,0.06); }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .row > * { flex: 1; min-width: 240px; }
+    textarea, input, select { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #ddd; }
+    button { padding: 10px 12px; border-radius: 10px; border: 0; cursor: pointer; }
+    button.primary { background: #2563eb; color: white; }
+    button.danger { background: #ef4444; color: white; }
+    button.secondary { background: #111827; color: white; }
+    .muted { color: #6b7280; font-size: 13px; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; border: 1px solid #e5e7eb; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+    .thumb { width: 100%; border-radius: 12px; overflow: hidden; border: 1px solid #eee; background: #fafafa; }
+    .thumb img, .thumb video { width: 100%; display: block; }
+    .hr { height: 1px; background: #eee; margin: 12px 0; }
+    .link { color: #2563eb; text-decoration: none; }
+    .badge { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #eef2ff; }
+
+    @media (max-width: 640px) {
+      main { padding: 12px; }
+      .row > * { min-width: 100%; }
+      button { width: 100%; }
+      textarea, input, select { font-size: 16px; }
+    }
+  </style>
+
+  <script>
+    // Helper to read Django CSRF cookie if needed in fetch() calls
+    function getCookie(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(';').shift();
+      return null;
+    }
+    window.CSRF_TOKEN = () => getCookie("csrftoken");
+  </script>
+</head>
+
+<body>
+<header>
+  <div style="display:flex; justify-content: space-between; align-items:center;">
+    <div>
+      <strong>CRM Microservice</strong>
+      <span class="muted" style="color:#cbd5e1;">(Comment • Rating • Media)</span>
+    </div>
+    <div class="muted" style="color:#cbd5e1;">Django + MySQL</div>
+  </div>
+</header>
+
+<main>
+  <!-- forces Django to set csrftoken cookie -->
+  <form style="display:none;">
+    {% csrf_token %}
+  </form>
+
+  {% block content %}{% endblock %}
+</main>
+
+</body>
+</html>
