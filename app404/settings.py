@@ -15,7 +15,7 @@ DEBUG = env("DEBUG")
 
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
-TEAM_APPS = env.list("TEAM_APPS", default=["team1", "team2", "team3", "team4", "team5", "team6", "team7", "team8", "team9", "team10", "team11", "team12", "team13"])
+TEAM_APPS = [s.strip() for s in env("TEAM_APPS", default="team1,team2,team3,team4,team5,team6,team7,team8,team9").split(",") if s.strip()]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -27,7 +27,6 @@ INSTALLED_APPS = [
 
     # 3rd-party
     "corsheaders",
-    "rest_framework",
 
     # Local
     "core",
@@ -123,8 +122,4 @@ else:
     CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 
 
-CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[
-    "http://localhost:9156",
-    "http://127.0.0.1:9156",
-    "http://localhost:8000"
-])
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])

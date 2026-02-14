@@ -26,7 +26,7 @@ if (-not $TeamPort.ContainsKey($Team)) {
 }
 docker compose up -d --build
 
-$composePath = ".\team$Team\docker-compose.yml"
+$composePath = "..\team$Team\docker-compose.yml"
 if (-not (Test-Path $composePath)) {
   throw "Missing $composePath"
 }
