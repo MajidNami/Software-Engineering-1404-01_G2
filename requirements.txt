@@ -6,9 +6,6 @@ mysqlclient
 PyMySQL
 gunicorn
 whitenoise
-<<<<<<< HEAD
-djangorestframework
-=======
 djangorestframework>=3.14.0
 
 -r team1/requirements.txt
@@ -24,4 +21,3 @@ djangorestframework>=3.14.0
 -r team11/requirements.txt
 -r team12/requirements.txt
 -r team13/requirements.txt
->>>>>>> main
