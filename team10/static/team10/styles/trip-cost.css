@@ -1,0 +1,18 @@
+﻿.report-box h3 { margin-top: 0; color: var(--green-900); }
+.placeholder-bars {
+  margin: 16px 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  align-items: end;
+  height: 96px;
+}
+.placeholder-bars span {
+  display: block;
+  background: linear-gradient(180deg, #7eb087, #2f7a3f);
+  border-radius: 8px 8px 4px 4px;
+}
+.placeholder-bars span:nth-child(1) { height: 45%; }
+.placeholder-bars span:nth-child(2) { height: 70%; }
+.placeholder-bars span:nth-child(3) { height: 58%; }
+.placeholder-bars span:nth-child(4) { height: 85%; }

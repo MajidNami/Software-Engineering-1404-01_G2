@@ -1,0 +1,291 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ویکی گردشگری ایران | گروه ۶{% endblock %}</title>
+    
+    <!-- استایل‌های اصلی پروژه -->
+    <link rel="stylesheet" href="{% static 'styles/styles.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100..900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+
+    <style>
+        :root {
+            /* تعریف پالت رنگی شما */
+            --forest-green: #2E7D32;
+            --persian-blue: #00695C;
+            --persian-gold: #FFB300;
+            --bg-light: #F1F8E9; /* رنگ پس‌زمینه ملایم طبیعتی */
+            --white: #ffffff;
+            --glass: rgba(255, 255, 255, 0.95);
+        }
+
+        body {
+            font-family: "Vazirmatn", "Tahoma", sans-serif;
+            /* تغییر بک‌گراند اصلی */
+            background-color: var(--bg-light) !important; 
+            margin: 0;
+            padding: 0;
+            direction: rtl;
+        }
+        /* استایل‌های خاص تیم ۶ */
+        .team6-header {
+            background: linear-gradient(135deg, var(--forest-green), var(--persian-blue));
+            color: white;
+            padding: 15px 0;
+            margin-bottom: 20px;
+            border-radius: 0 0 10px 10px;
+        }
+        
+        .team6-nav {
+            background: #00695C;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .team6-nav a {
+            color: #ffffff;
+            margin-left: 15px;
+            text-decoration: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+        
+        .team6-nav a:hover {
+            background: #e9ecef;
+            color: #1a237e;
+        }
+        
+        .team6-container {
+            /* تغییر از سفید به آبی ملایم */
+            background:  #ffffff;
+            padding: 25px;
+            border-radius: 12px;
+            /* سایه را کمی نرم‌تر می‌کنیم تا با رنگ جدید ست شود */
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            margin-bottom: 30px;
+            /* اضافه کردن یک حاشیه خیلی ظریف آبی */
+            border: 1px solid #e1eeff;
+        }
+        
+        /* تطبیق RTL با بوت‌استرپ */
+        .form-control, .form-select {
+            text-align: right;
+        }
+        .my-btn {
+            background: #FFE082; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .my-btn:hover {
+            background: #f7ba05;
+            transform: translateY(-2px);
+        }
+        .main-footer {
+            text-align: center;
+            padding: 40px;
+            background: var(--mountain-grey);
+            color: rgba(255,255,255,0.6);
+            font-size: 0.9rem;
+            margin-top: auto;
+        }
+        /* تغییر پس‌زمینه و ظاهر کلی کارت‌های مقالات */
+        .card.h-100 {
+            /* استفاده از رنگ سفید بسیار شفاف برای حالت شیشه‌ای */
+            background-color: #dbe6e1; !important;
+            
+            /* لبه‌های گردتر و نرم‌تر */
+            border-radius: 15px !important;
+            
+            /* حذف حاشیه پیش‌فرض و جایگزینی با حاشیه ظریف سبز */
+            border: 1px solid rgba(46, 125, 50, 0.15) !important;
+            
+            /* اضافه کردن سایه ملایم */
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important;
+            
+            transition: all 0.3s ease;
+        }
+
+        /* افکت تغییر رنگ پس‌زمینه هنگام نگه داشتن ماوس روی کارت */
+        .card.h-100:hover {
+            background-color: #ffffff !important;
+            border-color: var(--persian-gold) !important; /* تغییر حاشیه به طلایی */
+            transform: translateY(-5px); /* کمی بالا آمدن کارت */
+        }
+
+        /* استایل دهی به بخش پایین کارت (Footer) */
+        .card-footer {
+            background: rgba(46, 125, 50, 0.05) !important; /* پس‌زمینه سبز خیلی کمرنگ */
+            border-top: 1px solid rgba(0, 0, 0, 0.05) !important;
+        }
+        
+        /* راست‌چین کردن برای زبان فارسی */
+        .select2-container--default .select2-selection--multiple {
+            direction: rtl;
+            text-align: right;
+        }
+        .dropdown-check-list { display: inline-block; width: 100%; }
+        .dropdown-check-list .anchor {
+            position: relative; cursor: pointer; display: inline-block;
+            padding: 8px 10px; border: 1px solid #ccc; width: 100%;
+            background: #fff; border-radius: 5px;
+        }
+        .dropdown-check-list .anchor:after {
+            position: absolute; content: ""; border-left: 2px solid black;
+            border-top: 2px solid black; padding: 3px; right: 10px;
+            top: 35%; transform: rotate(-135deg);
+        }
+        .dropdown-check-list .items {
+            padding: 10px; display: none; margin: 0; border: 1px solid #ccc;
+            border-top: none; position: absolute; z-index: 1000;
+            background: #fff; width: 100%; max-height: 250px; overflow-y: auto;
+        }
+        .dropdown-check-list .items li { list-style: none; margin-bottom: 5px; }
+        .search-inside { margin-bottom: 10px; width: 100%; padding: 5px; border-radius: 4px; border: 1px solid #ddd; }
+        #dropdownMenuButton {
+        background-color: white;
+        border-color: #dee2e6;
+        min-height: 38px;
+        }
+        #dropdownMenuButton:after {
+            margin-right: auto; /* فلش را به سمت چپ می‌برد در حالی که متن راست‌چین است */
+        }
+        .dropdown-menu {
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border: 1px solid #ddd;
+        }
+        #search-section {
+            /* خاکستری تیره‌تر و شیک */
+            background-color: #dde9e5 !important; 
+            /* ایجاد سایه عمیق‌تر برای جدا شدن از صفحه */
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12) !important;
+            /* یک حاشیه ظریف برای تمیزی کار */
+            border: 1px solid #dee2e6;
+            transition: all 0.3s ease;
+        }
+
+        #search-section:hover {
+            /* افکت ملایم وقتی ماوس روی بخش جستجو می‌رود */
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
+        }
+
+        /* برای اینکه دکمه جستجو هم بهتر دیده شود */
+        #search-section .btn-primary {
+            box-shadow: 0 4px 10px rgba(26, 35, 126, 0.3);
+        }
+      
+    </style>
+</head>
+<body>
+    <div class="bg-pattern"></div>
+    <!-- هدر مشابه صفحه اصلی -->
+    <div class="team6-header">
+        <div class="container">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center;">
+                    <i class="fa-solid fa-book-open fa-2x" style="margin-left: 15px;"></i>
+                    <div>
+                        <h2 style="margin: 0; font-weight: bold;">دانشنامه گردشگری ایران</h2>
+                        <p style="margin: 0; opacity: 0.9; font-size: 0.9em;">ویکی تخصصی - گروه ۶</p>
+                    </div>
+                </div>
+                <div>
+                    <a href="/" class="btn my-btn">
+                        <i class="fa-solid fa-home"></i> صفحه اصلی
+                    </a>
+                    {% if request.user.is_authenticated %}
+                        <span class="badge bg-success" style="margin-right: 10px;">
+                            <i class="fa-solid fa-user"></i> {{ request.user.email|truncatechars:20 }}
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- نویگیشن داخلی -->
+        <div class="team6-nav">
+            <a href="{% url 'team6:index' %}">
+                <i class="fa-solid fa-list"></i> لیست مقالات
+            </a>
+            {% if request.user.is_authenticated %}
+            <a href="{% url 'team6:article_add' %}">
+                <i class="fa-solid fa-plus"></i> ایجاد مقاله جدید
+            </a>
+            {% endif %}
+            {% if request.user.is_authenticated %}
+                <a href="{% url 'team6:notifications_list' %}" class="position-relative">
+                    <i class="fa-solid fa-bell"></i> اعلان‌های من
+                    {% if unread_notifications_count %}
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                            {{ unread_notifications_count }}
+                            <span class="visually-hidden">اعلان‌های خوانده نشده</span>
+                        </span>
+                    {% endif %}
+                </a>
+            {% endif %}
+            {% if user.is_authenticated %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'team6:draft_list' %}">پیش‌نویس‌های من</a>
+                </li>
+            {% endif %}
+            
+            {% if request.user.is_authenticated %}
+                <a href="/auth/logout/" style="float: left; color: #dc3545;">
+                    <i class="fa-solid fa-sign-out-alt"></i> خروج
+                </a>
+            {% else %}
+                <a href="/auth/" style="float: left;">
+                    <i class="fa-solid fa-sign-in-alt"></i> ورود
+                </a>
+            {% endif %}
+        </div>
+
+        <!-- محتوای اصلی -->
+        <div class="team6-container">
+
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            {% block content %}{% endblock %}
+        </div>
+
+        
+        
+    </div>
+
+    <!-- اسکریپت‌ها -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // اعمال RTL به المان‌های فرم
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('input, textarea, select').forEach(el => {
+                el.classList.add('text-end');
+            });
+        });
+    </script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+</body>
+<!-- فوتر -->
+<footer class="main-footer ">
+            <hr>
+            <p>ویکی گردشگری ایران | پروژه مهندسی نرم‌افزار | گروه ۶</p>
+ </footer>
+</html>

@@ -1,0 +1,31 @@
+@startuml AD_US03_CreateArticle
+|Contributor|
+start
+:enter article data;
+
+|ArticleController|
+:createArticle(request);
+
+|AuthorizationService|
+:checkPermission(userId,"CREATE",resourceId);
+
+|ArticleService|
+:createArticle(article);
+
+|RevisionService|
+:createRevision(articleId,content,userId);
+
+if (auto tag?) then (yes)
+  |TagService|
+  :generateAutoTags(content);
+endif
+
+if (auto category?) then (yes)
+  |LLMService|
+  :suggestCategories(content);
+endif
+
+|Contributor|
+:preview article;
+stop
+@enduml

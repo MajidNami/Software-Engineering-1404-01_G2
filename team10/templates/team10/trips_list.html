@@ -1,0 +1,161 @@
+{% extends "team10/base.html" %}
+{% load static %}
+{% block title %}سفرهای من | ایران‌نما{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/persian-datepicker@latest/dist/css/persian-datepicker.min.css">
+<link rel="stylesheet" href="{% static 'team10/styles/trips.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+    <h2>سفرهای من</h2>
+    <p>فهرست سفرها با فیلتر و جستجو</p>
+</div>
+
+<section class="t10-filter-box t10-filter-card">
+    <form method="get" class="t10-filter-form">
+        <div class="t10-filter-card__title">فیلتر و جستجو</div>
+
+        <div class="t10-filter-grid t10-filter-grid--top">
+            <div class="t10-field">
+                <label for="status">وضعیت</label>
+                <select id="status" name="status">
+                    <option value="همه" {% if status == "همه" %}selected{% endif %}>همه</option>
+                    <option value="پیشنویس" {% if status == "پیشنویس" %}selected{% endif %}>پیشنویس</option>
+                    <option value="فعال" {% if status == "فعال" %}selected{% endif %}>فعال</option>
+                    <option value="تایید شده" {% if status == "تایید شده" %}selected{% endif %}>تایید شده</option>
+                    <option value="تمام‌شده" {% if status == "تمام‌شده" %}selected{% endif %}>تمام‌شده</option>
+                    <option value="لغو شده" {% if status == "لغو شده" %}selected{% endif %}>لغو شده</option>
+                </select>
+            </div>
+
+            <div class="t10-field">
+                <label for="date-from">از تاریخ</label>
+                <div class="t10-input-with-icon">
+                    <input id="date-from" type="text" name="date_from" class="t10-jalali-input persian-date"
+                           value="{{ date_from }}" placeholder="۱۴۰۴-۰۱-۰۱" autocomplete="off">
+                    <i class="fas fa-calendar-alt t10-calendar-icon"></i>
+                </div>
+            </div>
+
+            <div class="t10-field">
+                <label for="date-to">تا تاریخ</label>
+                <div class="t10-input-with-icon">
+                    <input id="date-to" type="text" name="date_to" class="t10-jalali-input persian-date"
+                           value="{{ date_to }}" placeholder="۱۴۰۴-۱۲-۲۹" autocomplete="off">
+                    <i class="fas fa-calendar-alt t10-calendar-icon"></i>
+                </div>
+            </div>
+
+            <div class="t10-field">
+                <label for="sort">مرتب‌سازی</label>
+                <select id="sort" name="sort">
+                    <option value="جدیدترین" {% if sort == "جدیدترین" %}selected{% endif %}>جدیدترین</option>
+                    <option value="قدیمی‌ترین" {% if sort == "قدیمی‌ترین" %}selected{% endif %}>قدیمی‌ترین</option>
+                    <option value="هزینه" {% if sort == "هزینه" %}selected{% endif %}>هزینه</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="t10-filter-grid t10-filter-grid--bottom">
+            <div class="t10-field">
+                <label for="q">جستجو در مقصد یا کد سفر</label>
+                <input id="q" type="text" name="q" value="{{ q }}" placeholder="مثال: شیراز یا ۱۰۲">
+            </div>
+
+            <div class="t10-actions">
+                <button type="submit" class="btn btn-search t10-search-btn">جستجو</button>
+            </div>
+        </div>
+    </form>
+</section>
+
+<section class="t10-trip-table-wrap">
+    <table class="t10-trip-table">
+        <thead>
+            <tr>
+                <th>کد سفر</th>
+                <th>مقصد</th>
+                <th>تاریخ شروع شمسی</th>
+                <th>مدت (روز)</th>
+                <th>هزینه کل (تومان)</th>
+                <th>وضعیت</th>
+                <th>عملیات</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for trip in trips %}
+            <tr>
+                <td>{{ trip.id }}</td>
+                <td>{{ trip.destination_name }}</td>
+                <td>{{ trip.start_at_jalali|default:"-" }}</td>
+                <td>{{ trip.days }}</td>
+                <td>{% if trip.total_cost %}{{ trip.total_cost|floatformat:0 }}{% else %}-{% endif %}</td>
+                <td>
+                    {% if trip.display_status and trip.display_status_label_fa %}
+                        {% if trip.display_status == "DRAFT" %}
+                            <span class="t10-badge t10-badge--draft">{{ trip.display_status_label_fa }}</span>
+                        {% elif trip.display_status == "IN_PROGRESS" %}
+                            <span class="t10-badge t10-badge--active">{{ trip.display_status_label_fa }}</span>
+                        {% elif trip.display_status == "COMPLETED" %}
+                            <span class="t10-badge t10-badge--done">{{ trip.display_status_label_fa }}</span>
+                        {% else %}
+                            <span class="t10-badge">{{ trip.display_status_label_fa }}</span>
+                        {% endif %}
+                    {% else %}
+                        {% if trip.status == "DRAFT" %}
+                            <span class="t10-badge t10-badge--draft">پیش‌نویس</span>
+                        {% elif trip.status == "IN_PROGRESS" %}
+                            <span class="t10-badge t10-badge--active">در حال اجرا</span>
+                        {% elif trip.status == "COMPLETED" %}
+                            <span class="t10-badge t10-badge--done">پایان‌یافته</span>
+                        {% else %}
+                            <span class="t10-badge">نامشخص</span>
+                        {% endif %}
+                    {% endif %}
+                </td>
+                <td><a class="t10-btn t10-btn--secondary" href="{% url 'team10:trip_detail' trip.id %}">مشاهده جزئیات</a></td>
+            </tr>
+        {% empty %}
+            <tr>
+                <td colspan="7" style="text-align: center; padding: 2rem;">
+                    سفری یافت نشد.
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</section>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+<script src="https://unpkg.com/persian-date@latest/dist/persian-date.min.js"></script>
+<script src="https://unpkg.com/persian-datepicker@latest/dist/js/persian-datepicker.min.js"></script>
+<script>
+  $(document).ready(function () {
+    const options = {
+      observer: true,
+      format: 'YYYY-MM-DD',
+      autoClose: true,
+      initialValue: false,
+      toolbox: { calendarSwitch: { enabled: false } },
+      timePicker: { enabled: false }
+    };
+
+    $('#date-from').persianDatepicker(options);
+    $('#date-to').persianDatepicker(options);
+
+    $('.t10-jalali-input').on('focus', function () {
+      $(this).persianDatepicker('show');
+    });
+
+    $('.t10-calendar-icon').on('click', function () {
+      $(this).siblings('.t10-jalali-input').focus();
+    });
+  });
+</script>
+{% endblock %}

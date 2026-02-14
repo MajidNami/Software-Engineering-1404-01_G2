@@ -1,0 +1,43 @@
+@startuml
+hide footbox
+skinparam monochrome true
+skinparam shadowing false
+skinparam ArrowThickness 1
+skinparam sequence {
+  ParticipantPadding 20
+  BoxPadding 10
+  ActivationBarWidth 3
+}
+
+title US-09 — Filter Articles
+actor "User" as User
+participant "UI" as UI
+participant "CategoryController" as CategoryController
+participant "CategoryService" as CategoryService
+participant "ArticleRepository" as ArticleRepository
+participant "SearchService" as SearchService
+
+activate User
+User -> UI : chooseCategory(categoryId)
+activate UI
+UI -> CategoryController : getArticlesByCategory(categoryId)
+activate CategoryController
+CategoryController -> CategoryService : getArticlesByCategory(categoryId)
+activate CategoryService
+CategoryService -> ArticleRepository : findByCategory(categoryId)
+activate ArticleRepository
+ArticleRepository --> CategoryService : List<Article>
+deactivate ArticleRepository
+CategoryService --> CategoryController : articles
+deactivate CategoryService
+CategoryController --> UI : Response(articles)
+deactivate CategoryController
+UI --> User : showFilteredArticles()
+deactivate UI
+UI -> SearchService : sortByPopularity(articles)
+activate SearchService
+SearchService --> UI : sortedArticles
+deactivate SearchService
+deactivate User
+@enduml
+

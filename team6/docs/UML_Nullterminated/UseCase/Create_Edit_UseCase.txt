@@ -1,0 +1,43 @@
+@startuml Wiki_Create_Edit_UseCase
+left to right direction
+
+actor "نویسنده" as Contributor
+actor "ویراستار" as Editor
+
+rectangle "ایجاد و ویرایش محتوا" {
+  usecase "ورود به فرم ایجاد\n(UC-04.1)" as UC041
+  usecase "وارد کردن عنوان و متن\n(UC-04.2)" as UC042
+  usecase "افزودن تصاویر\n(UC-04.3)" as UC043
+  usecase "افزودن برچسب\n(UC-04.4)" as UC044
+  usecase "پیش‌نمایش مقاله\n(UC-04.5)" as UC045
+  usecase "ذخیره و انتشار\n(UC-04.6)" as UC046
+  usecase "تولید برچسب خودکار\n(UC-12)" as UC12
+  usecase "دسته‌بندی خودکار\n(UC-14)" as UC14
+  
+  usecase "انتخاب مقاله برای ویرایش\n(UC-05.1)" as UC051
+  usecase "ویرایش محتوا\n(UC-05.2)" as UC052
+  usecase "ذخیره نسخه جدید\n(UC-05.3)" as UC053
+  usecase "مقایسه نسخه‌ها\n(UC-06.1)" as UC061
+  usecase "بازگردانی نسخه\n(UC-07.1)" as UC071
+  usecase "حذف مقاله\n(UC-15.1)" as UC151
+}
+
+Contributor --> UC041
+UC041 --> UC042
+UC042 --> UC043
+UC042 --> UC044
+UC044 ..> UC12 : <<extend>>
+UC042 ..> UC14 : <<extend>>
+UC042 --> UC045
+UC045 --> UC046
+
+Contributor --> UC051
+Editor --> UC051
+UC051 --> UC052
+UC052 --> UC053
+
+Editor --> UC061
+Editor --> UC071
+Editor --> UC151
+
+@enduml

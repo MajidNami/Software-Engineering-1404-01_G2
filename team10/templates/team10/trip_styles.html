@@ -1,0 +1,32 @@
+{% extends "team10/base.html" %}
+{% block title %}سبک‌های سفر | ایران‌نما{% endblock %}
+
+{% block content %}
+<section class="t10-page">
+  <section class="t10-section">
+    <h2>سبک‌های سفر</h2>
+    <p>سبک‌های موردعلاقه را انتخاب و اولویت‌بندی کنید.</p>
+  </section>
+
+  <form method="post" action="{% url 'team10:trip_styles' trip_id %}">
+    {% csrf_token %}
+    <section class="t10-card">
+      {% for tag, label in styles %}
+      <div class="t10-style-row">
+        <label>
+          <input type="checkbox" name="styles" value="{{ tag }}" {% if tag in current_styles %}checked{% endif %}>
+          {{ label }}
+        </label>
+      </div>
+      {% empty %}
+      <p>سبکی تعریف نشده است.</p>
+      {% endfor %}
+    </section>
+
+    <div class="t10-actions">
+      <button class="t10-btn t10-btn--primary" type="submit">اعمال تغییرات</button>
+      <a class="t10-btn t10-btn--secondary" href="{% url 'team10:trip_detail' trip_id %}">بازگشت</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

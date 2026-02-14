@@ -1,5 +1,6 @@
 from django.http import JsonResponse
-from django.shortcuts import render
+from django.shortcuts import render, redirect
+
 from core.auth import api_login_required
 
 TEAM_NAME = "team11"
@@ -10,3 +11,6 @@ def ping(request):
 
 def base(request):
     return render(request, f"{TEAM_NAME}/index.html")
+
+def front(request):
+    return redirect(f"http://localhost:9151/team11/")

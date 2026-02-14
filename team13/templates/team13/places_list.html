@@ -1,0 +1,452 @@
+{% load static %}
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>مکان‌ها (POI) — امکانات و حمل‌ونقل</title>
+    <link rel="stylesheet" href="{% static 'team13/css/style.css' %}" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100..900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      .team13-places-filter-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: flex-end;
+        margin: 20px 0;
+        padding: 16px;
+        background: #f8faf8;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+      }
+      .team13-places-filter-bar label {
+        font-size: 0.875rem;
+        color: #374151;
+        margin-bottom: 4px;
+        display: block;
+      }
+      .team13-places-filter-bar select {
+        padding: 8px 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        min-width: 120px;
+        font-family: inherit;
+      }
+      .team13-places-filter-bar .filter-group {
+        margin: 0;
+      }
+      .team13-places-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 20px;
+        margin: 24px 0;
+      }
+      .team13-places-grid .card {
+        margin: 0;
+      }
+      .team13-geo-hint {
+        font-size: 0.8rem;
+        color: #6b7280;
+        margin-top: 8px;
+      }
+      .place-card-stars {
+        margin: 4px 0;
+        font-size: 1.1rem;
+        letter-spacing: 1px;
+      }
+      .place-card-stars .star-filled {
+        color: #d4a017;
+      }
+      .place-card-stars .star-empty {
+        color: #e5e7eb;
+      }
+      .team13-admin-entry {
+        margin: 12px 0;
+      }
+      .team13-admin-link {
+        background: #1e3a5f;
+        color: #fff;
+      }
+      .team13-admin-link:hover {
+        background: #2d4a7c;
+        color: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>مکان‌ها (امکانات و نقاط گردشگری)</h1>
+      <h3>Facilities & Transportation — گروه Axiom (تیم ۱۳)</h3>
+      {% include "team13/_auth_header.html" %} {% include "team13/_nav.html" %}
+      {% if is_team13_admin %}
+      <p class="team13-admin-entry">
+        <a href="{% url 'team13:team13_admin_panel' %}" class="team13-nav-btn team13-admin-link">پنل مدیریت</a>
+      </p>
+      {% endif %}
+
+      <form
+        method="get"
+        action="{% url 'team13:place_list' %}"
+        id="team13-places-filter-form"
+        class="team13-places-filter-bar"
+      >
+        <input
+          type="hidden"
+          name="lat"
+          id="team13-filter-lat"
+          value="{{ current_lat|default:'' }}"
+        />
+        <input
+          type="hidden"
+          name="lng"
+          id="team13-filter-lng"
+          value="{{ current_lng|default:'' }}"
+        />
+        <div class="filter-group">
+          <label for="min_rating">رتبه‌بندی</label>
+          <select name="min_rating" id="min_rating">
+            <option value="">همه</option>
+            <option
+              value="5"
+              {%
+              if
+              filter_min_rating=""
+              ="5"
+              %}selected{%
+              endif
+              %}
+            >
+              ۵ ستاره
+            </option>
+            <option
+              value="4"
+              {%
+              if
+              filter_min_rating=""
+              ="4"
+              %}selected{%
+              endif
+              %}
+            >
+              ۴+ ستاره
+            </option>
+            <option
+              value="3"
+              {%
+              if
+              filter_min_rating=""
+              ="3"
+              %}selected{%
+              endif
+              %}
+            >
+              ۳+ ستاره
+            </option>
+            <option
+              value="2"
+              {%
+              if
+              filter_min_rating=""
+              ="2"
+              %}selected{%
+              endif
+              %}
+            >
+              ۲+ ستاره
+            </option>
+            <option
+              value="1"
+              {%
+              if
+              filter_min_rating=""
+              ="1"
+              %}selected{%
+              endif
+              %}
+            >
+              ۱+ ستاره
+            </option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="price_level">قیمت</label>
+          <select name="price_level" id="price_level">
+            <option value="">همه</option>
+            <option
+              value="1"
+              {%
+              if
+              filter_price_level=""
+              ="1"
+              %}selected{%
+              endif
+              %}
+            >
+              اقتصادی (Economy)
+            </option>
+            <option
+              value="2"
+              {%
+              if
+              filter_price_level=""
+              ="2"
+              %}selected{%
+              endif
+              %}
+            >
+              متوسط (Mid-range)
+            </option>
+            <option
+              value="3"
+              {%
+              if
+              filter_price_level=""
+              ="3"
+              %}selected{%
+              endif
+              %}
+            >
+              لوکس (Luxury)
+            </option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="type">نوع</label>
+          <select name="type" id="type">
+            <option value="">همه</option>
+            <option
+              value="hotel"
+              {%
+              if
+              filter_type=""
+              ="hotel"
+              %}selected{%
+              endif
+              %}
+            >
+              هتل
+            </option>
+            <option
+              value="food"
+              {%
+              if
+              filter_type=""
+              ="food"
+              %}selected{%
+              endif
+              %}
+            >
+              رستوران
+            </option>
+            <option
+              value="museum"
+              {%
+              if
+              filter_type=""
+              ="museum"
+              %}selected{%
+              endif
+              %}
+            >
+              موزه
+            </option>
+            <option
+              value="hospital"
+              {%
+              if
+              filter_type=""
+              ="hospital"
+              %}selected{%
+              endif
+              %}
+            >
+              بیمارستان
+            </option>
+            <option
+              value="entertainment"
+              {%
+              if
+              filter_type=""
+              ="entertainment"
+              %}selected{%
+              endif
+              %}
+            >
+              تفریحی
+            </option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="max_distance">فاصله</label>
+          <select name="max_distance" id="max_distance">
+            <option value="">همه</option>
+            <option
+              value="5"
+              {%
+              if
+              filter_max_distance=""
+              ="5"
+              %}selected{%
+              endif
+              %}
+            >
+              کمتر از ۵ کیلومتر
+            </option>
+            <option
+              value="10"
+              {%
+              if
+              filter_max_distance=""
+              ="10"
+              %}selected{%
+              endif
+              %}
+            >
+              کمتر از ۱۰ کیلومتر
+            </option>
+            <option
+              value="25"
+              {%
+              if
+              filter_max_distance=""
+              ="25"
+              %}selected{%
+              endif
+              %}
+            >
+              کمتر از ۲۵ کیلومتر
+            </option>
+            <option
+              value="50"
+              {%
+              if
+              filter_max_distance=""
+              ="50"
+              %}selected{%
+              endif
+              %}
+            >
+              کمتر از ۵۰ کیلومتر
+            </option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="city">شهر</label>
+          <input
+            type="text"
+            name="city"
+            id="city"
+            value="{{ filter_city }}"
+            placeholder="مثلاً تهران"
+            style="
+              padding: 8px 12px;
+              border: 1px solid #d1d5db;
+              border-radius: 6px;
+              min-width: 100px;
+            "
+          />
+        </div>
+        <div class="filter-group" style="align-self: flex-end">
+          <button type="submit" class="btn-submit">اعمال فیلتر</button>
+        </div>
+      </form>
+      <p class="team13-geo-hint" id="team13-geo-status">
+        برای به‌روزرسانی فاصله‌ها، موقعیت شما به‌طور خودکار دریافت می‌شود.
+      </p>
+
+      <div class="team13-places-grid">
+        {% for p in places %}
+        <div class="card">
+          <p
+            style="
+              margin: 0 0 6px 0;
+              font-weight: 600;
+              color: var(--team13-sidebar-green, #1b4332);
+            "
+          >
+            {{ p.name_fa|default:p.name_en|default:"بدون نام" }}
+          </p>
+          <span class="type-badge">{{ p.type_display }}</span>
+          {% if p.rating %}
+          <p class="place-card-stars" aria-label="امتیاز: {{ p.rating }}">
+            {% for star in "12345" %}
+            <span
+              class="star {% if p.rating >= forloop.counter %}star-filled{% else %}star-empty{% endif %}"
+              >★</span
+            >
+            {% endfor %}
+          </p>
+          {% endif %} {% if p.distance_km is not None %}
+          <p style="margin: 4px 0; font-size: 0.85rem; color: #6b7280">
+            فاصله: {{ p.distance_km }} کیلومتر
+          </p>
+          {% endif %}
+          <div class="meta">{{ p.city }} — {{ p.address|truncatewords:8 }}</div>
+          <a
+            href="{% url 'team13:place_detail' p.place_id %}"
+            class="team13-card-link"
+            >مشاهده جزئیات</a
+          >
+        </div>
+        {% empty %}
+        <p class="detail-box" style="grid-column: 1 / -1">
+          مکانی یافت نشد. فیلتر را تغییر دهید یا داده بارگذاری کنید.
+        </p>
+        {% endfor %}
+      </div>
+
+      <a href="{% url 'team13:index' %}" class="back-btn team13-back-to-map"
+        >بازگشت به نقشه</a
+      >
+      {% include "team13/_footer.html" %}
+    </div>
+
+    <script src="{% static 'team13/js/auth_keepalive.js' %}"></script>
+    <script>
+      (function () {
+        var form = document.getElementById("team13-places-filter-form");
+        var latInput = document.getElementById("team13-filter-lat");
+        var lngInput = document.getElementById("team13-filter-lng");
+        var statusEl = document.getElementById("team13-geo-status");
+
+        function currentQueryWithoutCoords() {
+          var params = new URLSearchParams(window.location.search);
+          params.delete("lat");
+          params.delete("lng");
+          return params.toString();
+        }
+
+        function redirectWithCoords(lat, lng) {
+          var params = new URLSearchParams(window.location.search);
+          params.set("lat", String(lat));
+          params.set("lng", String(lng));
+          var url =
+            '{% url "team13:place_list" %}' +
+            (params.toString() ? "?" + params.toString() : "");
+          window.location.href = url;
+        }
+
+        if (!latInput.value && !lngInput.value && navigator.geolocation) {
+          statusEl.textContent = "در حال دریافت موقعیت شما...";
+          navigator.geolocation.getCurrentPosition(
+            function (pos) {
+              var lat = pos.coords.latitude;
+              var lng = pos.coords.longitude;
+              redirectWithCoords(lat, lng);
+            },
+            function () {
+              statusEl.textContent =
+                "دسترسی به موقعیت امکان‌پذیر نبود. فاصله‌ها نمایش داده نمی‌شوند.";
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
+          );
+        } else if (latInput.value && lngInput.value) {
+          statusEl.textContent = "فاصله‌ها بر اساس موقعیت شما محاسبه شده‌اند.";
+        }
+      })();
+    </script>
+  </body>
+</html>

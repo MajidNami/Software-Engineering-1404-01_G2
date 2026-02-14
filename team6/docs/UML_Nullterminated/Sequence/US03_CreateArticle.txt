@@ -1,0 +1,78 @@
+@startuml
+hide footbox
+skinparam monochrome true
+skinparam shadowing false
+skinparam ArrowThickness 1
+skinparam sequence {
+  ParticipantPadding 20
+  BoxPadding 10
+  ActivationBarWidth 3
+}
+
+title US-03 — Create New Article
+actor "Contributor" as Contributor
+participant "UI" as UI
+participant "ArticleController" as ArticleController
+participant "AuthorizationService" as AuthorizationService
+participant "ArticleService" as ArticleService
+participant "ArticleRepository" as ArticleRepository
+participant "RevisionService" as RevisionService
+participant "RevisionRepository" as RevisionRepository
+participant "TagService" as TagService
+participant "NLPProcessor" as NLPProcessor
+participant "TagRepository" as TagRepository
+
+activate Contributor
+Contributor -> UI : fillCreateForm(data)
+activate UI
+UI -> ArticleController : createArticle(request)
+activate ArticleController
+ArticleController -> AuthorizationService : checkPermission(userId, action, resourceId)
+activate AuthorizationService
+AuthorizationService --> ArticleController : allowed:boolean
+deactivate AuthorizationService
+ArticleController -> ArticleService : createArticle(article)
+activate ArticleService
+ArticleService -> ArticleRepository : save(article)
+activate ArticleRepository
+ArticleRepository --> ArticleService : saved:Article
+deactivate ArticleRepository
+ArticleService -> RevisionService : createRevision(articleId, content, editorId)
+activate RevisionService
+RevisionService -> RevisionRepository : save(revision)
+activate RevisionRepository
+RevisionRepository --> RevisionService : Revision
+deactivate RevisionRepository
+RevisionService --> ArticleService : Revision
+deactivate RevisionService
+ArticleService -> TagService : generateAutoTags(content)
+activate TagService
+TagService -> NLPProcessor : extractKeywords(text)
+activate NLPProcessor
+NLPProcessor --> TagService : keywords
+deactivate NLPProcessor
+TagService -> NLPProcessor : extractEntities(text)
+activate NLPProcessor
+NLPProcessor --> TagService : entities
+deactivate NLPProcessor
+TagService -> TagRepository : findBySlug(slug)
+activate TagRepository
+TagRepository --> TagService : tag/null
+deactivate TagRepository
+TagService -> TagRepository : save(tag)
+activate TagRepository
+TagRepository --> TagService : Tag
+deactivate TagRepository
+TagService -> TagService : addTagToArticle(articleId, tagId)
+activate TagService
+TagService --> ArticleService : tags
+deactivate TagService
+ArticleService --> ArticleController : created:Article
+deactivate ArticleService
+ArticleController --> UI : Response(created)
+deactivate ArticleController
+UI --> Contributor : showCreatedArticle()
+deactivate UI
+deactivate Contributor
+deactivate TagService
+@enduml

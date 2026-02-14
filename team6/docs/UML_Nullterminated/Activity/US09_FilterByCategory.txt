@@ -1,0 +1,21 @@
+@startuml AD_US09_FilterByCategory
+|Guest|
+start
+:select category;
+
+|CategoryController|
+:getArticlesByCategory(categoryId);
+
+|CategoryService|
+:getArticlesByCategory(categoryId);
+
+|ArticleRepository|
+:findByCategory(categoryId);
+
+|CategoryService|
+:return articles;
+
+|Guest|
+:view filtered articles;
+stop
+@enduml

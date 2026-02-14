@@ -1,0 +1,51 @@
+@startuml
+hide footbox
+skinparam monochrome true
+skinparam shadowing false
+skinparam ArrowThickness 1
+skinparam sequence {
+  ParticipantPadding 20
+  BoxPadding 10
+  ActivationBarWidth 3
+}
+
+title US-02 — View Article (with AI Summary)
+actor "User" as User
+participant "UI" as UI
+participant "ArticleController" as ArticleController
+participant "ArticleService" as ArticleService
+participant "ArticleRepository" as ArticleRepository
+participant "LLMService" as LLMService
+participant "LLMClient" as LLMClient
+
+activate User
+User -> UI : selectArticle(articleId)
+activate UI
+UI -> ArticleController : getArticleById(id)
+activate ArticleController
+ArticleController -> ArticleService : getArticleById(id)
+activate ArticleService
+ArticleService -> ArticleRepository : findById(id)
+activate ArticleRepository
+ArticleRepository --> ArticleService : Article
+deactivate ArticleRepository
+ArticleService -> LLMService : isServiceAvailable()
+activate LLMService
+LLMService --> ArticleService : available:boolean
+deactivate LLMService
+ArticleService -> LLMService : generateSummary(content, type)
+activate LLMService
+LLMService -> LLMClient : summarize(text)
+activate LLMClient
+LLMClient --> LLMService : summary:String
+deactivate LLMClient
+LLMService --> ArticleService : summary:String
+deactivate LLMService
+ArticleService --> ArticleController : article(with summary)
+deactivate ArticleService
+ArticleController --> UI : Response(article)
+deactivate ArticleController
+UI --> User : displayArticle(article)
+deactivate UI
+deactivate User
+@enduml

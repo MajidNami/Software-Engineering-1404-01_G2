@@ -1,0 +1,10 @@
+{% extends "team6/base.html" %}
+{% block title %}گزارش ثبت شد{% endblock %}
+
+{% block content %}
+<div class="alert alert-success mt-4">
+    <h3>گزارش شما با موفقیت ثبت شد!</h3>
+    <p>ممنون که به بهبود محتوای ویکی کمک می‌کنید.</p>
+    <a href="{% url 'team6:article_detail' slug=article.slug %}" class="btn btn-primary">بازگشت به مقاله</a>
+</div>
+{% endblock %}

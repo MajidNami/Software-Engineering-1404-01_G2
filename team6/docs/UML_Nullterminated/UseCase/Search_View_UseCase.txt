@@ -1,0 +1,31 @@
+@startuml Wiki_Search_View_UseCase
+left to right direction
+
+actor "کاربر" as User
+
+rectangle "جستجو و مشاهده مقالات" {
+  usecase "ورود عبارت جستجو\n(UC-01.1)" as UC011
+  usecase "پردازش جستجوی معنایی\n(UC-01.2)" as UC012
+  usecase "نمایش نتایج\n(UC-01.3)" as UC013
+  usecase "فیلتر بر اساس تاریخ\n(UC-03.1)" as UC031
+  usecase "فیلتر بر اساس محبوبیت\n(UC-03.2)" as UC032
+  usecase "فیلتر بر اساس دسته‌بندی\n(UC-03.3)" as UC033
+  usecase "باز کردن مقاله\n(UC-02.1)" as UC021
+  usecase "نمایش محتوای کامل\n(UC-02.2)" as UC022
+  usecase "کلیک بر پیوند داخلی\n(UC-02.3)" as UC023
+  usecase "مشاهده مقالات مرتبط\n(UC-02.4)" as UC024
+}
+
+User --> UC011
+UC011 ..> UC012 : <<include>>
+UC012 ..> UC013 : <<include>>
+UC013 ..> UC031 : <<extend>>
+UC013 ..> UC032 : <<extend>>
+UC013 ..> UC033 : <<extend>>
+
+User --> UC021
+UC021 ..> UC022 : <<include>>
+UC022 ..> UC023 : <<extend>>
+UC022 ..> UC024 : <<extend>>
+
+@enduml

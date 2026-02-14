@@ -1,0 +1,19 @@
+@startuml AD_US04_EditArticle
+|Contributor|
+start
+:edit article;
+
+|ArticleController|
+:updateArticle(articleId, request);
+
+|AuthorizationService|
+:canEditArticle(userId, articleId);
+
+|ArticleService|
+:updateArticle(articleId, article);
+
+|RevisionService|
+:createRevision(articleId, content, userId);
+
+stop
+@enduml

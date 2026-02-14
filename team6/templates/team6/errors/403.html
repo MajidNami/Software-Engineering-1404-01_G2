@@ -1,0 +1,19 @@
+{% extends "team6/base.html" %}
+
+{% block content %}
+<div style="text-align: center; padding: 50px;">
+    <h1 style="font-size: 100px; color: #d35400;">۴۰۳</h1>
+    <h2>دسترسی غیرمجاز!</h2>
+    <p>شما اجازه دسترسی به این صفحه یا انجام این عملیات را ندارید.</p>
+    <p>اگر وارد حساب کاربری خود نشده‌اید، ابتدا لاگین کنید.</p>
+    <br>
+    <div style="display: flex; justify-content: center; gap: 10px;">
+        <a href="/auth/" style="background: #2ecc71; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none;">
+            ورود به سیستم
+        </a>
+        <a href="{% url 'team6:index' %}" style="background: #7f8c8d; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none;">
+            بازگشت به صفحه اصلی
+        </a>
+    </div>
+</div>
+{% endblock %}

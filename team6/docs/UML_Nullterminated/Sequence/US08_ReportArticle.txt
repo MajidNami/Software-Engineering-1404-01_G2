@@ -1,0 +1,45 @@
+@startuml
+hide footbox
+skinparam monochrome true
+skinparam shadowing false
+skinparam ArrowThickness 1
+skinparam sequence {
+  ParticipantPadding 20
+  BoxPadding 10
+  ActivationBarWidth 3
+}
+
+title US-08 — Report Article
+actor "User" as User
+participant "UI" as UI
+participant "ReportController" as ReportController
+participant "ReportService" as ReportService
+participant "ReportRepository" as ReportRepository
+participant "NotificationService" as NotificationService
+
+activate User
+User -> UI : submitReport(articleId, type, desc)
+activate UI
+UI -> ReportController : reportArticle(request)
+activate ReportController
+ReportController -> ReportService : createReport(report)
+activate ReportService
+ReportService -> ReportRepository : save(report)
+activate ReportRepository
+ReportRepository --> ReportService : saved:Report
+deactivate ReportRepository
+ReportService -> ReportService : notifyModerators(report)
+activate ReportService
+ReportService -> NotificationService : sendNotification(userId, message)
+activate NotificationService
+NotificationService --> ReportService : ok
+deactivate NotificationService
+ReportService --> ReportController : saved:Report
+deactivate ReportService
+ReportController --> UI : Response(OK)
+deactivate ReportController
+UI --> User : showReportSubmitted()
+deactivate UI
+deactivate User
+deactivate ReportService
+@enduml

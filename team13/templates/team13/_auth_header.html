@@ -1,0 +1,14 @@
+{% comment %}
+بخش وضعیت کاربر (یکپارچه با Core): ورود / خروج / نام کاربر.
+متغیر team13_user از _team13_context در view پر می‌شود.
+لینک ورود با next برای بازگشت به همین صفحه یا /team13/ پس از لاگین.
+{% endcomment %}
+<div class="auth-header">
+  {% if team13_user %}
+  <span class="auth-user-name">سلام، {{ team13_user.first_name|default:team13_user.email }}</span>
+  <a href="{% url 'logout' %}" class="back-btn auth-btn-small">خروج</a>
+  {% else %}
+  <a href="{% url 'auth' %}?next={{ request.path|default:'/team13/' }}" class="back-btn auth-btn-small">ورود</a>
+  <a href="{% url 'signup' %}?next={{ request.path|default:'/team13/' }}" class="btn-gold back-btn auth-btn-small">ثبت‌نام</a>
+  {% endif %}
+</div>

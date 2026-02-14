@@ -1,0 +1,34 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>رویدادها — امکانات و حمل‌ونقل</title>
+    <link rel="stylesheet" href="{% static 'team13/css/style.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100..900&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <h1>رویدادها</h1>
+        <h3>Facilities & Transportation — گروه Axiom (تیم ۱۳)</h3>
+        {% include "team13/_auth_header.html" %}
+        {% include "team13/_nav.html" %}
+
+        <div class="card-list">
+            {% for e in events %}
+            <div class="card">
+                <a href="{% url 'team13:event_detail' e.event_id %}">{{ e.title_fa|default:e.title_en|default:"رویداد" }}</a>
+                <div class="meta">{{ e.city|default:"—" }} — شروع: {{ e.start_at|date:"Y/m/d H:i" }} — پایان: {{ e.end_at|date:"Y/m/d H:i" }}</div>
+            </div>
+            {% empty %}
+            <p class="detail-box">رویدادی یافت نشد. داده نمونه را با loaddata_team13_csv بارگذاری کنید.</p>
+            {% endfor %}
+        </div>
+
+        <a href="{% url 'team13:index' %}" class="back-btn">بازگشت به صفحه اصلی</a>
+        {% include "team13/_footer.html" %}
+    </div>
+    <script src="{% static 'team13/js/auth_keepalive.js' %}"></script>
+</body>
+</html>

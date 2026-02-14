@@ -1,0 +1,215 @@
+﻿.trip-list { display: grid; gap: 12px; }
+.trip-card {
+  background: #fffef8;
+  border: 1px solid #d7decf;
+  border-radius: 16px;
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+}
+.trip-card h3 { margin: 0 0 6px; color: var(--green-900); }
+.trip-card p { margin: 0; color: var(--ink-700); }
+.trip-meta { display: flex; gap: 14px; flex-wrap: wrap; color: #2f4132; }
+.trip-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Trips list filter/search card */
+.page-header + .t10-filter-card {
+  margin-top: -6px;
+}
+
+.t10-filter-card {
+  background: var(--glass);
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  border-radius: 16px;
+  padding: 18px;
+  margin-bottom: 18px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.07);
+}
+
+.t10-filter-card .t10-filter-form {
+  display: grid;
+  gap: 16px;
+}
+
+.t10-filter-card__title {
+  color: var(--forest-green);
+  font-weight: 800;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.t10-filter-card .t10-filter-grid--top {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.t10-filter-card .t10-filter-grid--bottom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px;
+  gap: 16px;
+  align-items: end;
+}
+
+.t10-filter-card .t10-field {
+  min-width: 0;
+}
+
+.t10-filter-card .t10-field label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #2f4f38;
+}
+
+.t10-filter-card .t10-field input,
+.t10-filter-card .t10-field select,
+.t10-filter-card .t10-btn {
+  height: 48px;
+  border-radius: 12px;
+}
+
+.t10-filter-card .t10-field input,
+.t10-filter-card .t10-field select {
+  width: 100%;
+  border: 1px solid #c8d3c7;
+  background: #fff;
+  padding: 0 12px;
+  font: inherit;
+}
+
+.t10-filter-card .t10-field input:focus,
+.t10-filter-card .t10-field select:focus {
+  outline: none;
+  border-color: var(--leaf-green);
+  box-shadow: 0 0 0 3px rgba(67, 160, 71, 0.2);
+}
+
+.t10-filter-card .t10-input-with-icon {
+  position: relative;
+}
+
+.t10-filter-card .t10-input-with-icon .t10-jalali-input {
+  padding-inline-start: 42px;
+}
+
+.t10-filter-card .t10-calendar-icon {
+  position: absolute;
+  inset-inline-start: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6b7f70;
+  pointer-events: auto;
+}
+
+.t10-filter-card .t10-actions {
+  margin: 0;
+}
+
+.t10-filter-card .t10-actions .t10-btn {
+  width: 100%;
+}
+
+.t10-filter-card .t10-btn--secondary {
+  background: var(--persian-gold);
+  color: #3e2723;
+  border: 1px solid rgba(255, 179, 0, 0.55);
+  box-shadow: 0 6px 12px rgba(255, 179, 0, 0.2);
+}
+
+.t10-filter-card .t10-btn--secondary:hover {
+  background: #ffca28;
+}
+
+.t10-filter-card .t10-btn--secondary:focus-visible {
+  box-shadow: 0 0 0 3px rgba(67, 160, 71, 0.2);
+}
+
+@media (max-width: 900px) {
+  .t10-filter-card .t10-filter-grid--top {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .t10-filter-card .t10-filter-grid--bottom {
+    grid-template-columns: minmax(0, 1fr) 140px;
+  }
+}
+
+@media (max-width: 600px) {
+  .t10-filter-card {
+    padding: 14px;
+  }
+
+  .t10-filter-card .t10-filter-grid--top,
+  .t10-filter-card .t10-filter-grid--bottom {
+    grid-template-columns: 1fr;
+  }
+
+  .t10-filter-card .t10-actions .t10-btn {
+    width: 100%;
+  }
+}
+
+/* Trips list: compact search button (scoped) */
+.t10-filter-card .t10-filter-grid--bottom button.t10-search-btn,
+.t10-filter-card .t10-actions button.t10-search-btn {
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 14px !important;
+  border-radius: 12px !important;
+  font-size: 13px !important;
+  line-height: 40px !important;
+
+  width: auto !important;
+  min-width: 96px !important;
+  flex: 0 0 auto !important;
+
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  white-space: nowrap !important;
+}
+
+/* FORCE yellow style ONLY for this button, regardless of other .btn/.t10-btn styles */
+.t10-filter-card .t10-filter-grid--bottom button.t10-search-btn,
+.t10-filter-card .t10-actions button.t10-search-btn {
+  background: var(--persian-gold) !important;
+  color: #3e2723 !important;
+  border: 1px solid rgba(255,179,0,.55) !important;
+  box-shadow: 0 6px 12px rgba(255,179,0,.20) !important;
+}
+
+.t10-filter-card .t10-filter-grid--bottom button.t10-search-btn:hover,
+.t10-filter-card .t10-actions button.t10-search-btn:hover {
+  background: #ffca28 !important;
+}
+
+.t10-filter-card .t10-filter-grid--bottom {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.t10-filter-card .t10-filter-grid--bottom .t10-field { flex: 0 1 550px; }
+
+/* Trips list bottom row compact + button nudge */
+.t10-filter-card .t10-filter-grid--bottom{
+  gap: 12px;
+  align-items: flex-start;
+}
+
+/* shrink ONLY the search input field (bottom row) */
+.t10-filter-card .t10-filter-grid--bottom .t10-field input{
+  height: 44px !important;
+  border-radius: 12px !important;
+}
+
+/* nudge the button slightly down and keep it compact */
+.t10-filter-card .t10-filter-grid--bottom button.t10-search-btn{
+  height: 0px !important;
+  line-height: 40px !important;
+  margin-top: 30px !important;
+  align-self: flex-start;
+}

@@ -1,0 +1,96 @@
+@login_required
+def edit_article(request, slug):
+    article = get_object_or_404(WikiArticle, slug=slug)
+    if article.author_user_id != request.user.id:
+        return render(request, 'team6/not_allowed.html', {
+            'message': '✋ فقط نویسنده‌ی مقاله می‌تواند مقاله را ویرایشش کند'
+        })
+    
+    # این متغیر را باید از خود مقاله بگیریم
+    current_rev = WikiArticleRevision.objects.filter(article=article).count() + 1
+
+    if request.method == "POST":
+        # ذخیره نسخه قبلی در تاریخچه
+        WikiArticleRevision.objects.create(
+            article=article,
+            revision_no=current_rev,
+            body_fa=request.POST.get('body_fa', article.body_fa),
+            editor_user_id=request.user.id,
+            change_note=request.POST.get('change_note', 'ویرایش بدون توضیح')
+        )
+
+        # آپدیت مقادیر مقاله
+        article.title_fa = request.POST.get('title_fa', article.title_fa)
+        article.body_fa = request.POST.get('body_fa', article.body_fa)
+        article.summary = request.POST.get('summary', article.summary)
+        
+        # آپدیت دسته‌بندی اگر تغییر کرده
+        category_id = request.POST.get('category')
+        if category_id:
+            try:
+                article.category = WikiCategory.objects.get(id_category=category_id)
+            except WikiCategory.DoesNotExist:
+                pass
+        tags_input = request.POST.get('tags', '')
+        article.tags.clear()
+        for tag_name in [t.strip() for t in tags_input.split(",") if t.strip()]:
+            tag, _ = WikiTag.objects.get_or_create(
+                title_fa=tag_name,
+                defaults={'slug': tag_name.replace(' ', '-').replace('‌', '-')[:50],
+                        'title_en': tag_name}
+            )
+            article.tags.add(tag)
+        
+        article.current_revision_no = current_rev + 1
+        article.last_editor_user_id = request.user.id
+        # article.featured_image_url = request.POST.get('featured_image_url', article.featured_image_url)
+        article.save()
+        sync_internal_links(article)
+
+        messages.success(request, "✅ مقاله با موفقیت ویرایش شد")
+        return redirect('team6:article_detail', slug=article.slug)
+
+    # برای GET، فرم و دسته‌بندی‌ها را به قالب می‌فرستیم
+    categories = WikiCategory.objects.all()
+    # all_articles = WikiArticle.objects.filter(status='published').values('title_fa', 'slug')
+    all_articles = WikiArticle.objects.filter(status='published')
+    return render(request, 'team6/article_edit.html', {
+        'article': article,
+        'categories': categories,
+        'all_articles': all_articles, # اضافه شود
+    })
+# گزارش مقاله 
+def article_revision_detail(request, slug, revision_no):
+    article = get_object_or_404(WikiArticle, slug=slug)
+    revision = get_object_or_404(
+        WikiArticleRevision,
+        article=article,
+        revision_no=revision_no
+    )
+
+    return render(request, 'team6/article_revision_detail.html', {
+        'article': article,
+        'revision': revision,
+    })
+
+def report_article(request, slug):
+    if not request.user.is_authenticated:
+        return redirect('/auth/')
+    
+    article = get_object_or_404(WikiArticle, slug=slug)
+    
+    if request.method == "POST":
+        reporter_id = request.user.id 
+        try:
+            WikiArticleReports.objects.create(
+                article=article,
+                reporter_user_id=reporter_id,
+                report_type=request.POST.get('type', 'other'),
+                description=request.POST.get('desc', '')
+            )
+            return render(request, 'team6/report_success.html', {'article': article})
+        except IntegrityError:
+            # این خطا زمانی رخ می‌دهد که کاربر قبلاً برای این مقاله گزارش ثبت کرده باشد
+            messages.warning(request, "شما قبلاً این مقاله را گزارش داده‌اید و گزارش شما در دست بررسی است.")
+            return redirect('team6:article_detail', slug=slug)
+    return render(request, 'team6/article_report.html', {'article': article})

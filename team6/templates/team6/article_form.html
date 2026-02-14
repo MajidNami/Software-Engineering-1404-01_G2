@@ -1,0 +1,179 @@
+{% extends "team6/base.html" %}
+{% load static %}
+
+{% block title %}ایجاد مقاله جدید{% endblock %}
+
+{% block content %}
+<style>
+    .form-control:focus { border-color: #4CAF50; box-shadow: 0 0 0 0.2rem rgba(76, 175, 80, 0.25); }
+    #articleSelect option { padding: 8px; border-bottom: 1px solid #eee; }
+
+    /* استایل لینک‌ها در باکس پیش‌نمایش */
+    #livePreview a.internal-link {
+        color: #0066cc !important;
+        text-decoration: underline !important;
+        font-weight: bold;
+    }
+
+    #livePreview {
+        background-color: #f9f9f9;
+        min-height: 100px;
+        border: 1px dashed #ccc;
+        line-height: 1.8;
+    }
+</style>
+{% if form.errors %}
+    <div class="alert alert-danger">
+        {{ form.errors }}
+    </div>
+{% endif %}
+
+<div class="card shadow-sm border-0">
+    <div class="card-header py-3" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white;">
+        <h4 class="mb-0"><i class="fa-solid fa-plus-circle"></i> ایجاد مقاله جدید</h4>
+    </div>
+
+    <div class="card-body p-4">
+        <form method="POST" id="articleForm">
+            {% csrf_token %}
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">
+                        عنوان مقاله <span class="text-danger">*</span>
+                    </label>
+                    <input type="text" name="title_fa" id="title_fa" class="form-control" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">نام مکان</label>
+                    <input type="text" name="place_name" id="place_name" class="form-control">
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">
+                    دسته‌بندی <span class="text-danger">*</span>
+                </label>
+                <select name="category" class="form-select" required>
+                    {% for cat in categories %}
+                        <option value="{{ cat.id_category }}">{{ cat.title_fa }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">
+                    تگ‌ها 
+                </label>
+                <input type="text" name="tags" class="form-control"
+                    placeholder="مثلاً: تاریخ, معماری, ایران (با کاما جدا کنید)" >
+                <small class="text-muted">تگ‌ها را با , از هم جدا کنید</small>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">آدرس تصویر شاخص (URL)</label>
+                <input type="url"
+                    name="featured_image_url"
+                    class="form-control"
+                    placeholder="https://example.com/image.jpg">
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label fw-bold d-flex justify-content-between">
+                    <span>متن مقاله <span class="text-danger">*</span></span>
+                    <button type="button" class="btn btn-sm btn-primary" id="addLinkBtn">
+                        <i class="fa-solid fa-link"></i> درج پیوند داخلی
+                    </button>
+                </label>
+
+                <textarea name="body_fa" id="body_fa" class="form-control mt-2" rows="10" required></textarea>
+
+                <div class="mt-3">
+                    <small class="text-muted"><i class="fa-solid fa-eye"></i> پیش‌نمایش زنده (لینک‌های آبی را اینجا ببینید):</small>
+                    <div id="livePreview" class="p-3 mt-1 rounded"></div>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">خلاصه مقاله</label>
+                <textarea name="summary" id="summary" class="form-control" rows="2"></textarea>
+            </div>
+
+            {% comment %} <button type="submit" class="btn btn-success px-5">ذخیره مقاله</button> {% endcomment %}
+            <button type="submit" name="save_published" class="btn btn-success">انتشار مقاله</button>
+            <button type="submit" name="save_draft" class="btn btn-secondary">ذخیره به عنوان پیش‌نویس</button>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="linkModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5>انتخاب مقاله مقصد</h5></div>
+            <div class="modal-body">
+                <input type="text" id="articleSearch" class="form-control mb-2" placeholder="جستجو...">
+                <select id="articleSelect" class="form-select" size="8">
+                    {% for art in all_articles %}
+                        <option value="{{ art.slug }}">{{ art.title_fa }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="modal-footer"><button id="confirmLink" class="btn btn-primary">تایید</button></div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const bodyTextarea = document.getElementById('body_fa');
+    const livePreview = document.getElementById('livePreview');
+    const addLinkBtn = document.getElementById('addLinkBtn');
+    const linkModal = new bootstrap.Modal(document.getElementById('linkModal'));
+    const confirmLink = document.getElementById('confirmLink');
+    const articleSelect = document.getElementById('articleSelect');
+
+    let selectionStart, selectionEnd, selectedText;
+
+    function updatePreview() {
+        let content = bodyTextarea.value.replace(/\n/g, '<br>');
+        livePreview.innerHTML = content;
+    }
+
+    bodyTextarea.addEventListener('input', updatePreview);
+
+    addLinkBtn.addEventListener('click', function() {
+        selectionStart = bodyTextarea.selectionStart;
+        selectionEnd = bodyTextarea.selectionEnd;
+        selectedText = bodyTextarea.value.substring(selectionStart, selectionEnd);
+        if (!selectedText.trim()) { alert("ابتدا متنی را انتخاب کنید"); return; }
+        linkModal.show();
+    });
+
+    confirmLink.addEventListener('click', function() {
+        const targetSlug = articleSelect.value;
+        if (targetSlug) {
+            // لینک داخلی با الگوی ثابت /team6/article/<slug>/ ساخته می‌شود تا بعداً در sync_internal_links شناسایی و ذخیره شود.
+            const linkHtml = `<a href="/team6/article/${targetSlug}/" class="internal-link">${selectedText}</a>`;
+            bodyTextarea.value = bodyTextarea.value.substring(0, selectionStart) + linkHtml + bodyTextarea.value.substring(selectionEnd);
+            updatePreview();
+        }
+        linkModal.hide();
+    });
+    const articleSearch = document.getElementById('articleSearch');
+
+articleSearch.addEventListener('input', function() {
+    const searchValue = this.value.toLowerCase();
+    const options = articleSelect.options;
+
+    for (let i = 0; i < options.length; i++) {
+        const text = options[i].text.toLowerCase();
+        if (text.includes(searchValue)) {
+            options[i].style.display = '';
+        } else {
+            options[i].style.display = 'none';
+        }
+    }
+});
+});
+</script>
+{% endblock %}  

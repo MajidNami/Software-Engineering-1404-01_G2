@@ -1,0 +1,94 @@
+syntax = "proto3";
+
+package wiki.v1;
+
+// -----------------------------------------------------------------------------
+// Wiki Service Definition
+// -----------------------------------------------------------------------------
+
+// WikiService is the content delivery network for the system.
+// It is responsible for serving rich text descriptions and media assets (Images/Videos).
+service WikiService {
+  
+  // Retrieves brief information (Summary + Media) for a list of places.
+  // Used to populate UI cards in the Trip Planner.
+  rpc GetPlaceBriefs(GetPlaceBriefsRequest) returns (GetPlaceBriefsResponse);
+}
+
+// -----------------------------------------------------------------------------
+// Enums
+// -----------------------------------------------------------------------------
+
+// Controls the length of the summary text returned.
+enum BriefLength {
+  BRIEF_LENGTH_UNSPECIFIED = 0;
+  BRIEF_LENGTH_SHORT = 1; // Approx. 100 characters.
+  BRIEF_LENGTH_MEDIUM = 2; // Approx. 300 characters.
+}
+
+// Controls the format of the text returned.
+enum TextFormat {
+  TEXT_FORMAT_UNSPECIFIED = 0;
+  TEXT_FORMAT_PLAIN = 1;
+  TEXT_FORMAT_HTML = 2; // Useful for preserving basic formatting like bolding keywords.
+}
+
+// Defines the type of media asset.
+enum MediaType {
+  MEDIA_TYPE_UNSPECIFIED = 0;
+  MEDIA_TYPE_IMAGE = 1;
+  MEDIA_TYPE_VIDEO = 2;
+  MEDIA_TYPE_PANORAMA = 3; // 360-degree view.
+}
+
+// -----------------------------------------------------------------------------
+// Messages
+// -----------------------------------------------------------------------------
+
+message GetPlaceBriefsRequest {
+  repeated string place_ids = 1;
+  string language_code = 2; 
+  BriefLength length = 3;
+  TextFormat format = 4; 
+}
+
+// Represents a single media asset with metadata.
+message MediaItem {
+  string url = 1;
+  MediaType type = 2;
+  
+  // Localized caption for the media.
+  string caption = 3; 
+  
+  // Copyright or photographer credit.
+  string credit = 4;  
+}
+
+// Represents the content-heavy summary of a place.
+message PlaceBrief {
+  string place_id = 1;
+  
+  // Display name of the place (from Wiki's knowledge base).
+  string name = 2; 
+  
+  // Short description or summary text.
+  string summary_text = 3; 
+  
+  // URL to the full article or details page.
+  string full_details_url = 4; 
+  
+  // --- Media Fields ---
+  
+  // The primary image URL for list/card views.
+  string main_image_url = 5; 
+  
+  // A collection of media items for galleries or sliders.
+  repeated MediaItem gallery_media = 6;
+}
+
+message GetPlaceBriefsResponse {
+  repeated PlaceBrief briefs = 1;
+  
+  // List of IDs that could not be found in the Wiki service.
+  repeated string not_found_ids = 2;
+}

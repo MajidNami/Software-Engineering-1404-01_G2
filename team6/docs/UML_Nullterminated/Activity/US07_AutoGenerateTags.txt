@@ -1,0 +1,22 @@
+@startuml AD_US07_AutoGenerateTags
+|System|
+start
+:detect article creation or update;
+
+|ArticleService|
+:getArticleById(articleId);
+
+|LLMService|
+:generateTags(article.content);
+
+|TagService|
+:generateAutoTags(article.content);
+
+|TagService|
+:addTagToArticle(articleId, tagId);
+
+|Article|
+:tagged successfully;
+
+stop
+@enduml

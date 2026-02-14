@@ -1,0 +1,24 @@
+@startuml AD_US02_ViewArticle
+|Guest|
+start
+:select article;
+
+|ArticleController|
+:getArticleById(articleId);
+
+|ArticleService|
+:getArticleById(articleId);
+
+|Article|
+:getBody();
+
+|Guest|
+:read article;
+
+if (view related articles?) then (yes)
+  |SearchService|
+  :sortByRelevance(articles, article.content);
+endif
+
+stop
+@enduml

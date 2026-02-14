@@ -1,0 +1,12 @@
+@startuml AD_US10_ReceiveNotification
+|System|
+start
+:article updated;
+
+|NotificationService|
+:notifyFollowers(articleId,"UPDATED");
+
+|User|
+:receive notification;
+stop
+@enduml

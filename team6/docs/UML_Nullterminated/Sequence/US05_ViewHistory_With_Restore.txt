@@ -1,0 +1,67 @@
+@startuml
+hide footbox
+skinparam monochrome true
+skinparam shadowing false
+skinparam ArrowThickness 1
+skinparam sequence {
+  ParticipantPadding 20
+  BoxPadding 10
+  ActivationBarWidth 3
+}
+
+title US-05 — View History / Compare / Restore
+actor "Editor" as Editor
+participant "UI" as UI
+participant "ArticleController" as ArticleController
+participant "ArticleService" as ArticleService
+participant "RevisionService" as RevisionService
+participant "RevisionRepository" as RevisionRepository
+participant "ArticleRepository" as ArticleRepository
+
+activate Editor
+Editor -> UI : openHistory(articleId)
+activate UI
+UI -> ArticleController : getArticleHistory(id)
+activate ArticleController
+ArticleController -> ArticleService : getArticleHistory(id)
+activate ArticleService
+ArticleService -> RevisionService : getRevisionHistory(articleId)
+activate RevisionService
+RevisionService -> RevisionRepository : findByArticleId(articleId)
+activate RevisionRepository
+RevisionRepository --> RevisionService : List<Revision>
+deactivate RevisionRepository
+RevisionService --> ArticleService : revisions
+deactivate RevisionService
+ArticleService --> ArticleController : revisions
+deactivate ArticleService
+ArticleController --> UI : Response(revisions)
+deactivate ArticleController
+UI -> RevisionService : compareRevisions(rev1, rev2)
+activate RevisionService
+RevisionService -> RevisionRepository : findById(rev1)
+activate RevisionRepository
+RevisionRepository --> RevisionService : Revision(r1)
+deactivate RevisionRepository
+RevisionService -> RevisionRepository : findById(rev2)
+activate RevisionRepository
+RevisionRepository --> RevisionService : Revision(r2)
+deactivate RevisionRepository
+RevisionService --> UI : DiffResult
+deactivate RevisionService
+UI -> RevisionService : restoreRevision(revisionId)
+activate RevisionService
+RevisionService -> RevisionRepository : findById(revisionId)
+activate RevisionRepository
+RevisionRepository --> RevisionService : Revision
+deactivate RevisionRepository
+RevisionService -> ArticleRepository : update(article)
+activate ArticleRepository
+ArticleRepository --> RevisionService : updated:Article
+deactivate ArticleRepository
+RevisionService --> UI : restored:Article
+deactivate RevisionService
+UI --> Editor : showRestoredArticle()
+deactivate UI
+deactivate Editor
+@enduml

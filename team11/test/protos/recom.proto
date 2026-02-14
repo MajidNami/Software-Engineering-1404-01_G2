@@ -1,0 +1,150 @@
+syntax = "proto3";
+
+package recommendation.v1;
+
+// -----------------------------------------------------------------------------
+// Recommendation Service Definition
+// -----------------------------------------------------------------------------
+
+// RecommendationService is responsible for ranking and personalization.
+// It uses a "Candidate Generation & Re-ranking" strategy.
+// It does NOT hold physical data about places, but scores them based on User Preferences.
+service RecommendationService {
+  
+  // Scores a list of candidate Place IDs based on user profile and context.
+  // Used by Trip Plan service to re-rank available places.
+  rpc ScoreCandidates(ScoreCandidatesRequest) returns (ScoreCandidatesResponse);
+
+  // Suggests general destinations (Regions) for a user (Cold Start/Inspiration).
+  rpc SuggestDestinations(SuggestDestinationsRequest) returns (SuggestDestinationsResponse);
+
+  // Suggests the top-rated places within a specific region for the user.
+  rpc SuggestByRegion(SuggestByRegionRequest) returns (SuggestByRegionResponse);
+
+  // Records user feedback (View, Click, Add, Reject) to improve the ML model.
+  rpc RecordInteraction(RecordInteractionRequest) returns (RecordInteractionResponse);
+}
+
+// -----------------------------------------------------------------------------
+// Enums
+// -----------------------------------------------------------------------------
+
+// Defines the style of the trip.
+enum TravelStyle {
+  TRAVEL_STYLE_UNSPECIFIED = 0;
+  TRAVEL_STYLE_SOLO = 1;
+  TRAVEL_STYLE_COUPLE = 2;
+  TRAVEL_STYLE_FAMILY = 3;
+  TRAVEL_STYLE_FRIENDS = 4;
+  TRAVEL_STYLE_BUSINESS = 5;
+}
+
+// Defines the type of user interaction with a place/region.
+enum InteractionType {
+  INTERACTION_TYPE_UNSPECIFIED = 0;
+  INTERACTION_TYPE_VIEWED = 1;
+  INTERACTION_TYPE_ADDED_TO_PLAN = 2;
+  INTERACTION_TYPE_REJECTED = 3;
+  INTERACTION_TYPE_LIKED = 4;
+}
+
+// Defines the budget constraint for the trip.
+enum BudgetLevel {
+    BUDGET_LEVEL_UNSPECIFIED = 0;
+    BUDGET_LEVEL_ECONOMY = 1;
+    BUDGET_LEVEL_MODERATE = 2;
+    BUDGET_LEVEL_LUXURY = 3;
+}
+
+// -----------------------------------------------------------------------------
+// Messages
+// -----------------------------------------------------------------------------
+
+// Captures the context of the current trip being planned.
+message TripContext {
+  TravelStyle travel_style = 1;
+  
+  // List of other users accompanying the main user.
+  repeated string companion_user_ids = 2;
+  
+  BudgetLevel trip_budget_level = 3; 
+  
+  int32 trip_duration_days = 4;
+}
+
+// --- ScoreCandidates ---
+
+message ScoreCandidatesRequest {
+  string user_id = 1;
+  
+  // List of Place IDs retrieved from the Facility Service.
+  repeated string candidate_place_ids = 2; 
+  
+  TripContext context = 3;
+  
+  // Language code for localized reasoning tags.
+  string language_code = 4; 
+}
+
+// Represents a place that has been assigned a relevance score.
+message ScoredPlace {
+  string place_id = 1;
+  
+  // A value between 0.0 and 1.0 indicating relevance.
+  double score = 2; 
+  
+  // A short text explaining why this was suggested (e.g., "Because you like Nature").
+  string reasoning_tag = 3; 
+}
+
+message ScoreCandidatesResponse {
+  repeated ScoredPlace scored_places = 1;
+}
+
+// --- SuggestDestinations ---
+
+message SuggestDestinationsRequest {
+  string user_id = 1;
+  int32 limit = 2;
+  string language_code = 3; 
+}
+
+message SuggestedDestination {
+  string region_id = 1;
+  string region_name = 2; 
+  double match_score = 3;
+  string image_url = 4;
+  string reason = 5; 
+}
+
+message SuggestDestinationsResponse {
+  repeated SuggestedDestination destinations = 1;
+}
+
+// --- SuggestByRegion ---
+
+message SuggestByRegionRequest {
+  string user_id = 1;
+  string region_id = 2;
+  int32 limit = 3;
+  TripContext context = 4;
+  string language_code = 5; 
+}
+
+message SuggestByRegionResponse {
+  repeated ScoredPlace scored_places = 1; 
+}
+
+// --- RecordInteraction ---
+
+message RecordInteractionRequest {
+  string user_id = 1;
+  string item_id = 2; // Can be PlaceID or RegionID.
+  InteractionType interaction = 3;
+  string trip_id = 4; // Optional: If the interaction happened within a specific trip context.
+  int64 timestamp = 5; // Unix timestamp.
+}
+
+message RecordInteractionResponse {
+  bool success = 1;
+}

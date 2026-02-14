@@ -1,0 +1,76 @@
+@startuml Wiki_Service_Main_UseCase
+left to right direction
+skinparam packageStyle rectangle
+
+actor "کاربر مهمان\n(Guest)" as Guest
+actor "کاربر ثبت‌نام شده\n(Registered User)" as User
+actor "نویسنده/کارشناس\n(Contributor)" as Contributor
+actor "ویراستار/مدیر محتوا\n(Editor)" as Editor
+actor "سیستم\n(System)" as System
+
+rectangle "Wiki Service" {
+  
+  usecase "جستجوی مقاله\n(UC-01)" as UC01
+  usecase "مشاهده مقاله\n(UC-02)" as UC02
+  usecase "فیلتر نتایج جستجو\n(UC-03)" as UC03
+  usecase "ایجاد مقاله جدید\n(UC-04)" as UC04
+  usecase "ویرایش مقاله\n(UC-05)" as UC05
+  usecase "مشاهده تاریخچه\n(UC-06)" as UC06
+  usecase "بازیابی نسخه قدیمی\n(UC-07)" as UC07
+  usecase "گزارش مقاله\n(UC-08)" as UC08
+  usecase "امتیازدهی به مقاله\n(UC-09)" as UC09
+  usecase "ذخیره مقاله در علاقه‌مندی\n(UC-10)" as UC10
+  usecase "دریافت اعلان تغییرات\n(UC-11)" as UC11
+  usecase "تولید برچسب خودکار\n(UC-12)" as UC12
+  usecase "خلاصه‌سازی خودکار\n(UC-13)" as UC13
+  usecase "دسته‌بندی خودکار\n(UC-14)" as UC14
+  usecase "حذف مقاله\n(UC-15)" as UC15
+  
+  usecase "پردازش جستجوی معنایی\n(Backend)" as BE01
+  usecase "احراز هویت\n(Authentication)" as AUTH
+  usecase "اعتبارسنجی دسترسی\n(Authorization)" as AUTHZ
+}
+
+' Guest relationships
+Guest --> UC01
+Guest --> UC02
+Guest --> UC03
+
+' User relationships  
+User --|> Guest
+User --> UC08
+User --> UC09
+User --> UC10
+User --> UC11
+
+' Contributor relationships
+Contributor --|> User
+Contributor --> UC04
+Contributor --> UC05
+
+' Editor relationships
+Editor --|> Contributor
+Editor --> UC06
+Editor --> UC07
+Editor --> UC15
+
+' System relationships
+System --> UC12
+System --> UC13
+System --> UC14
+
+' Include relationships
+UC01 ..> BE01 : <<include>>
+UC04 ..> AUTH : <<include>>
+UC04 ..> AUTHZ : <<include>>
+UC05 ..> AUTH : <<include>>
+UC05 ..> AUTHZ : <<include>>
+UC15 ..> AUTH : <<include>>
+UC15 ..> AUTHZ : <<include>>
+
+' Extend relationships
+UC02 ..> UC13 : <<extend>>
+UC04 ..> UC12 : <<extend>>
+UC04 ..> UC14 : <<extend>>
+
+@enduml

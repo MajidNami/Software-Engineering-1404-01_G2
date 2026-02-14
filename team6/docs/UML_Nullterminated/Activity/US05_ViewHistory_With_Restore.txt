@@ -1,0 +1,34 @@
+@startuml AD_US05_ViewHistory_With_Restore
+|Editor|
+start
+:request article history;
+
+|ArticleController|
+:getArticleHistory(articleId);
+
+|ArticleService|
+:getArticleHistory(articleId);
+
+|RevisionService|
+:getRevisionHistory(articleId);
+
+|Editor|
+:view list of revisions;
+
+if (restore a revision?) then (yes)
+  :select revision;
+
+  |RevisionService|
+  :restoreRevision(revisionId);
+
+  |Article|
+  :incrementRevisionNo();
+
+  |Editor|
+  :article restored;
+else (no)
+  :exit history view;
+endif
+
+stop
+@enduml

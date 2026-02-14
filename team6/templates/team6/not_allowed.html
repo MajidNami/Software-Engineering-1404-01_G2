@@ -1,0 +1,11 @@
+{% extends "team6/base.html" %}
+
+{% block content %}
+<div class="alert alert-warning text-center mt-5">
+    <h4>🚫 دسترسی محدود</h4>
+    <p>{{ message }}</p>
+    <a href="{% url 'team6:index' %}" class="btn btn-primary mt-3">
+        بازگشت به صفحه اصلی
+    </a>
+</div>
+{% endblock %}

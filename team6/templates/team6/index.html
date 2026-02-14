@@ -1,4 +1,4 @@
-{% load static %}
+<!-- {% load static %}
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
@@ -19,6 +19,51 @@
     </div>
 
     <a href="/" class="back-btn"> بازگشت به داشبورد اصلی</a>
+    
+</body>
+</html> -->
+{% load static %}
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Group 6 - Wiki Service</title>
+    <link rel="stylesheet" href="{% static 'team6/styles/style.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100..900&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <h1>Wiki Service</h1>
+        <h3>پیاده‌سازی توسط گروه 6</h3>
+        <hr>
+    </header>
+
+    <section class="microservice-placeholder">
+        <div class="placeholder-box">
+            <p>محل قرارگیری رابط کاربری میکرو سرویس</p>
+            <p><i>(Microservice UI Placeholder)</i></p>
+        </div>
+    </section>
+
+    <section class="featured-provinces">
+        <h2>استان‌های نمونه</h2>
+        <div class="province-cards">
+            <div class="card">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Tehran_montage.jpg/320px-Tehran_montage.jpg" alt="تهران">
+                <h4>تهران</h4>
+                <a href="/team6/?category=tehran" class="btn-card">مشاهده مقالات</a>
+            </div>
+            <div class="card">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Isfahan_Si-o-se-pol_bridge.jpg/320px-Isfahan_Si-o-se-pol_bridge.jpg" alt="اصفهان">
+                <h4>اصفهان</h4>
+                <a href="/team6/?category=isfahan" class="btn-card">مشاهده مقالات</a>
+            </div>
+            <!-- استان‌های بیشتر -->
+        </div>
+    </section>
+
+    <a href="/" class="back-btn">بازگشت به داشبورد اصلی</a>
     
 </body>
 </html>

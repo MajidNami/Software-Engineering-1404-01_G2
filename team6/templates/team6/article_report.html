@@ -1,0 +1,19 @@
+{% extends "team6/base.html" %}
+{% block title %}گزارش مقاله{% endblock %}
+{% load static %}
+
+{% block content %}
+<h2>گزارش تخلف مقاله: {{ article.title_fa }}</h2>
+<form method="POST">
+    {% csrf_token %}
+    <label>نوع گزارش:</label>
+    <select name="type" class="form-select mb-3">
+        <option value="spam">هرزنامه</option>
+        <option value="offensive">توهین آمیز</option>
+        <option value="other">دیگر</option>
+    </select>
+    <label>توضیحات:</label>
+    <textarea name="desc" class="form-control mb-3"></textarea>
+    <button type="submit" class="btn btn-danger">ارسال گزارش</button>
+</form>
+{% endblock %}

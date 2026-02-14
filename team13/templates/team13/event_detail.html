@@ -1,0 +1,69 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ detail.title_fa|default:detail.title_en|default:"رویداد" }} — امکانات و حمل‌ونقل</title>
+    <link rel="stylesheet" href="{% static 'team13/css/style.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100..900&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <h1>{{ detail.title_fa|default:detail.title_en|default:"رویداد" }}</h1>
+        {% include "team13/_auth_header.html" %}
+        {% include "team13/_nav.html" %}
+
+        <div class="detail-box">
+            <p><strong>شهر:</strong> {{ detail.city|default:"—" }} | <strong>آدرس:</strong> {{ detail.address|default:"—" }}</p>
+            <p><strong>زمان شروع:</strong> {{ detail.start_at|date:"Y/m/d H:i" }} — <strong>پایان:</strong> {{ detail.end_at|date:"Y/m/d H:i" }}</p>
+            {% if detail.description_fa %}
+            <p>{{ detail.description_fa }}</p>
+            {% endif %}
+        </div>
+
+        <div class="detail-box">
+            <h2>نظرات و امتیازها</h2>
+            <div class="comments-list">
+                {% for c in detail.comments %}
+                <div class="comment-item">
+                    <span class="rating-stars">★ {{ c.rating }}/5</span>
+                    {% if c.created_at %}<span style="color: var(--text-muted); font-size: 0.9rem;"> — {{ c.created_at|date:"Y/m/d H:i" }}</span>{% endif %}
+                </div>
+                {% empty %}
+                <p>هنوز امتیازی ثبت نشده است.</p>
+                {% endfor %}
+            </div>
+            <form method="post" action="{% url 'team13:event_rate' event.event_id %}" style="margin-top: 16px;">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{% url 'team13:event_detail' event.event_id %}" />
+                <div class="form-group">
+                    <label for="rating">امتیاز شما (۱ تا ۵)</label>
+                    <select name="rating" id="rating" required>
+                        <option value="">انتخاب کنید</option>
+                        <option value="1">۱</option>
+                        <option value="2">۲</option>
+                        <option value="3">۳</option>
+                        <option value="4">۴</option>
+                        <option value="5">۵</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-submit">ثبت امتیاز</button>
+            </form>
+        </div>
+
+        {% if detail.images %}
+        <div class="detail-box">
+            <h2>تصاویر</h2>
+            {% for url in detail.images %}
+            <img src="{{ url }}" alt="تصویر رویداد" loading="lazy" decoding="async" class="team13-img-lazy" style="max-width: 200px; height: auto; margin: 8px; border-radius: 8px;" />
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <a href="{% url 'team13:event_list' %}" class="back-btn">بازگشت به لیست رویدادها</a>
+        {% include "team13/_footer.html" %}
+    </div>
+    <script src="{% static 'team13/js/auth_keepalive.js' %}"></script>
+</body>
+</html>

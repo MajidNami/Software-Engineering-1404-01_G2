@@ -1,27 +1,94 @@
-/* Color Palette */
 :root {
-    --forest-green: #2E7D32;
-    --leaf-green: #43A047;
-    --persian-gold: #FFB300;
-    --bg-light: #F1F8E9;
-    --text-dark: #1A1A1A;
+    --forest-green: #2e7d32;
+    --leaf-green: #43a047;
+    --persian-gold: #ffb300;
+    --bg-light: #f1f8e9;
+    --text-dark: #1a1a1a;
+    --card: #ffffff;
 }
+
+* {
+    box-sizing: border-box;
+}
+
 body {
     font-family: "Vazirmatn", sans-serif;
-    background-color: var(--bg-light);
+    background: linear-gradient(180deg, #eff8ea 0%, #dcedc8 100%);
     color: var(--text-dark);
     direction: rtl;
-    padding: 40px;
-    text-align: center;
+    margin: 0;
+    padding: 24px;
 }
+
+.wrapper {
+    max-width: 840px;
+    margin: 0 auto;
+}
+
+h1 {
+    margin: 0;
+}
+
+.subtitle {
+    margin: 8px 0 20px;
+    opacity: 0.8;
+}
+
+.card {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.06);
+}
+
+label {
+    display: block;
+    margin-top: 10px;
+    margin-bottom: 4px;
+}
+
+input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #cfd8dc;
+    border-radius: 8px;
+    font-family: inherit;
+}
+
+button {
+    margin-top: 12px;
+    padding: 10px 18px;
+    border: none;
+    border-radius: 10px;
+    background-color: var(--forest-green);
+    color: #fff;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: var(--leaf-green);
+}
+
+pre {
+    background: #f6f8f7;
+    border-radius: 8px;
+    padding: 12px;
+    overflow: auto;
+}
+
 .back-btn {
     display: inline-block;
-    margin-top: 30px;
-    padding: 10px 20px;
+    margin-top: 12px;
+    padding: 10px 16px;
     background-color: var(--forest-green);
-    color: white;
+    color: #fff;
     text-decoration: none;
-    border-radius: 50px;
-    font-weight: bold;
+    border-radius: 10px;
+    font-weight: 600;
 }
-.back-btn:hover { background-color: var(--leaf-green); }
+
+.back-btn:hover {
+    background-color: var(--leaf-green);
+}

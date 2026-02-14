@@ -1,0 +1,34 @@
+@startuml
+hide footbox
+skinparam monochrome true
+skinparam shadowing false
+skinparam ArrowThickness 1
+skinparam sequence {
+  ParticipantPadding 20
+  BoxPadding 10
+  ActivationBarWidth 3
+}
+
+title US-10 — Receive Change Notifications
+actor "User" as User
+participant "UI" as UI
+participant "NotificationService" as NotificationService
+participant "ArticleService" as ArticleService
+
+activate User
+User -> UI : subscribe(articleId)
+activate UI
+UI -> NotificationService : createSubscription(userId, articleId)
+activate NotificationService
+NotificationService --> UI : ok
+deactivate NotificationService
+ArticleService -> NotificationService : notifyFollowers(articleId, changeType)
+activate NotificationService
+NotificationService -> NotificationService : sendNotification(userId, message)
+activate NotificationService
+NotificationService --> User : pushNotification()
+deactivate NotificationService
+deactivate User
+deactivate UI
+deactivate NotificationService
+@enduml

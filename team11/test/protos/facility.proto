@@ -1,0 +1,326 @@
+syntax = "proto3";
+
+package facility.v1;
+
+// -----------------------------------------------------------------------------
+// Facility Service Definition
+// -----------------------------------------------------------------------------
+
+// FacilityService acts as the "Source of Truth" for physical locations,
+// operational data (hours, prices), and geographical hierarchies.
+// It is responsible for Discovery and Logistics.
+service FacilityService {
+  
+  // -------------------------
+  // 1. Region Management
+  // -------------------------
+
+  // Searches for geographical regions (Cities, Provinces, Villages) based on a query string.
+  // Used for autocomplete or search bars where user selects a destination.
+  rpc SearchRegions(SearchRegionsRequest) returns (SearchRegionsResponse);
+
+  // Converts geographical coordinates (Lat/Lng) into a hierarchical Region structure.
+  // Useful for "What is here?" functionality or reverse geocoding.
+  rpc GetLocationHierarchy(GetLocationHierarchyRequest) returns (GetLocationHierarchyResponse);
+
+  // -------------------------
+  // 2. Place Discovery & Details
+  // -------------------------
+
+  // Retrieves a list of places (attractions) within a specific Region ID.
+  // This method returns lightweight Place objects suitable for listing.
+  rpc GetPlacesInRegion(GetPlacesInRegionRequest) returns (GetPlacesInRegionResponse);
+
+  // Discovers places around a specific center point within a given radius.
+  // Useful for "Near Me" functionality. Returns places with calculated distances.
+  rpc GetNearbyPlaces(GetNearbyPlacesRequest) returns (GetNearbyPlacesResponse);
+
+  // Retrieves detailed operational information for a specific list of Place IDs.
+  // Used to fetch details like opening hours, prices, and contact info for selected candidates.
+  rpc GetPlaceByIds(GetPlaceByIdsRequest) returns (GetPlaceByIdsResponse);
+
+  // -------------------------
+  // 3. Logistics
+  // -------------------------
+
+  // Calculates travel estimates (time, distance) and identifies settlements along the route.
+  // Essential for itinerary planning and suggesting stopovers.
+  rpc GetTravelEstimates(GetTravelEstimatesRequest) returns (GetTravelEstimatesResponse);
+}
+
+// -----------------------------------------------------------------------------
+// Enums
+// -----------------------------------------------------------------------------
+
+// Defines the administrative level of a region.
+enum RegionType {
+  REGION_TYPE_UNSPECIFIED = 0;
+  REGION_TYPE_VILLAGE = 1;    
+  REGION_TYPE_CITY = 2;       
+  REGION_TYPE_COUNTY = 3;     
+  REGION_TYPE_PROVINCE = 4;   
+}
+
+// Represents the cost level of a place.
+enum PriceTier {
+  PRICE_TIER_UNSPECIFIED = 0;
+  PRICE_TIER_FREE = 1;
+  PRICE_TIER_BUDGET = 2;
+  PRICE_TIER_MODERATE = 3;
+  PRICE_TIER_EXPENSIVE = 4;
+  PRICE_TIER_LUXURY = 5;
+}
+
+// Categorizes the type of attraction.
+enum PlaceCategory {
+  PLACE_CATEGORY_UNSPECIFIED = 0;
+  PLACE_CATEGORY_HISTORICAL = 1;
+  PLACE_CATEGORY_NATURAL = 2;
+  PLACE_CATEGORY_CULTURAL = 3;
+  PLACE_CATEGORY_RECREATIONAL = 4;
+  PLACE_CATEGORY_RELIGIOUS = 5;
+  PLACE_CATEGORY_DINING = 6;
+}
+
+// Defines the mode of transport for route calculations.
+enum TravelMode {
+  TRAVEL_MODE_UNSPECIFIED = 0;
+  TRAVEL_MODE_DRIVING = 1;
+  TRAVEL_MODE_WALKING = 2;
+}
+
+// ISO 8601 standard for days of the week.
+enum DayOfWeek {
+  DAY_OF_WEEK_UNSPECIFIED = 0;
+  DAY_OF_WEEK_MONDAY = 1;
+  DAY_OF_WEEK_TUESDAY = 2;
+  DAY_OF_WEEK_WEDNESDAY = 3;
+  DAY_OF_WEEK_THURSDAY = 4;
+  DAY_OF_WEEK_FRIDAY = 5;
+  DAY_OF_WEEK_SATURDAY = 6;
+  DAY_OF_WEEK_SUNDAY = 7;
+}
+
+// -----------------------------------------------------------------------------
+// Common Messages
+// -----------------------------------------------------------------------------
+
+// Represents a geographical point with Latitude and Longitude.
+message GeoPoint {
+  double latitude = 1;
+  double longitude = 2;
+}
+
+// Represents a specific time of day (24-hour format).
+message TimeOfDay {
+  // Hour of the day (0-23).
+  int32 hours = 1;   
+  // Minute of the hour (0-59).
+  int32 minutes = 2; 
+}
+
+// Represents a geographical container like a City or Province.
+message Region {
+  // Unique identifier for the region.
+  string id = 1;
+  
+  // Localized name of the region based on requested language.
+  string name = 2; 
+  
+  // The type of the region (e.g., City, Village).
+  RegionType type = 3;
+  
+  // The central coordinates of the region.
+  GeoPoint center_location = 4;
+  
+  // ID of the parent region (e.g., Province ID for a City).
+  string parent_region_id = 5;   
+  
+  // Name of the parent region.
+  string parent_region_name = 6; 
+}
+
+// Defines a time range (open to close).
+message TimeSlot {
+  TimeOfDay open_time = 1; 
+  TimeOfDay close_time = 2;
+}
+
+// Defines the operating schedule for a specific day of the week.
+message DailySchedule {
+  DayOfWeek day_of_week = 1;
+  
+  // Indicates if the place is completely closed on this day.
+  bool is_closed = 2;
+  
+  // List of open time slots (supports split shifts, e.g., morning/evening).
+  repeated TimeSlot slots = 3;
+}
+
+// Represents a physical place/attraction with operational details.
+// Note: Media (Images) and Descriptions are handled by the Wiki Service.
+message Place {
+  string id = 1;
+  
+  // Localized name of the place.
+  string name = 2; 
+  
+  GeoPoint location = 3;
+  PlaceCategory category = 4;
+  PriceTier price_tier = 5;
+  
+  // Localized address string.
+  string address = 6; 
+  
+  // Average time a user spends at this location (in minutes).
+  int32 avg_visit_duration_minutes = 7; 
+  
+  // Weekly operating hours.
+  repeated DailySchedule opening_hours = 8; 
+  
+  // Reference to the region containing this place.
+  Region region = 9; 
+
+  // --- Contact Information (New) ---
+  
+  // Official phone number for the place.
+  string phone_number = 10;
+
+  // Official website URL.
+  string website_url = 11;
+}
+
+// -----------------------------------------------------------------------------
+// Requests & Responses
+// -----------------------------------------------------------------------------
+
+// --- SearchRegions ---
+
+message SearchRegionsRequest {
+  // The search query text (e.g., "Tehran").
+  string query = 1; 
+  
+  // Optional filters to narrow down region types.
+  repeated RegionType type_filters = 2;
+  
+  // Language code for the response (e.g., "fa", "en").
+  string language_code = 3; 
+}
+
+message SearchRegionsResponse {
+  repeated Region regions = 1;
+}
+
+// --- GetLocationHierarchy ---
+
+message GetLocationHierarchyRequest {
+  GeoPoint location = 1;
+  string language_code = 2; 
+}
+
+message GetLocationHierarchyResponse {
+  // The nearest settlement (City or Village).
+  Region city_or_village = 1;
+  
+  // The county (Shahrestan).
+  Region county = 2;
+  
+  // The province (Ostan).
+  Region province = 3;
+}
+
+// --- GetPlacesInRegion ---
+
+message GetPlacesInRegionRequest {
+  string region_id = 1; 
+  
+  // Filters to apply on the discovery results.
+  repeated PlaceCategory categories = 2;
+  repeated PriceTier price_tiers = 3;
+  
+  string language_code = 4; 
+}
+
+message GetPlacesInRegionResponse {
+  repeated Place places = 1; 
+}
+
+// --- GetNearbyPlaces ---
+
+message GetNearbyPlacesRequest {
+  GeoPoint center = 1;
+  
+  // Search radius in meters.
+  double radius_meters = 2;
+  
+  repeated PlaceCategory categories = 3;
+  repeated PriceTier price_tiers = 4;
+  
+  // If true, filters out places that are currently closed.
+  bool open_now = 5;
+  
+  string language_code = 6; 
+}
+
+// Wrapper to associate a Place with its distance from the search center.
+message NearbyPlaceItem {
+  Place place = 1;
+  
+  // Distance from the center point in meters.
+  double distance_meters = 2;
+}
+
+message GetNearbyPlacesResponse {
+  repeated NearbyPlaceItem items = 1;
+}
+
+// --- GetPlaceByIds ---
+
+message GetPlaceByIdsRequest {
+  repeated string place_ids = 1;
+  string language_code = 2; 
+}
+
+message GetPlaceByIdsResponse {
+  repeated Place places = 1;
+}
+
+// --- GetTravelEstimates ---
+
+message RouteRequest {
+  GeoPoint origin = 1;
+  GeoPoint destination = 2;
+  TravelMode mode = 3;
+  string language_code = 4; 
+}
+
+// Represents a settlement passed during a route.
+message RouteSettlement {
+  Region region = 1;
+  
+  // Distance from the route origin in meters.
+  int32 distance_from_origin_meters = 2;
+  
+  // Estimated arrival time from the route origin in seconds.
+  int32 estimated_arrival_seconds = 3;
+}
+
+message RouteResult {
+  int32 distance_meters = 1;
+  
+  // Estimated duration in seconds (traffic-aware if supported).
+  int32 duration_seconds = 2;
+  
+  bool route_found = 3;
+  
+  // List of settlements (Cities/Villages) along the route.
+  repeated RouteSettlement passed_settlements = 4;
+}
+
+message GetTravelEstimatesRequest {
+  repeated RouteRequest routes = 1;
+}
+
+message GetTravelEstimatesResponse {
+  repeated RouteResult results = 1;
+}

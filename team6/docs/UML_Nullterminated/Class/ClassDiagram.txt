@@ -1,0 +1,411 @@
+@startuml Wiki_Service_Class_Diagram
+skinparam classAttributeIconSize 0
+
+package "Presentation Layer" {
+  
+  class ArticleController {
+    - articleService: ArticleService
+    + searchArticles(query: String, filters: Map): Response
+    + getArticleById(id: UUID): Response
+    + createArticle(request: ArticleRequest): Response
+    + updateArticle(id: UUID, request: ArticleRequest): Response
+    + deleteArticle(id: UUID): Response
+    + getArticleHistory(id: UUID): Response
+    + rateArticle(id: UUID, rating: int): Response
+  }
+  
+  class SearchController {
+    - searchService: SearchService
+    + performSemanticSearch(query: String): Response
+    + filterResults(criteria: FilterCriteria): Response
+    + getSuggestions(query: String): Response
+  }
+  
+  class CategoryController {
+    - categoryService: CategoryService
+    + getCategories(): Response
+    + getArticlesByCategory(categoryId: UUID): Response
+    + createCategory(request: CategoryRequest): Response
+  }
+  
+  class ReportController {
+    - reportService: ReportService
+    + reportArticle(request: ReportRequest): Response
+    + getReports(status: String): Response
+    + updateReportStatus(id: UUID, status: String): Response
+  }
+}
+
+package "Business Logic Layer" {
+  
+  class ArticleService {
+    - articleRepository: ArticleRepository
+    - revisionService: RevisionService
+    - tagService: TagService
+    - llmService: LLMService
+    + searchArticles(query: String, filters: Map): List<Article>
+    + getArticleById(id: UUID): Article
+    + createArticle(article: Article): Article
+    + updateArticle(id: UUID, article: Article): Article
+    + deleteArticle(id: UUID): boolean
+    + getArticleHistory(id: UUID): List<Revision>
+    + calculateQualityAverage(id: UUID): void
+  }
+  
+  class SearchService {
+    - searchEngine: SemanticSearchEngine
+    - articleRepository: ArticleRepository
+    + performSemanticSearch(query: String): List<Article>
+    + filterByCategory(articles: List, categoryId: UUID): List<Article>
+    + filterByDate(articles: List, dateRange: DateRange): List<Article>
+    + sortByPopularity(articles: List): List<Article>
+    + sortByRelevance(articles: List, query: String): List<Article>
+  }
+  
+  class CategoryService {
+    - categoryRepository: CategoryRepository
+    + getAllCategories(): List<Category>
+    + getCategoryById(id: UUID): Category
+    + getArticlesByCategory(categoryId: UUID): List<Article>
+    + createCategory(category: Category): Category
+    + updateCategory(id: UUID, category: Category): Category
+  }
+  
+  class TagService {
+    - tagRepository: TagRepository
+    - nlpProcessor: NLPProcessor
+    + generateAutoTags(content: String): List<Tag>
+    + getTagsByArticle(articleId: UUID): List<Tag>
+    + addTagToArticle(articleId: UUID, tagId: UUID): void
+    + removeTagFromArticle(articleId: UUID, tagId: UUID): void
+  }
+  
+  class RevisionService {
+    - revisionRepository: RevisionRepository
+    + createRevision(articleId: UUID, content: String, editorId: UUID): Revision
+    + getRevisionHistory(articleId: UUID): List<Revision>
+    + compareRevisions(rev1: UUID, rev2: UUID): DiffResult
+    + restoreRevision(revisionId: UUID): Article
+  }
+  
+  class ReportService {
+    - reportRepository: ReportRepository
+    - notificationService: NotificationService
+    + createReport(report: Report): Report
+    + getReportsByStatus(status: String): List<Report>
+    + updateReportStatus(id: UUID, status: String): Report
+    + notifyModerators(report: Report): void
+  }
+  
+  class RatingService {
+    - ratingRepository: RatingRepository
+    - articleService: ArticleService
+    + rateArticle(articleId: UUID, userId: UUID, rating: int): Rating
+    + getUserRating(articleId: UUID, userId: UUID): Rating
+    + updateRating(articleId: UUID, userId: UUID, rating: int): Rating
+    + calculateAverageRating(articleId: UUID): double
+  }
+  
+  class LLMService {
+    - llmClient: LLMClient
+    + generateSummary(content: String, type: SummaryType): String
+    + suggestCategories(content: String): List<String>
+    + generateTags(content: String): List<String>
++ isServiceAvailable(): boolean
+  }
+  
+  class NotificationService {
+    + sendNotification(userId: UUID, message: String): void
+    + notifyFollowers(articleId: UUID, changeType: String): void
+    + createSubscription(userId: UUID, articleId: UUID): void
+  }
+  
+  class AuthorizationService {
+    + checkPermission(userId: UUID, action: String, resourceId: UUID): boolean
+    + hasRole(userId: UUID, role: String): boolean
+    + canEditArticle(userId: UUID, articleId: UUID): boolean
+    + canDeleteArticle(userId: UUID, articleId: UUID): boolean
+  }
+}
+
+package "Data Access Layer" {
+  
+  interface ArticleRepository {
+    + findById(id: UUID): Article
+    + findAll(): List<Article>
+    + save(article: Article): Article
+    + update(article: Article): Article
+    + delete(id: UUID): boolean
+    + findByCategory(categoryId: UUID): List<Article>
+    + findByStatus(status: String): List<Article>
+    + search(query: String): List<Article>
+  }
+  
+  interface CategoryRepository {
+    + findById(id: UUID): Category
+    + findAll(): List<Category>
+    + save(category: Category): Category
+    + update(category: Category): Category
+    + findByParentId(parentId: UUID): List<Category>
+  }
+  
+  interface TagRepository {
+    + findById(id: UUID): Tag
+    + findAll(): List<Tag>
+    + save(tag: Tag): Tag
+    + findByArticleId(articleId: UUID): List<Tag>
+    + findBySlug(slug: String): Tag
+  }
+  
+  interface RevisionRepository {
+    + findById(id: UUID): Revision
+    + findByArticleId(articleId: UUID): List<Revision>
+    + save(revision: Revision): Revision
+    + findByArticleIdAndRevisionNo(articleId: UUID, revisionNo: int): Revision
+  }
+  
+  interface ReportRepository {
+    + findById(id: UUID): Report
+    + findAll(): List<Report>
+    + save(report: Report): Report
+    + update(report: Report): Report
+    + findByStatus(status: String): List<Report>
+  }
+  
+  interface RatingRepository {
+    + findById(articleId: UUID, userId: UUID): Rating
+    + save(rating: Rating): Rating
+    + update(rating: Rating): Rating
+    + findByArticleId(articleId: UUID): List<Rating>
+  }
+  
+  interface LinkRepository {
+    + findByFromArticle(articleId: UUID): List<ArticleLink>
+    + findByToArticle(articleId: UUID): List<ArticleLink>
+    + save(link: ArticleLink): ArticleLink
+    + delete(linkId: UUID): boolean
+  }
+  
+  class ArticleRepositoryImpl implements ArticleRepository {
+    - dataSource: DataSource
+  }
+  
+  class CategoryRepositoryImpl implements CategoryRepository {
+    - dataSource: DataSource
+  }
+  
+  class TagRepositoryImpl implements TagRepository {
+    - dataSource: DataSource
+  }
+  
+  class RevisionRepositoryImpl implements RevisionRepository {
+    - dataSource: DataSource
+  }
+  
+  class ReportRepositoryImpl implements ReportRepository {
+    - dataSource: DataSource
+  }
+  
+  class RatingRepositoryImpl implements RatingRepository {
+    - dataSource: DataSource
+  }
+  
+  class LinkRepositoryImpl implements LinkRepository {
+    - dataSource: DataSource
+  }
+}
+package "Domain Model" {
+  
+  class Article {
+    - id: UUID
+    - titleFa: String
+    - titleEn: String
+    - bodyFa: String
+    - bodyEn: String
+    - summaryShort: String
+    - summaryLong: String
+    - featuredImageUrl: String
+    - categoryId: UUID
+    - authorUserId: UUID
+    - lastEditorUserId: UUID
+    - createdAt: Timestamp
+    - updatedAt: Timestamp
+    - publishedAt: Timestamp
+    - status: String
+    - qualityAvg: double
+    - qualityCount: int
+    - currentRevisionNo: int
+    - mapLocationId: UUID
+    - timelineEventId: UUID
+    + getId(): UUID
+    + getTitle(): String
+    + getBody(): String
+    + setTitle(title: String): void
+    + setBody(body: String): void
+    + isPublished(): boolean
+    + incrementRevisionNo(): void
+  }
+  
+  class Category {
+    - id: UUID
+    - slug: String
+    - titleFa: String
+    - titleEn: String
+    - parentId: UUID
+    - createdAt: Timestamp
+    - updatedAt: Timestamp
+    + getId(): UUID
+    + getTitle(): String
+    + getParentId(): UUID
+    + hasParent(): boolean
+  }
+  
+  class Tag {
+    - id: UUID
+    - slug: String
+    - titleFa: String
+    - titleEn: String
+    - createdAt: Timestamp
+    + getId(): UUID
+    + getTitle(): String
+    + getSlug(): String
+  }
+  
+  class ArticleTag {
+    - articleId: UUID
+    - tagId: UUID
+    - createdAt: Timestamp
+  }
+  
+  class Revision {
+    - id: UUID
+    - articleId: UUID
+    - revisionNo: int
+    - editorUserId: UUID
+    - changeNote: String
+    - bodyFa: String
+    - bodyEn: String
+    - createdAt: Timestamp
+    + getId(): UUID
+    + getRevisionNo(): int
+    + getBody(): String
+  }
+  
+  class ArticleLink {
+    - id: UUID
+    - fromArticleId: UUID
+    - toArticleId: UUID
+    - anchorText: String
+    - createdAt: Timestamp
+    + getId(): UUID
+    + getFromArticle(): UUID
+    + getToArticle(): UUID
+  }
+  
+  class Report {
+    - id: UUID
+    - articleId: UUID
+    - reporterUserId: UUID
+    - reportType: String
+    - description: String
+    - status: String
+    - createdAt: Timestamp
+    + getId(): UUID
+    + getStatus(): String
+    + setStatus(status: String): void
+  }
+  
+  class Rating {
+    - articleId: UUID
+    - userId: UUID
+    - rating: int
+    - createdAt: Timestamp
+    - updatedAt: Timestamp
+    + getRating(): int
+    + setRating(rating: int): void
+  }
+  
+  class ArticleReference {
+    - id: UUID
+    - articleId: UUID
+    - title: String
+    - url: String
+    - publisher: String
+    - publishedAt: Timestamp
+    - createdAt: Timestamp
+  }
+}
+
+package "External Services" {
+  
+  class SemanticSearchEngine {
+    + search(query: String): List<SearchResult>
+    + indexArticle(article: Article): void
+    + updateIndex(articleId: UUID): void
+    + calculateSimilarity(text1: String, text2: String): double
+  }
+  
+  class NLPProcessor {
+    + extractKeywords(text: String): List<String>
+    + extractEntities(text: String): List<String>
+    + generateEmbedding(text: String): Vector
+  }
+  
+  class LLMClient {
+    + generateText(prompt: String, maxTokens: int): String
+    + summarize(text: String): String
+    + classify(text: String, categories: List): String
+  }
+}
+
+' Presentation to Business Layer relationships
+ArticleController --> ArticleService
+SearchController --> SearchService
+CategoryController --> CategoryService
+ReportController --> ReportService
+
+' Business Layer internal relationships
+ArticleService --> ArticleRepository
+ArticleService --> RevisionService
+ArticleService --> TagService
+ArticleService --> LLMService
+
+SearchService --> SemanticSearchEngine
+SearchService --> ArticleRepository
+
+CategoryService --> CategoryRepository
+
+TagService --> TagRepository
+TagService --> NLPProcessor
+
+RevisionService --> RevisionRepository
+
+ReportService --> ReportRepository
+ReportService --> NotificationService
+
+RatingService --> RatingRepository
+RatingService --> ArticleService
+
+LLMService --> LLMClient
+' Repository implementations
+ArticleRepositoryImpl ..|> ArticleRepository
+CategoryRepositoryImpl ..|> CategoryRepository
+TagRepositoryImpl ..|> TagRepository
+RevisionRepositoryImpl ..|> RevisionRepository
+ReportRepositoryImpl ..|> ReportRepository
+RatingRepositoryImpl ..|> RatingRepository
+LinkRepositoryImpl ..|> LinkRepository
+
+' Domain relationships
+Article "1" -- "0..*" Revision
+Article "1" -- "0..*" ArticleTag
+ArticleTag "*" -- "1" Tag
+Article "1" -- "0..*" Report
+Article "1" -- "0..*" Rating
+Article "1" -- "0..*" ArticleReference
+Article "*" -- "1" Category
+Category "1" -- "0..*" Category : parent/child
+Article "1" -- "0..*" ArticleLink : from
+Article "1" -- "0..*" ArticleLink : to
+
+@enduml

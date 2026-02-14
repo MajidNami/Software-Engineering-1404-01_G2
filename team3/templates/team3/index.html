@@ -9,16 +9,88 @@
     <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100..900&display=swap" rel="stylesheet">
 </head>
 <body>
-    <h1>Recommendation Service</h1>
-    <h3>پیاده‌سازی توسط گروه 3</h3>
-    <hr style="width: 50%; margin: 20px auto; opacity: 0.3;">
-    
-    <div style="border: 2px dashed #ccc; padding: 50px; border-radius: 10px; margin: 20px 0;">
-        <p>محل قرارگیری رابط کاربری میکرو سرویس</p>
-        <p>(Microservice UI Placeholder)</p>
-    </div>
+    <main class="wrapper">
+        <h1>Recommendation Service</h1>
+        <p class="subtitle">Team 3 - User Story Playground</p>
 
-    <a href="/" class="back-btn"> بازگشت به داشبورد اصلی</a>
-    
+        <section class="card">
+            <h2>تست پیشنهاد شخصی‌سازی‌شده (US-01/03/04/05)</h2>
+            <form id="personalized-form">
+                <label for="userId">User ID</label>
+                <input id="userId" name="userId" value="u100" required>
+
+                <label for="destination">Destination</label>
+                <input id="destination" name="destination" value="tehran" required>
+
+                <label for="season">Season</label>
+                <input id="season" name="season" value="SPRING">
+
+                <label for="limit">Limit</label>
+                <input id="limit" name="limit" type="number" min="1" max="50" value="5">
+
+                <button type="submit">دریافت پیشنهاد</button>
+            </form>
+        </section>
+
+        <section class="card">
+            <h2>تست پیشنهاد مکانی مهمان (US-02)</h2>
+            <form id="location-form">
+                <label for="latitude">Latitude</label>
+                <input id="latitude" name="latitude" value="35.6892" required>
+
+                <label for="longitude">Longitude</label>
+                <input id="longitude" name="longitude" value="51.3890" required>
+
+                <label for="radius">Radius (km)</label>
+                <input id="radius" name="radius" type="number" min="1" max="100" value="50">
+
+                <button type="submit">پیشنهاد نزدیک من</button>
+            </form>
+        </section>
+
+        <section class="card">
+            <h2>خروجی</h2>
+            <pre id="output">No request sent.</pre>
+        </section>
+
+        <a href="/" class="back-btn">بازگشت به داشبورد اصلی</a>
+    </main>
+
+    <script>
+        async function postJson(url, body) {
+            const response = await fetch(url, {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(body)
+            });
+            return response.json();
+        }
+
+        const output = document.getElementById("output");
+
+        document.getElementById("personalized-form").addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const body = {
+                userId: document.getElementById("userId").value,
+                destination: document.getElementById("destination").value,
+                season: document.getElementById("season").value,
+                limit: Number(document.getElementById("limit").value)
+            };
+            const data = await postJson("/team3/api/recommendations/personalized/", body);
+            output.textContent = JSON.stringify(data, null, 2);
+        });
+
+        document.getElementById("location-form").addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const body = {
+                latitude: Number(document.getElementById("latitude").value),
+                longitude: Number(document.getElementById("longitude").value),
+                radius_km: Number(document.getElementById("radius").value),
+                limit: 5
+            };
+            const data = await postJson("/team3/api/recommendations/location/", body);
+            output.textContent = JSON.stringify(data, null, 2);
+        });
+    </script>
 </body>
 </html>

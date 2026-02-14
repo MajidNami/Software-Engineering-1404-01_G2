@@ -27,6 +27,7 @@ INSTALLED_APPS = [
 
     # 3rd-party
     "corsheaders",
+    "rest_framework",
 
     # Local
     "core",
@@ -123,3 +124,13 @@ else:
 
 
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
+
+CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default="redis://localhost:6379/0")
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+
+GEMINI_API_KEY = env("GEMINI_API_KEY", default=None)
+ELASTICSEARCH_URL = env("ELASTICSEARCH_URL", default="http://localhost:9200")
+TEAM2_FRONT_URL = env("TEAM2_FRONT_URL")

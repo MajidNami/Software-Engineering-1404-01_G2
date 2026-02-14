@@ -1,0 +1,98 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مسیریابی و ETA — امکانات و حمل‌ونقل</title>
+    <link rel="stylesheet" href="{% static 'team13/css/style.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100..900&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <h1>مسیریابی و زمان رسیدن (ETA)</h1>
+        <h3>امکانات روی مسیر — گروه Axiom (تیم ۱۳)</h3>
+        {% include "team13/_auth_header.html" %}
+        {% include "team13/_nav.html" %}
+
+        <div class="detail-box">
+            <form method="get" action="{% url 'team13:routes' %}" id="team13-routes-form">
+                <div class="form-group">
+                    <label for="routes_source_search">مبدأ</label>
+                    <div class="team13-route-search-wrap">
+                        <input type="text" id="routes_source_search" class="team13-input-route team13-route-page-input" placeholder="جستجوی آدرس مبدأ..." autocomplete="off" />
+                        <div id="routes_source_results" class="team13-autocomplete-results team13-route-page-results" hidden></div>
+                    </div>
+                    <input type="hidden" name="source_lat" id="source_lat" />
+                    <input type="hidden" name="source_lng" id="source_lng" />
+                    <input type="hidden" name="source_name" id="source_name" />
+                </div>
+                <div class="form-group">
+                    <label for="routes_dest_search">مقصد</label>
+                    <div class="team13-route-search-wrap">
+                        <input type="text" id="routes_dest_search" class="team13-input-route team13-route-page-input" placeholder="جستجوی آدرس مقصد..." autocomplete="off" />
+                        <div id="routes_dest_results" class="team13-autocomplete-results team13-route-page-results" hidden></div>
+                    </div>
+                    <input type="hidden" name="dest_lat" id="dest_lat" />
+                    <input type="hidden" name="dest_lng" id="dest_lng" />
+                    <input type="hidden" name="dest_name" id="dest_name" />
+                </div>
+                <div class="form-group">
+                    <label for="travel_mode">نوع حمل‌ونقل</label>
+                    <select name="travel_mode" id="travel_mode">
+                        <option value="car" {% if travel_mode == "car" %}selected{% endif %}>خودرو</option>
+                        <option value="walk" {% if travel_mode == "walk" %}selected{% endif %}>پیاده</option>
+                        <option value="transit" {% if travel_mode == "transit" %}selected{% endif %}>حمل‌ونقل عمومی</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-submit">محاسبه مسیر و ETA</button>
+            </form>
+        </div>
+
+        {% if route_result %}
+        <div class="result-box team13-route-result-card">
+            {% if route_result.error %}
+            <p style="color: #c62828;">{{ route_result.error }}</p>
+            {% else %}
+            <h2>نتیجه مسیریابی</h2>
+            <div class="team13-route-result-content" dir="rtl">
+                <p><strong>مبدأ:</strong> {{ route_result.source_name }}</p>
+                <p><strong>مقصد:</strong> {{ route_result.destination_name }}</p>
+                <p><strong>نوع حمل‌ونقل:</strong> {{ route_result.travel_mode }}</p>
+                <p class="distance">فاصله: {{ route_result.distance_km }} کیلومتر</p>
+                <p class="eta">زمان رسیدن: {{ route_result.eta_minutes }} دقیقه {% if route_result.eta_source == "neshan" %}(با نقشهٔ نشان){% else %}(تقریبی){% endif %}</p>
+            </div>
+
+            <h2>امکانات مبدأ</h2>
+            <div class="route-amenities" dir="rtl">
+                {% for a in route_result.source_amenities %}
+                <span>{{ a }}</span>{% if not forloop.last %} | {% endif %}
+                {% empty %}
+                <span>امکانات ثبت‌شده‌ای ندارد.</span>
+                {% endfor %}
+            </div>
+            <h2>امکانات مقصد</h2>
+            <div class="route-amenities" dir="rtl">
+                {% for a in route_result.destination_amenities %}
+                <span>{{ a }}</span>{% if not forloop.last %} | {% endif %}
+                {% empty %}
+                <span>امکانات ثبت‌شده‌ای ندارد.</span>
+                {% endfor %}
+            </div>
+            {% if route_result.source_lat is not None and route_result.dest_lat is not None %}
+            <p class="team13-show-on-map-wrap">
+                <a href="{% url 'team13:index' %}?action=draw_route&amp;start_lat={{ route_result.source_lat }}&amp;start_lng={{ route_result.source_lng }}&amp;end_lat={{ route_result.dest_lat }}&amp;end_lng={{ route_result.dest_lng }}&amp;mode={% if route_result.travel_mode == 'walk' %}walking{% elif route_result.travel_mode == 'transit' %}transit{% else %}driving{% endif %}&amp;start_name={{ route_result.source_name|urlencode }}&amp;end_name={{ route_result.destination_name|urlencode }}" class="team13-btn-show-on-map">نمایش مسیر روی نقشه اصلی</a>
+            </p>
+            {% endif %}
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <a href="{% url 'team13:index' %}" class="back-btn">بازگشت به صفحه اصلی</a>
+        {% include "team13/_footer.html" %}
+    </div>
+    <script src="{% static 'team13/js/auth_keepalive.js' %}"></script>
+    <script src="{% static 'team13/js/map_init.js' %}"></script>
+    <script src="{% static 'team13/js/routes_autocomplete.js' %}"></script>
+</body>
+</html>

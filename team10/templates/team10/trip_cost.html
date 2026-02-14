@@ -1,0 +1,233 @@
+{% extends "team10/base.html" %}
+{% block title %}هزینه سفر | ایران‌نما{% endblock %}
+
+{% block content %}
+<section class="t10-page">
+  <section class="t10-section">
+    <h2>هزینه سفر</h2>
+    <p>تحلیل هزینه‌های سفر شما به {{ trip.destination_name|default:"مقصد" }}</p>
+  </section>
+
+  {% if trip %}
+  <div class="t10-cost-top-grid">
+  <section class="t10-card t10-cost-breakdown">
+    <h3>دسته‌بندی هزینه‌ها</h3>
+    <div class="t10-cost-list">
+      {% for item in cost_breakdown %}
+      {% if item.cost > 0 %}
+      <div class="t10-cost-row">
+        <span>{{ item.name }}</span>
+        <span>{{ item.percent }}٪</span>
+        <strong>{{ item.cost|floatformat:0 }} تومان</strong>
+      </div>
+      {% endif %}
+      {% empty %}
+      <div class="t10-cost-row">
+        <span>هزینه‌ای ثبت نشده است.</span>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="t10-cost-total t10-cost-summary">
+      <div><strong>جمع هزینه:</strong> {{ total_cost|floatformat:0 }} تومان</div>
+      <div><strong>سطح بودجه:</strong>
+        {% with b=trip.requirements.get_budget_level_display|default:"" %}
+          {% with b_lower=b|lower %}
+            {% if b_lower == "economy" or b_lower == "economic" or b_lower == "economical" %}
+              اقتصادی
+            {% elif b_lower == "medium" or b_lower == "normal" or b_lower == "standard" or b_lower == "moderate" %}
+              متوسط
+            {% elif b_lower == "luxury" or b_lower == "lux" %}
+              لوکس
+            {% else %}
+              —
+            {% endif %}
+          {% endwith %}
+        {% endwith %}
+      </div>
+    </div>
+  </section>
+
+  {% if cost_breakdown %}
+  <section class="t10-card t10-cost-chart-card">
+    <h3>نمودار هزینه‌ها</h3>
+    <div class="t10-cost-chart">
+      <div class="t10-cost-chart__viz">
+        <svg class="t10-pie-chart" viewBox="0 0 42 42" role="img" aria-label="نمودار هزینه‌ها">
+          <circle class="t10-pie-bg" cx="21" cy="21" r="15.9155"></circle>
+          {% with c0=cost_breakdown.0 c1=cost_breakdown.1 c2=cost_breakdown.2 c3=cost_breakdown.3 c4=cost_breakdown.4 %}
+          {% with p0=c0.percent|default:0 p1=c1.percent|default:0 p2=c2.percent|default:0 p3=c3.percent|default:0 p4=c4.percent|default:0 %}
+
+            {% if p0 %}
+            <circle class="t10-pie-circle t10-pie-slice t10-pie-color-1" cx="21" cy="21" r="15.9155"
+              data-tooltip="{{ c0.name }} | {{ c0.cost|floatformat:0 }} تومان | {{ c0.percent }}٪"
+              style="stroke-dasharray:{{ p0 }} 100; stroke-dashoffset:0;"></circle>
+            {% endif %}
+
+            {% if p1 %}
+            <circle class="t10-pie-circle t10-pie-slice t10-pie-color-2" cx="21" cy="21" r="15.9155"
+              data-tooltip="{{ c1.name }} | {{ c1.cost|floatformat:0 }} تومان | {{ c1.percent }}٪"
+              style="stroke-dasharray:{{ p1 }} 100; stroke-dashoffset:-{{ p0 }};"></circle>
+            {% endif %}
+
+            {% if p2 %}
+            <circle class="t10-pie-circle t10-pie-slice t10-pie-color-3" cx="21" cy="21" r="15.9155"
+              data-tooltip="{{ c2.name }} | {{ c2.cost|floatformat:0 }} تومان | {{ c2.percent }}٪"
+              style="stroke-dasharray:{{ p2 }} 100; stroke-dashoffset:-{{ p0|add:p1 }};"></circle>
+            {% endif %}
+
+            {% if p3 %}
+            <circle class="t10-pie-circle t10-pie-slice t10-pie-color-4" cx="21" cy="21" r="15.9155"
+              data-tooltip="{{ c3.name }} | {{ c3.cost|floatformat:0 }} تومان | {{ c3.percent }}٪"
+              style="stroke-dasharray:{{ p3 }} 100; stroke-dashoffset:-{{ p0|add:p1|add:p2 }};"></circle>
+            {% endif %}
+
+            {% if p4 %}
+            <circle class="t10-pie-circle t10-pie-slice t10-pie-color-5" cx="21" cy="21" r="15.9155"
+              data-tooltip="{{ c4.name }} | {{ c4.cost|floatformat:0 }} تومان | {{ c4.percent }}٪"
+              style="stroke-dasharray:{{ p4 }} 100; stroke-dashoffset:-{{ p0|add:p1|add:p2|add:p3 }};"></circle>
+            {% endif %}
+
+          {% endwith %}
+          {% endwith %}
+        </svg>
+      </div>
+
+      <div class="t10-cost-chart__legend t10-pie-legend">
+        {% for item in cost_breakdown %}
+          {% if item.cost > 0 %}
+          <div class="t10-pie-legend-item t10-legend-{{ forloop.counter }}">
+            <span class="t10-pie-dot"></span>
+            <span>{{ item.name }}</span>
+            <span>{{ item.percent }}٪</span>
+          </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+
+      <div class="t10-pie-tooltip-box" id="t10PieTip" aria-hidden="true"></div>
+    </div>
+  </section>
+  {% endif %}
+  </div>
+
+  <section class="t10-section">
+    <h3>جزئیات هزینه</h3>
+    
+    {% if hotel_details %}
+    <details class="t10-details">
+      <summary>اقامت</summary>
+      <ul>
+        {% for item in hotel_details %}
+        <li>{{ item.description }} - {{ item.cost|floatformat:0 }} تومان</li>
+        {% endfor %}
+      </ul>
+    </details>
+    {% endif %}
+
+    {% if transport_details %}
+    <details class="t10-details">
+      <summary>حمل‌ونقل</summary>
+      <ul>
+        {% for item in transport_details %}
+        <li>{{ item.description|truncatechars:50 }} - {{ item.cost|floatformat:0 }} تومان</li>
+        {% endfor %}
+      </ul>
+    </details>
+    {% endif %}
+
+    {% if food_details %}
+    <details class="t10-details">
+      <summary>خوراک</summary>
+      <ul>
+        {% for item in food_details %}
+        <li>{{ item.description|truncatechars:50 }} - {{ item.cost|floatformat:0 }} تومان</li>
+        {% endfor %}
+      </ul>
+    </details>
+    {% endif %}
+
+    {% if sightseeing_details %}
+    <details class="t10-details">
+      <summary>بازدید و فرهنگی</summary>
+      <ul>
+        {% for item in sightseeing_details %}
+        <li>{{ item.description|truncatechars:50 }} - {{ item.cost|floatformat:0 }} تومان</li>
+        {% endfor %}
+      </ul>
+    </details>
+    {% endif %}
+
+    {% if other_details %}
+    <details class="t10-details">
+      <summary>تفریحی/سایر</summary>
+      <ul>
+        {% for item in other_details %}
+        <li>{{ item.description|truncatechars:50 }} - {{ item.cost|floatformat:0 }} تومان</li>
+        {% endfor %}
+      </ul>
+    </details>
+    {% endif %}
+
+    {% if not hotel_details and not transport_details and not food_details and not sightseeing_details and not other_details %}
+    <p>جزئیات هزینه‌ای برای این سفر ثبت نشده است.</p>
+    {% endif %}
+  </section>
+
+  <div class="t10-actions">
+    <a class="t10-btn t10-btn--secondary" href="{% url 'team10:trip_detail' trip_id %}">بازگشت به جزئیات سفر</a>
+  </div>
+
+  {% else %}
+  <section class="t10-card">
+    <p>سفر موردنظر یافت نشد.</p>
+  </section>
+  {% endif %}
+</section>
+<script>
+  (function() {
+    var chart = document.querySelector('.t10-cost-chart');
+    if (!chart) return;
+    var viz = chart.querySelector('.t10-cost-chart__viz');
+    if (!viz) return;
+    var tooltip = document.getElementById('t10PieTip');
+    if (!tooltip) return;
+    var slices = chart.querySelectorAll('.t10-pie-slice');
+
+    function showTooltip(evt) {
+      var text = evt.target.getAttribute('data-tooltip') || '';
+      if (!text) return;
+      tooltip.textContent = text;
+      tooltip.classList.add('is-show');
+
+      var chartRect = chart.getBoundingClientRect();
+      var vizRect = viz.getBoundingClientRect();
+      var x = evt.clientX - chartRect.left + 12;
+      var y = evt.clientY - chartRect.top + 12;
+
+      var minX = vizRect.left - chartRect.left;
+      var minY = vizRect.top - chartRect.top;
+      var maxX = vizRect.right - chartRect.left - tooltip.offsetWidth - 8;
+      var maxY = vizRect.bottom - chartRect.top - tooltip.offsetHeight - 8;
+
+      if (x < minX) x = minX;
+      if (y < minY) y = minY;
+      if (x > maxX) x = maxX;
+      if (y > maxY) y = maxY;
+
+      tooltip.style.left = x + 'px';
+      tooltip.style.top = y + 'px';
+    }
+
+    function hideTooltip() {
+      tooltip.classList.remove('is-show');
+    }
+
+    slices.forEach(function(slice) {
+      slice.addEventListener('mouseenter', showTooltip);
+      slice.addEventListener('mousemove', showTooltip);
+      slice.addEventListener('mouseleave', hideTooltip);
+    });
+  })();
+</script>
+{% endblock %}

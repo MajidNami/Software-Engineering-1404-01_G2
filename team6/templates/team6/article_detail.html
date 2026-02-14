@@ -1,0 +1,277 @@
+{% extends "team6/base.html" %}{% load notification_tags %}
+{% block title %}{{ article.title_fa }}{% endblock %}
+
+{% block content %}
+
+<style>
+    .article-content-body a {
+        color: #0066cc !important; /* آبی کلاسیک ویکی */
+        text-decoration: underline !important; /* زیرخط‌دار */
+        font-weight: 500;
+    }
+    .article-content-body a:hover {
+        color: #004080 !important;
+        background-color: rgba(0, 102, 204, 0.05);
+    }
+    .back-btn {
+        margin-bottom: 15px;
+    }
+    .article-content-body {
+        text-align: justify;
+        background-color: #fff;
+        line-height: 1.9;
+        font-size: 1.15rem;
+        border-right: 5px solid #4CAF50;
+    }
+    .ref-section-title {
+        border-bottom: 2px solid #eee;
+        padding-bottom: 10px;
+        margin-top: 20px;
+        color: #444;
+        font-weight: bold;
+    }
+    .list-group-item-action:hover {
+        background-color: #f8f9fa;
+    }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>{{ article.title_fa }}
+        {% if article.title_en %}
+            <small class="text-muted">({{ article.title_en }})</small>
+        {% endif %}
+    </h2>
+    
+    <button onclick="history.back()" class="btn btn-outline-secondary btn-sm back-btn">
+        <i class="fa-solid fa-arrow-left"></i> بازگشت
+    </button>
+</div>
+
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb bg-light p-2 rounded">
+        <li class="breadcrumb-item">دسته بندی :</li>
+        {% if article.category.parent %}
+            <li class="breadcrumb-item"><a>{{ article.category.parent.title_fa }}</a></li>
+        {% endif %}
+        <li class="breadcrumb-item active">{{ article.category.title_fa }}</li>
+    </ol>
+</nav>
+<div class="mb-3 text-muted">
+    {% comment %} <i class="fa-solid fa-folder"></i> دسته: {{ article.category.title_fa }} |  {% endcomment %}
+    <i class="fa-solid fa-eye"></i> بازدید: {{ article.view_count|default:0 }} |
+    <i class="fa-solid fa-calendar"></i> تاریخ ایجاد: {{ article.created_at|date:"Y/m/d" }}
+</div>
+
+<div class="card p-4 mb-4 article-content-body" id="article-body-container">
+    {% if article.featured_image_url %}
+        <div class="article-image-wrapper">
+            <img src="{{ article.featured_image_url }}"
+                 alt="{{ article.title_fa }}">
+            <div class="image-caption">
+                {{ article.title_fa }}
+            </div>
+        </div>
+    {% endif %}
+    {{ article.body_fa|safe|linebreaks }}
+</div>
+<div class="card shadow-sm mb-4 ref-card">
+    <div class="card-body">
+        <h5 class="ref-title"><i class="fa-solid fa-book-open me-2"></i> منابع، مراجع و جستارهای وابسته</h5>
+        
+        <div class="row">
+            <div class="col-md-6 border-start">
+                <h6 class="small fw-bold text-primary"> لینک های داخلی:</h6>
+                <ul class="list-unstyled small">
+                    {% for link in article.outgoing_links.all|slice:":5" %}
+                        <li><i class="fa-solid fa-link text-muted me-1"></i> <a href="{% url 'team6:article_detail' link.to_article.slug %}">{{ link.to_article.title_fa }}</a></li>
+                    {% empty %}
+                        <li class="text-muted">لینک داخلی ثبت نشده.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="col-md-4 border-start">
+                <h6 class="small fw-bold text-danger">منابع و مراجع خارجی:</h6>
+                <ul class="list-unstyled small">
+                    {% for ref in article.wikiarticleref_set.all %}
+                        <li>
+                            <i class="fa-solid fa-external-link text-muted me-1"></i> 
+                            <a href="{{ ref.url }}" target="_blank" title="{{ ref.publisher|default:'' }}">
+                                {{ ref.title|truncatechars:40 }}
+                            </a>
+                        </li>
+                    {% empty %}
+                        <li class="text-muted">منبع خارجی ثبت نشده.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <h6 class="small fw-bold text-success">استخراج شده از متن:</h6>
+                <div id="extracted-refs-content" class="small text-muted" style="white-space: pre-line;">
+                    <span class="text-italic"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex gap-2 mb-4">
+    {% if request.user.is_authenticated and article.author_user_id == request.user.id %}
+        <a href="{% url 'team6:article_edit' article.slug %}" class="btn btn-warning">
+            <i class="fa-solid fa-edit"></i> ویرایش مقاله
+        </a>
+        <a href="{% url 'team6:article_delete' article.slug %}" class="btn btn-danger">
+            <i class="fa fa-trash"></i> حذف مقاله
+        </a>
+    {% endif %}
+    
+    <a href="{% url 'team6:article_revisions' article.slug %}" class="btn btn-info">
+        <i class="fa-solid fa-history"></i> تاریخچه نسخه‌ها
+    </a>
+    
+    <a href="{% url 'team6:article_report' article.slug %}" class="btn btn-outline-danger">
+        <i class="fa-solid fa-flag"></i> گزارش تخلف
+    </a>
+    
+    {% if request.user.is_authenticated %}
+        {% with is_following=article|is_user_following:request.user notify_status=article|get_notify_status:request.user %}
+            
+            {% if is_following %}
+                <form method="POST" action="{% url 'team6:toggle_notify' article.slug %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn {% if notify_status %}btn-warning{% else %}btn-outline-success{% endif %}">
+                        <i class="fa-solid fa-bell{% if not notify_status %}-slash{% endif %}"></i>
+                        {% if notify_status %}
+                            غیرفعال کردن اعلان‌ها
+                        {% else %}
+                            فعال کردن اعلان‌ها
+                        {% endif %}
+                    </button>
+                </form>
+                
+                <form method="POST" action="{% url 'team6:article_follow' article.slug %}" class="d-inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="unfollow">
+                    <button type="submit" class="btn btn-outline-secondary">
+                        <i class="fa-solid fa-user-minus"></i> لغو دنبال کردن
+                    </button>
+                </form>
+                
+            {% else %}
+                <form method="POST" action="{% url 'team6:article_follow' article.slug %}" class="d-inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="follow">
+                    <button type="submit" class="btn btn-outline-success">
+                        <i class="fa-solid fa-user-plus"></i> دنبال کردن مقاله
+                    </button>
+                </form>
+            {% endif %}
+            
+        {% endwith %}
+    {% endif %}
+</div>
+
+<hr class="my-4">
+
+<div class="card shadow-sm">
+    <div class="card-header bg-light">
+        <i class="fa-solid fa-info-circle"></i> اطلاعات تکمیلی
+    </div>
+    <div class="card-body">
+        <p><strong>نام مکان:</strong> {{ article.place_name|default:"ثبت نشده" }}</p>
+        <p><strong>خلاصه (AI):</strong> <span class="text-muted">{{ article.summary|default:"خلاصه‌ای ثبت نشده است" }}</span></p>
+        
+        {% if article.tags.all %}
+        <div class="mt-2">
+            <strong>🏷️ تگ‌ها:</strong>
+            {% for tag in article.tags.all %}
+                <span class="badge bg-light text-dark border me-1">{{ tag.title_fa }}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
+        
+        <div class="mt-3 small text-muted">
+            <p class="mb-1"><strong>شناسه:</strong> {{ article.slug }}</p>
+            <p class="mb-0"><strong>لینک مستقیم:</strong> <code>/team6/article/{{ article.slug }}/</code></p>
+        </div>
+    </div>
+</div>
+<style>
+    .article-image-wrapper {
+        float: none;               
+        width: 100%;
+        max-width: 500px;         
+        margin: 0 auto 20px auto;
+        border: 1px solid #e0e0e0;
+        background: #fafafa;
+        padding: 6px;
+        border-radius: 10px;
+        text-align: center;
+    }
+
+    .article-image-wrapper img {
+        width: 100%;
+        height: 320px;           
+        object-fit: cover;     
+        border-radius: 8px;
+    }
+
+    .image-caption {
+        font-size: 0.85rem;
+        color: #666;
+        margin-top: 8px;
+    }
+
+    /* موبایل */
+    @media (max-width: 768px) {
+        .article-image-wrapper {
+            max-width: 100%;
+        }
+
+        .article-image-wrapper img {
+            height: 240px;
+        }
+    }
+
+</style>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // ۱. گرفتن ظرف محتوای فارسی (Body_fa)
+        const bodyContainer = document.getElementById('article-body-container');
+        // ۲. گرفتن ظرف مقصد برای منابع
+        const refsContent = document.getElementById('extracted-refs-content');
+        const refsSection = document.getElementById('references-section');
+        
+        if (!bodyContainer || !refsContent) return;
+
+        const fullHTML = bodyContainer.innerHTML;
+        // جدا کردن بخش «منابع» از انتهای متن مقاله و نمایش آن در باکس جداگانه (بر اساس آخرین رخداد کلمه "منابع").
+        const keywords = ["منابع"];
+        let lastIndex = -1;
+
+        // پیدا کردن آخرین کلمه "منابع" در متن فارسی
+        keywords.forEach(word => {
+            let index = fullHTML.lastIndexOf(word);
+            if (index > lastIndex) {
+                lastIndex = index;
+            }
+        });
+
+        if (lastIndex !== -1) {
+            // جدا سازی متن: از ابتدا تا قبل از کلمه منابع
+            const cleanBody = fullHTML.substring(0, lastIndex);
+            // جدا سازی منابع: از کلمه منابع تا انتهای متن
+            const extractedRefs = fullHTML.substring(lastIndex);
+
+            // جایگزینی محتوا در بادی اصلی
+            bodyContainer.innerHTML = cleanBody;
+            // قرار دادن منابع در بخش پایینی
+            refsContent.innerHTML = extractedRefs;
+            // نمایش دادن کل باکس منابع
+            refsSection.style.display = 'block';
+        }
+    });
+</script>
+
+{% endblock %}

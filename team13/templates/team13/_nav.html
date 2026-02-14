@@ -1,0 +1,9 @@
+{% comment %}منوی اصلی team13: خانه، برترین‌ها، مکان‌ها، رویدادها، مسیریابی، مراکز امدادی. دکمه‌ها با class team13-nav-btn (سبز تیره، گوشه گرد).{% endcomment %}
+<nav class="team13-main-nav">
+  <a href="{% url 'team13:index' %}" class="team13-nav-btn{% if request.resolver_match.url_name == 'index' %} team13-nav-active{% endif %}">خانه</a>
+  <a href="{% url 'team13:place_list' %}" class="team13-nav-btn{% if request.resolver_match.url_name == 'place_list' %} team13-nav-active{% endif %}">برترین‌ها</a>
+  <a href="{% url 'team13:place_list' %}" class="team13-nav-btn">مکان‌ها</a>
+  <a href="{% url 'team13:event_list' %}" class="team13-nav-btn{% if request.resolver_match.url_name == 'event_list' %} team13-nav-active{% endif %}">رویدادها</a>
+  <a href="{% url 'team13:routes' %}" class="team13-nav-btn{% if request.resolver_match.url_name == 'routes' %} team13-nav-active{% endif %}">مسیریابی</a>
+  <a href="{% url 'team13:emergency' %}" class="team13-nav-btn{% if request.resolver_match.url_name == 'emergency' %} team13-nav-active{% endif %}">مراکز امدادی</a>
+</nav>

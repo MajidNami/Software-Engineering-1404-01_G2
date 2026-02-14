@@ -1,0 +1,48 @@
+{% extends "team6/base.html" %}
+{% block title %}تاریخچه نسخه‌ها – {{ article.title_fa }}{% endblock %}
+{% load static %}
+
+{% block content %}
+<h2>تاریخچه تغییرات: {{ article.title_fa }}</h2>
+
+{% if revisions %}
+<ul class="list-group mb-4">
+    {% for rev in revisions %}
+        {% if article.slug and rev.revision_no %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+                <strong>نسخه {{ rev.revision_no }}</strong> — 
+                <small class="text-muted">{{ rev.created_at|date:"Y-m-d H:i" }} - ویرایشگر: {{ rev.editor_user_id }}</small>
+                <p class="mb-0"><i>{{ rev.change_note }}</i></p>
+            </div>
+            <div>
+                <a href="{% url 'team6:article_revision_detail' article.slug rev.revision_no %}" 
+                   class="btn btn-sm btn-primary">
+                    مشاهده
+                </a>
+            <form method="POST" action="{% url 'team6:rollback' article.slug rev.revision_no %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-danger" 
+                    onclick="return confirm('آیا از بازگردانی محتوا به این نسخه مطمئن هستید؟')">
+                بازگردانی
+            </button>
+            </form>
+            </div>
+            
+        </li>
+        {% endif %}
+    {% endfor %}
+</ul>
+{% else %}
+<div class="alert alert-info text-center">
+    <i class="fa-solid fa-info-circle fa-2x mb-2"></i>
+    <h5>هیچ نسخه‌ای ثبت نشده است</h5>
+    <p>تاکنون هیچ تغییر یا نسخه‌ای برای این مقاله ذخیره نشده است.</p>
+</div>
+{% endif %}
+
+<a href="{% url 'team6:article_detail' article.slug %}" class="btn btn-secondary mt-3">
+    بازگشت به مقاله
+</a>
+
+{% endblock %}

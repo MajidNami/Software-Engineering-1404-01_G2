@@ -1,0 +1,376 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>Integrated Map Service - Team 9</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
+    
+    <style>
+        body { margin: 0; font-family: 'Vazirmatn', sans-serif; background-color: #f0f2f5; overflow: hidden; }
+        #map-container { position: relative; width: 100%; height: 100vh; }
+        #map { height: 100%; width: 100%; background: #eef2f3; }
+
+        /* حل مشکل مستطیل آبی دور نقشه هنگام کلیک */
+        path.leaflet-interactive:focus { outline: none; }
+
+        /* Navbar */
+        #navbar {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            z-index: 1000; display: flex; gap: 10px;
+            background: rgba(255, 255, 255, 0.9); padding: 10px 20px; border-radius: 50px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); backdrop-filter: blur(5px);
+            transition: all 0.3s ease; /* انیمیشن نرم */
+        }
+        .filter-btn {
+            border: none; background: transparent; font-family: 'Vazirmatn'; font-weight: 700; color: #555; cursor: pointer;
+            padding: 8px 16px; border-radius: 25px; transition: all 0.3s;
+        }
+        .filter-btn:hover { background-color: #f0f0f0; }
+        .filter-btn.active { background-color: #3b82f6; color: white; box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3); }
+        .filter-btn.active.food { background-color: #f59e0b; }
+        .filter-btn.active.attraction { background-color: #8b5cf6; }
+        .filter-btn.active.culture { background-color: #ec4899; }
+        .filter-btn.active.nature { background-color: #10b981; }
+
+        /* Back Button */
+        #back-btn {
+            position: absolute; bottom: 30px; left: 30px; z-index: 1000;
+            background-color: #10b981; color: white; border: none; padding: 12px 24px; border-radius: 12px;
+            font-family: 'Vazirmatn'; font-weight: 700; cursor: pointer; display: none;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); transition: all 0.3s;
+        }
+        #back-btn:hover { background-color: #059669; transform: translateY(-2px); }
+
+        /* Legend */
+        .legend {
+            position: absolute; bottom: 30px; right: 30px; z-index: 1000;
+            background: white; padding: 15px; border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15); font-size: 12px;
+            display: none; width: 180px; text-align: center;
+        }
+        .legend-bar {
+            height: 12px; background: linear-gradient(to left, #2ecc71, #f1c40f, #e74c3c);
+            border-radius: 6px; margin: 10px 0;
+        }
+        .legend-labels { display: flex; justify-content: space-between; color: #666; font-family: 'Vazirmatn'; }
+
+        /* Tooltip */
+        .leaflet-tooltip {
+            font-family: 'Vazirmatn'; font-size: 14px; font-weight: bold;
+            background: rgba(255, 255, 255, 0.95); border: none;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2); border-radius: 8px;
+            padding: 5px 10px;
+        }
+
+        /* Labels Styles */
+        .province-label { pointer-events: none; }
+        .province-label span { 
+            font-family: 'Vazirmatn'; font-weight: 900; font-size: 13px; color: #2c3e50; 
+            text-shadow: 2px 0 #fff, -2px 0 #fff, 0 2px #fff, 0 -2px #fff, 1px 1px #fff, -1px -1px #fff;
+            white-space: normal; line-height: 1.2; display: block; width: 120px; text-align: center; 
+        }
+        .sea-label span { font-size: 16px; color: #2980b9; font-style: italic; opacity: 0.8; text-shadow: none; }
+        
+        .leaflet-popup-content { text-align: right; direction: rtl; font-family: 'Vazirmatn'; }
+        .popup-title { font-weight: bold; border-bottom: 1px solid #eee; margin-bottom: 5px; }
+        .popup-row { display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+
+    <div id="map-container">
+        <div id="navbar">
+            <button class="filter-btn food" onclick="applyFilter('food')">🍔 غذا</button>
+            <button class="filter-btn attraction" onclick="applyFilter('attraction')">🏛️ جاذبه</button>
+            <button class="filter-btn culture" onclick="applyFilter('culture')">🎭 فرهنگ</button>
+            <button class="filter-btn nature" onclick="applyFilter('nature')">🌲 طبیعت</button>
+            <button class="filter-btn" onclick="clearFilter()" style="color:#e74c3c;">✕ حذف فیلتر</button>
+        </div>
+
+        <button id="back-btn" onclick="resetToCountry()">بازگشت به نمای کشوری</button>
+        
+        <div id="legend" class="legend">
+            <h4 style="margin:0; color:#333;">امتیاز منطقه</h4>
+            <div class="legend-bar"></div>
+            <div class="legend-labels">
+                <span>۵ (عالی)</span>
+                <span>۱ (بد)</span>
+            </div>
+        </div>
+
+        <div id="map"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        var map = L.map('map').setView([32.4279, 53.6880], 6);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map);
+
+        var provincesLayer, countiesLayer, labelMarkers = [], facilityMarkers = [], viewLevel = 'country';
+        var allCountiesData = null;
+        var currentCategory = null;
+
+        var provinceCenters = {
+            "آذربایجان شرقی": [37.6, 46.8], "آذربایجان غربی": [37.2, 45.0], "اردبیل": [38.5, 48.0],
+            "اصفهان": [32.8, 52.5], "البرز": [36.0, 50.8], "ایلام": [33.0, 46.4], "بوشهر": [28.8, 51.2],
+            "تهران": [35.5, 51.6], "چهارمحال و بختیاری": [32.0, 50.7], "خراسان جنوبی": [32.5, 59.5],
+            "خراسان رضوی": [35.0, 59.0], "خراسان شمالی": [37.4, 57.0], "خوزستان": [31.3, 48.8],
+            "زنجان": [36.5, 48.2], "سمنان": [35.5, 54.5], "سیستان و بلوچستان": [27.5, 60.5],
+            "فارس": [29.5, 53.0], "قزوین": [36.2, 49.8], "قم": [34.5, 51.0], "کردستان": [35.6, 47.0],
+            "کرمان": [30.0, 57.0], "کرمانشاه": [34.3, 46.8], "کهگیلویه و بویراحمد": [30.8, 50.6],
+            "گلستان": [37.2, 54.8], "گیلان": [37.1, 49.6], "لرستان": [33.5, 48.3], "مازندران": [36.3, 52.5],
+            "مرکزی": [34.0, 49.6], "هرمزگان": [27.5, 56.0], "همدان": [34.8, 48.5], "یزد": [32.0, 55.0]
+        };
+
+        function getColorByRating(rating) {
+            var value = (rating - 1) / 4; 
+            value = Math.max(0, Math.min(1, value));
+            var r, g, b;
+            if (value < 0.5) {
+                var p = value * 2;
+                r = Math.round(231 + (241 - 231) * p);
+                g = Math.round(76 + (196 - 76) * p);
+                b = Math.round(60 + (15 - 60) * p);
+            } else {
+                var p = (value - 0.5) * 2;
+                r = Math.round(241 + (46 - 241) * p);
+                g = Math.round(196 + (204 - 196) * p);
+                b = Math.round(15 + (113 - 15) * p);
+            }
+            return `rgb(${r}, ${g}, ${b})`;
+        }
+
+        function calculateRating(name, category) {
+            var score = 3.0; 
+            if (category === 'food') {
+                if (['گیلان', 'مازندران', 'خوزستان', 'آذربایجان', 'اردبیل', 'رشت', 'اهواز', 'تبریز', 'بندر'].some(x => name.includes(x))) score += 1.8;
+                else if (['تهران', 'اصفهان', 'فارس', 'کرمانشاه', 'شیراز'].some(x => name.includes(x))) score += 1.0;
+            } else if (category === 'nature') {
+                if (['مازندران', 'گیلان', 'گلستان', 'لرستان', 'کردستان', 'یاسوج', 'دنا', 'گرگان', 'تالش', 'کلاله', 'علی آباد'].some(x => name.includes(x))) score += 1.9;
+                else if (['ایلام', 'اردبیل', 'آذربایجان'].some(x => name.includes(x))) score += 1.5;
+            } else if (category === 'attraction') {
+                if (['اصفهان', 'فارس', 'یزد', 'هرمزگان', 'مازندران', 'کاشان', 'شیراز', 'کیش', 'گنبد'].some(x => name.includes(x))) score += 1.9;
+                else if (['تهران', 'آذربایجان', 'کرمان', 'همدان'].some(x => name.includes(x))) score += 1.4;
+            } else if (category === 'culture') {
+                if (['فارس', 'خراسان', 'همدان', 'یزد', 'کردستان', 'کرمانشاه', 'مشهد', 'نیشابور', 'ترکمن'].some(x => name.includes(x))) score += 1.9;
+                else if (['زنجان', 'قزوین', 'آذربایجان', 'مرکزی'].some(x => name.includes(x))) score += 1.3;
+            }
+            var hash = 0;
+            for (var i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+            score += (Math.abs(hash) % 15) / 10.0; 
+            return Math.min(5, Math.max(1, score));
+        }
+
+        function getTooltipContent(name, rating) {
+            return `<div style="text-align:center;">${name}<br><span style="color:${getColorByRating(rating)}; font-size:1.2em;">★ ${rating.toFixed(1)}</span></div>`;
+        }
+
+        function applyFilter(category) {
+            currentCategory = category;
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            document.querySelector(`.filter-btn.${category}`).classList.add('active');
+            
+            if (viewLevel === 'county') {
+                document.getElementById('legend').style.display = 'none';
+            } else {
+                document.getElementById('legend').style.display = 'block';
+                
+                if (provincesLayer && viewLevel === 'country') {
+                    provincesLayer.eachLayer(layer => {
+                        var pName = layer.feature.properties.name;
+                        var rating = calculateRating(pName, category);
+                        layer.setStyle({ fillColor: getColorByRating(rating), fillOpacity: 0.8, weight: 1 });
+                        layer.unbindTooltip();
+                        layer.bindTooltip(getTooltipContent(pName, rating), { sticky: true, direction: 'top' });
+                    });
+                }
+                
+                if (countiesLayer) {
+                    countiesLayer.eachLayer(layer => {
+                        var cName = layer.feature.properties.shapeName || layer.feature.properties.name;
+                        var rating = calculateRating(cName, category);
+                        layer.setStyle({ fillColor: getColorByRating(rating), fillOpacity: 0.8, weight: 1, color: 'white' });
+                        layer.unbindTooltip();
+                        layer.bindTooltip(getTooltipContent(cName, rating), { sticky: true, direction: 'top' });
+                    });
+                }
+            }
+            if (viewLevel === 'county') fetchFacilities();
+        }
+
+        function clearFilter() {
+            currentCategory = null;
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('legend').style.display = 'none';
+            
+            if (provincesLayer) {
+                provincesLayer.setStyle({ fillColor: '#3b82f6', fillOpacity: 0.4, weight: 1.5 });
+                provincesLayer.eachLayer(layer => layer.unbindTooltip());
+            }
+
+            if (countiesLayer && viewLevel !== 'county') {
+                countiesLayer.setStyle({ fillColor: '#10b981', fillOpacity: 0.6, weight: 1, color: 'white', dashArray: '3' });
+                countiesLayer.eachLayer(layer => layer.unbindTooltip());
+            }
+
+            if (viewLevel === 'county') fetchFacilities();
+        }
+
+        function addSeaLabels() {
+            var seas = [{ name: "دریای خزر", coords: [38.5, 51.5] }, { name: "خلیج فارس", coords: [26.5, 51.5] }, { name: "دریای عمان", coords: [24.5, 58.0] }];
+            seas.forEach(sea => { L.marker(sea.coords, { icon: L.divIcon({ className: 'province-label sea-label', html: '<span>' + sea.name + '</span>', iconSize: [150, 40], iconAnchor: [75, 20] }), interactive: false }).addTo(map); });
+        }
+        
+        function getCircleMarker(lat, lng, category) {
+            var color = '#7f8c8d'; 
+            if (category === 'hotel') color = '#3498db'; else if (category === 'restaurant') color = '#e67e22'; else if (category === 'nature') color = '#2ecc71'; else if (category === 'attraction') color = '#9b59b6';
+            return L.circleMarker([lat, lng], { radius: 8, fillColor: color, color: "#fff", weight: 2, opacity: 1, fillOpacity: 0.9 });
+        }
+
+        function addLabel(layer, name) {
+            var center;
+            if (provinceCenters[name]) center = provinceCenters[name];
+            else center = layer.getBounds().getCenter();
+
+            var label = L.marker(center, { 
+                icon: L.divIcon({ className: 'province-label', html: '<span>' + name + '</span>', iconSize: [120, 40], iconAnchor: [60, 20] }), 
+                interactive: false 
+            }).addTo(map);
+            labelMarkers.push(label);
+        }
+
+        function clearLabels() { labelMarkers.forEach(m => map.removeLayer(m)); labelMarkers = []; }
+
+        function loadProvinces() {
+            clearLabels(); addSeaLabels();
+            fetch("{% static 'team9/json/iran_data.json' %}").then(res => res.json()).then(data => {
+                provincesLayer = L.geoJSON(data, {
+                    style: { fillColor: '#3b82f6', weight: 1.5, color: 'white', fillOpacity: 0.4 },
+                    onEachFeature: function(feature, layer) {
+                        layer.on({
+                            click: onProvinceClick,
+                            mouseover: function(e) { if(!currentCategory) e.target.setStyle({ fillOpacity: 0.7 }); },
+                            mouseout: function(e) { if(!currentCategory) e.target.setStyle({ fillOpacity: 0.4 }); }
+                        });
+                        if (feature.properties.name) addLabel(layer, feature.properties.name);
+                    }
+                }).addTo(map);
+                if (currentCategory) applyFilter(currentCategory);
+            });
+        }
+
+        function onProvinceClick(e) {
+            var layer = e.target;
+            var provinceName = layer.feature.properties.name;
+            map.fitBounds(layer.getBounds()); viewLevel = 'province';
+            if (map.hasLayer(provincesLayer)) map.removeLayer(provincesLayer);
+            clearLabels();
+            
+            document.getElementById('back-btn').style.display = 'block';
+            
+            // کد مخفی کردن نوار فیلتر حذف شد
+            
+            if(currentCategory) document.getElementById('legend').style.display = 'block';
+            
+            clearFacilityMarkers();
+            if (!allCountiesData) {
+                fetch("{% static 'team9/json/shahrestans.json' %}").then(res => res.json()).then(data => { allCountiesData = data; renderCounties(provinceName); });
+            } else { renderCounties(provinceName); }
+        }
+
+        function renderCounties(provinceName) {
+            var filtered = allCountiesData.features.filter(f => f.properties.province_name === provinceName || f.properties.ostan === provinceName);
+            if (countiesLayer) map.removeLayer(countiesLayer);
+            
+            countiesLayer = L.geoJSON({type: "FeatureCollection", features: filtered}, {
+                style: function(feature) {
+                    var style = { weight: 1, color: 'white', dashArray: '3' };
+                    if (currentCategory) {
+                        var cName = feature.properties.shapeName || feature.properties.name;
+                        var rating = calculateRating(cName, currentCategory);
+                        style.fillColor = getColorByRating(rating);
+                        style.fillOpacity = 0.8;
+                    } else {
+                        style.fillColor = '#10b981';
+                        style.fillOpacity = 0.6;
+                    }
+                    return style;
+                },
+                onEachFeature: function(feature, layer) {
+                    var cName = feature.properties.shapeName || feature.properties.name;
+                    if(cName) addLabel(layer, cName);
+
+                    if (currentCategory) {
+                        var rating = calculateRating(cName, currentCategory);
+                        layer.bindTooltip(getTooltipContent(cName, rating), { sticky: true, direction: 'top' });
+                    }
+
+                    layer.on('click', function(e) {
+                        map.fitBounds(e.target.getBounds()); 
+                        viewLevel = 'county'; 
+
+                        countiesLayer.eachLayer(function(l) {
+                            l.setStyle({
+                                fillOpacity: 0,        
+                                weight: 1,             
+                                color: '#666',         
+                                dashArray: null        
+                            });
+                            l.unbindTooltip();         
+                        });
+
+                        clearLabels();
+                        document.getElementById('legend').style.display = 'none';
+                        setTimeout(fetchFacilities, 500); 
+                    });
+                }
+            }).addTo(map);
+        }
+
+        function resetToCountry() {
+            viewLevel = 'country'; clearFacilityMarkers();
+            if (countiesLayer) map.removeLayer(countiesLayer);
+            clearLabels();
+            document.getElementById('back-btn').style.display = 'none';
+            document.getElementById('navbar').style.display = 'flex';
+            if(currentCategory) document.getElementById('legend').style.display = 'block';
+            map.setView([32.4279, 53.6880], 6);
+            loadProvinces();
+        }
+
+        function clearFacilityMarkers() { facilityMarkers.forEach(m => map.removeLayer(m)); facilityMarkers = []; }
+
+        function fetchFacilities() {
+            if (viewLevel !== 'county') return;
+            var center = map.getCenter();
+            var bounds = map.getBounds();
+            var radius = Math.floor(map.distance(center, bounds.getNorthEast()));
+            var apiUrl = `/team4/api/facilities/nearby/?lat=${center.lat}&lng=${center.lng}&radius=${radius}`;
+            
+            fetch(apiUrl).then(res => { if(!res.ok) throw new Error(); return res.json(); }).then(data => {
+                clearFacilityMarkers();
+                var places = data.results || (Array.isArray(data) ? data : []);
+                places.forEach(place => {
+                    if (currentCategory) {
+                        var type = place.category;
+                        if (currentCategory === 'food' && type !== 'restaurant' && type !== 'cafe') return;
+                        if (currentCategory === 'attraction' && type !== 'attraction' && type !== 'museum') return;
+                        if (currentCategory === 'nature' && type !== 'nature' && type !== 'park') return;
+                    }
+                    if (place.coordinates && place.coordinates.length === 2) {
+                        var popupContent = `<div class="popup-title">${place.name_fa}</div><div class="popup-row"><span class="popup-label">Category:</span><span>${place.category}</span></div><div class="popup-row"><span class="popup-label">City:</span><span>${place.city || '-'}</span></div>${place.avg_rating ? `<div class="popup-row"><span class="popup-label">Rating:</span><span class="popup-rating">⭐ ${place.avg_rating}</span></div>` : ''}`;
+                        var marker = getCircleMarker(place.coordinates[1], place.coordinates[0], place.category).addTo(map).bindPopup(popupContent);
+                        facilityMarkers.push(marker);
+                    }
+                });
+            }).catch(err => console.log("Failed to fetch points"));
+        }
+
+        addSeaLabels();
+        loadProvinces();
+        map.on('moveend', fetchFacilities);
+    </script>
+</body>
+</html>

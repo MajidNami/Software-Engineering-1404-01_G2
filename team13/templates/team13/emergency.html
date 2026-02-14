@@ -1,0 +1,57 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مراکز امدادی نزدیک — امکانات و حمل‌ونقل</title>
+    <link rel="stylesheet" href="{% static 'team13/css/style.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100..900&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <h1>حالت اضطراری — مراکز امدادی نزدیک</h1>
+        <h3>نزدیک‌ترین بیمارستان‌ها و مراکز درمانی — گروه Axiom (تیم ۱۳)</h3>
+        {% include "team13/_auth_header.html" %}
+        {% include "team13/_nav.html" %}
+
+        <div class="detail-box">
+            <form method="get" action="{% url 'team13:emergency' %}">
+                <div class="form-group">
+                    <label for="lat">عرض جغرافیایی (latitude)</label>
+                    <input type="text" name="lat" id="lat" value="{{ lat }}" placeholder="مثلاً 35.6892">
+                </div>
+                <div class="form-group">
+                    <label for="lon">طول جغرافیایی (longitude)</label>
+                    <input type="text" name="lon" id="lon" value="{{ lon }}" placeholder="مثلاً 51.3890">
+                </div>
+                <button type="submit" class="btn-submit">یافتن مراکز نزدیک</button>
+            </form>
+            <p style="font-size: 0.9rem; color: var(--text-muted); margin-top: 10px;">در صورت خالی بودن، موقعیت پیش‌فرض تهران استفاده می‌شود.</p>
+        </div>
+
+        {% if emergency_places %}
+        <h2>نزدیک‌ترین مراکز امدادی</h2>
+        <div class="card-list">
+            {% for p in emergency_places %}
+            <div class="card emergency-item">
+                {% if p.place_id %}
+                <a href="{% url 'team13:place_detail' p.place_id %}">{{ p.name_fa|default:"بیمارستان" }}</a>
+                {% else %}
+                <span>{{ p.name_fa|default:"مرکز امدادی" }}</span>
+                {% endif %}
+                <div class="meta">فاصله: {{ p.distance_km }} کیلومتر — زمان رسیدن (تقریبی با خودرو): {{ p.eta_minutes }} دقیقه</div>
+                <div class="meta">{{ p.address|default:"" }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="detail-box">موقعیت را وارد کنید و «یافتن مراکز نزدیک» را بزنید، یا از مقادیر پیش‌فرض تهران استفاده می‌شود.</p>
+        {% endif %}
+
+        <a href="{% url 'team13:index' %}" class="back-btn">بازگشت به صفحه اصلی</a>
+        {% include "team13/_footer.html" %}
+    </div>
+    <script src="{% static 'team13/js/auth_keepalive.js' %}"></script>
+</body>
+</html>

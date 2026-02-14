@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --forest-green: #2E7D32;
+  --leaf-green: #43A047;
+  --persian-gold: #FFB300;
+  --bg-light: #F1F8E9;
+  --text-dark: #1A1A1A;
+}
+
+body {
+  font-family: 'Vazirmatn', sans-serif;
+  background-color: var(--bg-light);
+  color: var(--text-dark);
+  direction: rtl;
+}

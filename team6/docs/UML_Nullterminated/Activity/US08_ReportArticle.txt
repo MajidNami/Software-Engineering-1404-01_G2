@@ -1,0 +1,16 @@
+@startuml AD_US08_ReportArticle
+|User|
+start
+:submit report;
+
+|ReportController|
+:reportArticle(request);
+
+|ReportService|
+:createReport(report);
+
+|NotificationService|
+:notifyModerators(report);
+
+stop
+@enduml

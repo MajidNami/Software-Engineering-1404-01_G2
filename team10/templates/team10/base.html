@@ -1,0 +1,56 @@
+﻿{% load static %}
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}ایران‌نما{% endblock %}</title>
+
+  <link rel="stylesheet" href="{% static 'team10/styles/style.css' %}">
+  <link rel="stylesheet" href="{% static 'team10/styles/components.css' %}">
+  <link rel="stylesheet" href="{% static 'team10/styles/team10-pages.css' %}">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+  {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+  <div class="bg-pattern"></div>
+
+  <header class="main-header">
+    <div class="container header-content">
+      <div class="logo">
+        <i class="fa-solid fa-route" aria-hidden="true"></i>
+        <div class="logo-text">
+          <h1>برنامه‌ریز سفر</h1>
+          <span>تیم ۱۰</span>
+        </div>
+      </div>
+
+      <nav class="nav-pills" aria-label="team10 navigation">
+        <a href="/team10/" class="nav-pill nav-pill--icon" aria-label="خانه تیم" title="خانه تیم">
+          <i class="fa-solid fa-house" aria-hidden="true"></i>
+        </a>
+        <a href="/" class="nav-pill">خانه سامانه</a>
+        <a href="/team10/trips/" class="nav-pill">سفرهای من</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container team10-main">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="main-footer">
+    <div class="container">© سامانه برنامه ريز سفر - تيم ١٠ | ایران‌نما</div>
+  </footer>
+
+  <script src="{% static 'team10/js/persian-digits.js' %}" defer></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,353 @@
+﻿{% extends "team10/base.html" %}
+{% load static %}
+{% block title %}جزئیات سفر | ایران‌نما{% endblock %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'team10/styles/trip-detail.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="t10-page t10-trip-detail t10-digit-scope">
+
+  {% if trip %}
+        <div class="t10-summary-card">
+            <div class="t10-summary-head">
+                <h2>جزئیات سفر</h2>
+                <p>نمایش اطلاعات کلی و برنامه روزانه سفر.</p>
+            </div>
+            <div class="t10-summary-grid">
+                <div class="t10-info-item">
+                    <span class="t10-info-label"><span class="t10-info-icon">📍</span>مقصد</span>
+                    <span class="t10-info-value t10-no-digit">{{ trip.destination_name|default:trip.requirements.destination_name }}</span>
+                </div>
+                <div class="t10-info-item">
+                    <span class="t10-info-label">مدت</span>
+                    <span class="t10-info-value">{{ days_count }} روز</span>
+                </div>
+                <div class="t10-info-item">
+                    <span class="t10-info-label">تاریخ شروع</span>
+                    <span class="t10-info-value">{{ start_at_jalali|default:"—" }}</span>
+                </div>
+                <div class="t10-info-item">
+                    <span class="t10-info-label">وضعیت</span>
+                    <span class="t10-info-value t10-status-badge">
+                      {% with s=trip.get_status_display|default:"" %}
+                        {% with s_lower=s|lower %}
+                          {% if s_lower == "draft" %}
+                            پیش‌نویس
+                          {% elif s_lower == "active" %}
+                            فعال
+                          {% elif s_lower == "in progress" %}
+                            در حال اجرا
+                          {% elif s_lower == "completed" %}
+                            تمام‌شده
+                          {% elif s_lower == "confirmed" or s_lower == "approved" %}
+                            تایید شده
+                          {% elif s_lower == "finished" or s_lower == "done" or s_lower == "completed" %}
+                            تمام‌شده
+                          {% elif s_lower == "cancelled" or s_lower == "canceled" %}
+                            لغوشده
+                          {% else %}
+                            {{ s|default:"—" }}
+                          {% endif %}
+                        {% endwith %}
+                      {% endwith %}
+                    </span>
+                </div>
+                <div class="t10-info-item">
+                    <span class="t10-info-label">تعداد نفر</span>
+                    <span class="t10-info-value">{{ trip.requirements.travelers_count }}</span>
+                </div>
+                <div class="t10-info-item">
+                    <span class="t10-info-label">سطح بودجه</span>
+                    <span class="t10-info-value">
+                      {% with b=trip.requirements.get_budget_level_display|default:"" %}
+                        {% with b_lower=b|lower %}
+                          {% if b_lower == "economy" or b_lower == "economic" or b_lower == "economical" %}
+                            اقتصادی
+                          {% elif b_lower == "medium" or b_lower == "normal" or b_lower == "standard" or b_lower == "moderate" %}
+                            متوسط
+                          {% elif b_lower == "luxury" or b_lower == "lux" %}
+                            لوکس
+                          {% else %}
+                            {{ b|default:"—" }}
+                          {% endif %}
+                        {% endwith %}
+                      {% endwith %}
+                    </span>
+                </div>
+                <div class="t10-summary-bottom">
+                  <div class="t10-summary-bottom__actions">
+                    <div class="t10-trip-actions">
+                      <a class="t10-btn t10-btn--secondary" href="{% url 'team10:trip_cost' trip.id %}">هزینه سفر</a>
+                      <!-- <a class="t10-btn t10-btn--secondary" href="{% url 'team10:trip_styles' trip.id %}">سبک‌ها</a> -->
+                      <!-- <a class="t10-btn t10-btn--secondary" href="{% url 'team10:trip_replan' trip.id %}">بازتولید برنامه</a> -->
+                    </div>
+                  </div>
+                  <div class="t10-summary-bottom__cost">
+                    <div class="t10-info-item t10-info-item--cost t10-total-cost">
+                      <span class="t10-info-label">هزینه کل</span>
+                      <span class="t10-info-value t10-num">
+                        {% with c=total_cost %}
+                          {% if c %}
+                            {{ c|floatformat:0 }} تومان
+                          {% else %}
+                            —
+                          {% endif %}
+                        {% endwith %}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+            </div>
+        </div>
+        
+        <section class="t10-card t10-destination-description">
+          <h3 class="t10-section-title">درباره مقصد</h3>
+          <div class="t10-description-content">
+            {{ destination_info|linebreaks }}
+          </div>
+        </section>
+
+  <section class="t10-card">
+    <h3>برنامه روزانه</h3>
+
+    {% for day in days_list %}
+    <div class="t10-day-card">
+      <div class="t10-day-header">
+        <h4>روز {{ day.day_number }}</h4>
+        <span class="t10-day-date">{{  day.date_jalali }}</span>
+      </div>
+      
+      {% for item in day.activities %}
+      
+      {% if item.transfer %}
+      <div class="t10-transfer-row">
+        <span class="t10-transfer-emoji" data-mode="{{ item.transfer.transport_mode }}">🚗</span>
+        <span class="t10-transfer-text">
+          جابجایی:
+          {% if item.transfer.transport_mode == "WALKING" %}
+            پیاده‌روی
+          {% elif item.transfer.transport_mode == "TAXI" %}
+            تاکسی
+          {% elif item.transfer.transport_mode == "PUBLIC_TRANSIT" %}
+            حمل‌ونقل عمومی
+          {% elif item.transfer.transport_mode == "DRIVING" %}
+            خودرو شخصی
+          {% else %}
+            {{ item.transfer.transport_mode }}
+          {% endif %}
+          | {{ item.transfer.distance_km }} کیلومتر
+          | {{ item.transfer.duration_minutes }} دقیقه
+          {% if item.transfer.cost > 0 %}
+          | هزینه: {{ item.transfer.cost|floatformat:0 }} تومان
+          {% endif %}
+        </span>
+      </div>
+      {% endif %}
+      
+      <div class="t10-activity-row" data-activity-type="{{ item.activity_type_fa }}">
+        <div class="t10-activity-time">
+          {{ item.plan.start_at|date:"H:i" }} تا {{ item.plan.end_at|date:"H:i" }}
+        </div>
+        <div class="t10-activity-main">
+          <div class="t10-activity-title">{{ item.plan.description|truncatechars:50|default:"-" }}</div>
+          <div class="t10-activity-meta">
+            <span class="t10-type-badge">
+              <span class="t10-type-emoji" aria-hidden="true"></span>
+              <span class="t10-type-text">{{ item.activity_type_fa }}</span>
+            </span>
+            <span class="t10-activity-cost">{{ item.plan.cost|floatformat:0|default:"0" }} تومان</span>
+          </div>
+        </div>
+      </div>
+      
+      {% endfor %}
+    </div>
+    {% empty %}
+    <div class="t10-day-card">
+      <div class="t10-activity-empty">
+        <div>برنامه‌ای برای این سفر ثبت نشده است.</div>
+      </div>
+    </div>
+    {% endfor %}
+  </section>
+
+  <section class="t10-card">
+    <h3>هتل‌ها</h3>
+    {% for hotel in hotel_schedules %}
+    <div class="t10-day-card t10-hotel-card">
+      <div class="t10-activity-row">
+        <div class="t10-activity-time">🏨 هتل</div>
+        <div class="t10-activity-main">
+          <div class="t10-activity-title">{{ hotel.hotel_name }}</div>
+          <div class="t10-activity-meta">
+            <span class="t10-type-badge">اتاق‌ها: {{ hotel.rooms_count }}</span>
+            <span class="t10-activity-cost">{{ hotel.cost|floatformat:0 }} تومان</span>
+          </div>
+        </div>
+        <!-- <div class="t10-activity-emoji" aria-hidden="true">🏨</div> -->
+      </div>
+      <div class="t10-transfer-row">
+        <span class="t10-transfer-emoji">📅</span>
+        <span class="t10-transfer-text">بازه اقامت: {{ hotel.start_at_jalali|default:"-" }} تا {{ hotel.end_at_jalali|default:"-" }}</span>
+      </div>
+    </div>
+    {% empty %}
+    <div class="t10-day-card">
+      <div class="t10-activity-empty">
+        <div>هتلی برای این سفر ثبت نشده است.</div>
+      </div>
+    </div>
+    {% endfor %}
+  </section>
+
+  {% else %}
+  <section class="t10-card">
+    <h3>جزئیات سفر</h3>
+    <p>سفر موردنظر پیدا نشد.</p>
+  </section>
+  {% endif %}
+</section>
+
+<!-- Timeline -->
+<div class="t10-timeline-floating" aria-label="خط زمان سفر">
+  <div class="t10-timeline-line">
+    <div class="t10-timeline-progress"></div>
+  </div>
+  <ol class="t10-timeline-dots" id="t10TimelineDots"></ol>
+</div>
+
+<script>
+  (function() {
+    function toPersianDigits(value) {
+      return String(value).replace(/\d/g, function(digit) {
+        return "۰۱۲۳۴۵۶۷۸۹"[digit];
+      });
+    }
+
+    function replaceDigitsInNode(node) {
+      if (!node || !node.nodeValue) return;
+      node.nodeValue = toPersianDigits(node.nodeValue);
+    }
+
+    function shouldSkipNode(node) {
+      if (!node || !node.parentElement) return true;
+      if (node.parentElement.closest('.t10-no-digit')) return true;
+      if (node.parentElement.closest('script, style, input, textarea, select, option')) return true;
+      return false;
+    }
+
+    function convertAllDigits() {
+      const scope = document.querySelector('.t10-digit-scope');
+      if (!scope) return;
+      const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT, null);
+      let current;
+      while ((current = walker.nextNode())) {
+        if (shouldSkipNode(current)) continue;
+        replaceDigitsInNode(current);
+      }
+    }
+
+    function setActivityEmojis() {
+      const map = [
+        { keys: ["غذا", "رستوران", "Food", "Restaurant", "Meal"], emoji: "🍽️" },
+        { keys: ["گردشگری", "جاذبه", "Attraction", "Sightseeing", "Tourism"], emoji: "🏛️" },
+        { keys: ["فرهنگی", "Culture", "Cultural", "Museum", "Art"], emoji: "🎭" },
+        { keys: ["خرید", "Shopping", "Mall", "Market"], emoji: "🛍️" },
+        { keys: ["طبیعت", "Nature", "Park", "Forest"], emoji: "🌿" },
+        { keys: ["هتل", "اقامت", "Hotel", "Stay", "Lodging"], emoji: "🏨" },
+        { keys: ["استراحت", "Relax", "Rest"], emoji: "🧘" }
+      ];
+
+      document.querySelectorAll('.t10-activity-row[data-activity-type]').forEach(function(row) {
+        const type = (row.getAttribute('data-activity-type') || '').trim();
+        const hit = map.find(function(m) {
+          return m.keys.some(function(k) { return type.toLowerCase().includes(String(k).toLowerCase()); });
+        });
+        const emoji = hit ? hit.emoji : "📍";
+        const badgeEmoji = row.querySelector('.t10-type-emoji');
+        if (badgeEmoji) badgeEmoji.textContent = emoji;
+      });
+
+      document.querySelectorAll('.t10-transfer-emoji[data-mode]').forEach(function(el) {
+        const mode = (el.getAttribute('data-mode') || '').toUpperCase();
+        const rowText = (el.closest('.t10-transfer-row') || {}).textContent || "";
+        if (mode === "WALKING" || rowText.indexOf("پیاده") !== -1) el.textContent = "🚶";
+        else if (mode === "PUBLIC_TRANSIT") el.textContent = "🚌";
+        else if (mode === "TAXI") el.textContent = "🚕";
+        else el.textContent = "🚗";
+      });
+    }
+
+    function initFloatingTimeline() {
+      const itineraryCard = Array.from(document.querySelectorAll('.t10-card')).find(function(card) {
+      const h3 = card.querySelector('h3');
+      return h3 && (h3.textContent || '').trim().includes('برنامه روزانه');
+    });
+
+    const days = itineraryCard
+      ? itineraryCard.querySelectorAll('.t10-day-card:not(.t10-hotel-card)')
+      : document.querySelectorAll('.t10-day-card:not(.t10-hotel-card)');
+
+      const dotsWrap = document.getElementById('t10TimelineDots');
+      const progressEl = document.querySelector('.t10-timeline-progress');
+
+      if (!days.length || !dotsWrap || !progressEl) return;
+
+      // create dots from existing days
+      days.forEach((day, i) => {
+        const dayNum = (day.querySelector('.t10-day-header h4')?.textContent || '').replace(/\D/g, '') || (i + 1);
+
+        day.id = day.id || `t10-day-${i + 1}`;
+
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        a.href = `#${day.id}`;
+        a.className = 't10-timeline-dot';
+        a.textContent = dayNum;
+
+        li.appendChild(a);
+        dotsWrap.appendChild(li);
+      });
+
+      function updateTimeline() {
+        const first = days[0].getBoundingClientRect();
+        const last = days[days.length - 1].getBoundingClientRect();
+        const vh = window.innerHeight || 1;
+
+        const total = (last.top - first.top) || 1;
+        const passed = vh * 0.4 - first.top;
+        const p = Math.max(0, Math.min(1, passed / total));
+
+        progressEl.style.height = (p * 100) + '%';
+
+        const dots = document.querySelectorAll('.t10-timeline-dot');
+        const n = dots.length;
+
+        // active index based on progress, so it matches the progress line
+        let activeIndex = 0;
+        if (n > 1) {
+          activeIndex = Math.min(n - 1, Math.floor(p * (n - 1) + 1e-6));
+        }
+
+        // mark active (and optionally passed)
+        dots.forEach((dot, i) => {
+          dot.classList.toggle('is-active', i === activeIndex);
+          dot.classList.toggle('is-passed', i < activeIndex);
+        });
+      }
+
+      window.addEventListener('scroll', updateTimeline, { passive: true });
+      window.addEventListener('resize', updateTimeline);
+      updateTimeline();
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      setActivityEmojis();
+      convertAllDigits();
+      initFloatingTimeline();
+    });
+  })();
+</script>
+{% endblock %}

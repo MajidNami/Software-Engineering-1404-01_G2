@@ -1,0 +1,42 @@
+{% extends "team6/base.html" %}
+
+{% block title %}پیش‌نویس‌های من{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2><i class="fa-solid fa-file-pen"></i> مقالات پیش‌نویس شما</h2>
+    <hr>
+
+    {% if drafts %}
+        <div class="table-responsive">
+            <table class="table table-hover bg-white shadow-sm rounded">
+                <thead class="table-light">
+                    <tr>
+                        <th>عنوان</th>
+                        <th>آخرین تغییرات</th>
+                        <th>عملیات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for draft in drafts %}
+                    <tr>
+                        <td><strong>{{ draft.title_fa }}</strong></td>
+                        <td>{{ draft.updated_at|date:"Y/m/d H:i" }}</td>
+                        <td>
+                            <a href="{% url 'team6:article_edit' draft.slug %}" class="btn btn-sm btn-warning">
+                                <i class="fa-solid fa-edit"></i> ویرایش و انتشار
+                            </a>
+                            <a href="{% url 'team6:article_delete' draft.slug %}" class="btn btn-sm btn-outline-danger">
+                                <i class="fa-solid fa-trash"></i> حذف
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="alert alert-info">شما در حال حاضر هیچ مقاله پیش‌نویسی ندارید.</div>
+    {% endif %}
+</div>
+{% endblock %}

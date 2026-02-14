@@ -1,0 +1,66 @@
+@startuml
+hide footbox
+skinparam monochrome true
+skinparam shadowing false
+skinparam ArrowThickness 1
+skinparam sequence {
+  ParticipantPadding 20
+  BoxPadding 10
+  ActivationBarWidth 3
+}
+
+title US-04 — Edit Article
+actor "Editor" as Editor
+participant "UI" as UI
+participant "ArticleController" as ArticleController
+participant "AuthorizationService" as AuthorizationService
+participant "ArticleService" as ArticleService
+participant "ArticleRepository" as ArticleRepository
+participant "RevisionService" as RevisionService
+participant "RevisionRepository" as RevisionRepository
+participant "TagService" as TagService
+participant "NLPProcessor" as NLPProcessor
+
+activate Editor
+Editor -> UI : editForm(articleId, changes)
+activate UI
+UI -> ArticleController : updateArticle(id, request)
+activate ArticleController
+ArticleController -> AuthorizationService : canEditArticle(userId, articleId)
+activate AuthorizationService
+AuthorizationService --> ArticleController : allowed:boolean
+deactivate AuthorizationService
+ArticleController -> ArticleService : updateArticle(id, article)
+activate ArticleService
+ArticleService -> ArticleRepository : update(article)
+activate ArticleRepository
+ArticleRepository --> ArticleService : updated:Article
+deactivate ArticleRepository
+ArticleService -> RevisionService : createRevision(articleId, content, editorId)
+activate RevisionService
+RevisionService -> RevisionRepository : save(revision)
+activate RevisionRepository
+RevisionRepository --> RevisionService : Revision
+deactivate RevisionRepository
+RevisionService --> ArticleService : Revision
+deactivate RevisionService
+ArticleService -> TagService : generateAutoTags(content)
+activate TagService
+TagService -> NLPProcessor : extractKeywords(text)
+activate NLPProcessor
+NLPProcessor --> TagService : keywords
+deactivate NLPProcessor
+TagService -> NLPProcessor : extractEntities(text)
+activate NLPProcessor
+NLPProcessor --> TagService : entities
+deactivate NLPProcessor
+TagService --> ArticleService : tags
+deactivate TagService
+ArticleService --> ArticleController : updated:Article
+deactivate ArticleService
+ArticleController --> UI : Response(updated)
+deactivate ArticleController
+UI --> Editor : showUpdatedArticle()
+deactivate UI
+deactivate Editor
+@enduml

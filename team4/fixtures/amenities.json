@@ -1,0 +1,101 @@
+[
+  {
+    "model": "team4.amenity",
+    "pk": 1,
+    "fields": {
+      "name_fa": "وای‌فای رایگان",
+      "name_en": "WiFi",
+      "icon": "wifi"
+    }
+  },
+  {
+    "model": "team4.amenity",
+    "pk": 2,
+    "fields": {
+      "name_fa": "پارکینگ",
+      "name_en": "Parking",
+      "icon": "parking"
+    }
+  },
+  {
+    "model": "team4.amenity",
+    "pk": 3,
+    "fields": {
+      "name_fa": "صبحانه",
+      "name_en": "Breakfast",
+      "icon": "breakfast"
+    }
+  },
+  {
+    "model": "team4.amenity",
+    "pk": 4,
+    "fields": {
+      "name_fa": "استخر",
+      "name_en": "Pool",
+      "icon": "pool"
+    }
+  },
+  {
+    "model": "team4.amenity",
+    "pk": 5,
+    "fields": {
+      "name_fa": "سالن ورزشی",
+      "name_en": "Gym",
+      "icon": "gym"
+    }
+  },
+  {
+    "model": "team4.amenity",
+    "pk": 6,
+    "fields": {
+      "name_fa": "رستوران",
+      "name_en": "Restaurant",
+      "icon": "restaurant"
+    }
+  },
+  {
+    "model": "team4.amenity",
+    "pk": 7,
+    "fields": {
+      "name_fa": "اتاق غیرسیگار",
+      "name_en": "Non-Smoking",
+      "icon": "no-smoking"
+    }
+  },
+  {
+    "model": "team4.amenity",
+    "pk": 8,
+    "fields": {
+      "name_fa": "تهویه مطبوع",
+      "name_en": "Air Conditioning",
+      "icon": "ac"
+    }
+  },
+  {
+    "model": "team4.amenity",
+    "pk": 9,
+    "fields": {
+      "name_fa": "سرویس اتاق",
+      "name_en": "Room Service",
+      "icon": "room-service"
+    }
+  },
+  {
+    "model": "team4.amenity",
+    "pk": 10,
+    "fields": {
+      "name_fa": "خدمات پذیرش 24 ساعته",
+      "name_en": "24-Hour Reception",
+      "icon": "reception"
+    }
+  },
+  {
+    "model": "team4.amenity",
+    "pk": 11,
+    "fields": {
+      "name_fa": "خدمات ویلچر",
+      "name_en": "Wheelchair Service",
+      "icon": "wheelchair"
+    }
+  }
+]

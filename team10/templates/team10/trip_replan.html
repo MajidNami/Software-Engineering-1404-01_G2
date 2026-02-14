@@ -1,0 +1,41 @@
+﻿{% extends "team10/base.html" %}
+{% block title %}بازتولید برنامه | ایران‌نما{% endblock %}
+
+{% block content %}
+<section class="t10-page">
+  <section class="t10-section">
+    <h2>بازتولید برنامه</h2>
+    <p>نسخه جدید برنامه بر اساس شرایط تازه تولید می‌شود.</p>
+  </section>
+
+  <div class="t10-actions">
+    <button class="t10-btn t10-btn--primary" type="button">بازتولید برنامه</button>
+  </div>
+
+  <section class="t10-card">
+    <h3>تغییرات اعمال‌شده</h3>
+    <ul class="t10-change-list">
+      <li>جاذبه X حذف شد (به دلیل بسته بودن)</li>
+      <li>فعالیت Y جایگزین شد (به دلیل بارندگی)</li>
+    </ul>
+  </section>
+
+  <section class="t10-grid t10-grid--2">
+    <article class="t10-card">
+      <h3>نسخه قبلی</h3>
+      <p>زمان ثبت: ۱۴۰۴-۱۱-۲۰ ۱۲:۳۰</p>
+      <p>چیدمان اولیه بدون تغییرات اضطراری.</p>
+    </article>
+    <article class="t10-card">
+      <h3>نسخه جدید</h3>
+      <p>زمان ثبت: ۱۴۰۴-۱۱-۲۰ ۱۲:۴۵</p>
+      <p>به‌روزرسانی با توجه به شرایط آب‌وهوا و دسترسی.</p>
+    </article>
+  </section>
+
+  <div class="t10-actions">
+    <button class="t10-btn t10-btn--primary" type="button">تأیید نسخه جدید</button>
+    <button class="t10-btn t10-btn--secondary" type="button">بازگشت به نسخه قبلی</button>
+  </div>
+</section>
+{% endblock %}

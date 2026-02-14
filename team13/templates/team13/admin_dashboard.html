@@ -1,0 +1,393 @@
+{% load static %}
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>پنل مدیریت تیم ۱۳ — امکانات و حمل‌ونقل</title>
+    <link rel="stylesheet" href="{% static 'team13/css/style.css' %}" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100..900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      .team13-admin-page {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 24px;
+        direction: rtl;
+        text-align: right;
+      }
+      .team13-admin-header {
+        font-size: 1.5rem;
+        color: #1b4332;
+        margin-bottom: 24px;
+        font-weight: 700;
+      }
+      .team13-admin-section {
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        padding: 24px;
+        margin-bottom: 24px;
+      }
+      .team13-admin-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+      }
+      .team13-admin-table th,
+      .team13-admin-table td {
+        padding: 12px 14px;
+        text-align: right;
+        border-bottom: 1px solid #eee;
+        vertical-align: middle;
+      }
+      .team13-admin-table th {
+        background: #f8f9fa;
+        color: #374151;
+        font-weight: 600;
+      }
+      .team13-admin-cell-image {
+        width: 90px;
+      }
+      .team13-admin-cell-image img {
+        max-width: 80px;
+        max-height: 60px;
+        object-fit: cover;
+        border-radius: 8px;
+      }
+      .team13-admin-cell-actions {
+        white-space: nowrap;
+      }
+      .team13-admin-btn-approve {
+        display: inline-block;
+        padding: 8px 12px;
+        background: #22c55e !important;
+        color: #fff !important;
+        border: none;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        font-size: 0.85rem;
+        transition: transform 0.2s ease;
+        font-family: inherit;
+      }
+      .team13-admin-btn-approve:hover {
+        transform: scale(1.05);
+        color: #fff !important;
+      }
+      .team13-admin-btn-reject {
+        display: inline-block;
+        padding: 8px 12px;
+        background: #dc2626 !important;
+        color: #fff !important;
+        border: none;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        font-size: 0.85rem;
+        margin-right: 8px;
+        transition: transform 0.2s ease;
+        font-family: inherit;
+      }
+      .team13-admin-btn-reject:hover {
+        transform: scale(1.05);
+        color: #fff !important;
+      }
+      .team13-admin-add-form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: flex-end;
+      }
+      .team13-admin-add-form label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 4px;
+        color: #374151;
+      }
+      .team13-admin-add-form input[type="text"] {
+        padding: 10px 14px;
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+        font-size: 1rem;
+        min-width: 220px;
+      }
+      .team13-admin-add-form button {
+        padding: 8px 16px;
+        background: #1b4332;
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .team13-admin-empty {
+        color: #6b7280;
+        padding: 24px;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container team13-admin-page">
+      {% include "team13/_auth_header.html" %}
+      <nav style="margin-bottom: 20px" class="team13-main-nav">
+        <a href="{% url 'team13:index' %}"{% if request.resolver_match.url_name == 'index' %} class="team13-nav-active"{% endif %}>خانه / نقشه</a>
+        <a href="{% url 'team13:place_list' %}"{% if request.resolver_match.url_name == 'place_list' %} class="team13-nav-active"{% endif %}>برترین‌ها</a>
+        <a href="{% url 'team13:place_list' %}">مکان‌ها</a>
+        <a href="{% url 'team13:team13_admin_panel' %}"{% if request.resolver_match.url_name == 'team13_admin_dashboard' or request.resolver_match.url_name == 'team13_admin_panel' %} class="team13-nav-active"{% endif %}>پنل مدیریت</a>
+      </nav>
+
+      <h1 class="team13-admin-header">پنل مدیریت تیم ۱۳</h1>
+      <p style="margin-bottom: 20px; font-size: 0.9rem; color: #6b7280;">
+        <a href="/admin/" target="_blank" rel="noopener" style="color: #1b4332;">مدیریت کامل (Django Admin) ←</a>
+      </p>
+
+      <div class="team13-admin-section">
+        <h2
+          style="
+            font-size: 1.1rem;
+            color: #1b4332;
+            margin: 0 0 16px 0;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e5e7eb;
+          "
+        >
+          افزودن ادمین
+        </h2>
+        <p style="color: #6b7280; margin-bottom: 12px; font-size: 0.875rem">
+          ایمیل کاربر را وارد کنید تا به ادمین‌های تیم ۱۳ اضافه شود.
+        </p>
+        <form
+          method="post"
+          action="{% url 'team13:team13_admin_add_admin' %}"
+          class="team13-admin-add-form"
+        >
+          {% csrf_token %}
+          <div>
+            <label for="admin-email">ایمیل</label>
+            <input
+              type="text"
+              id="admin-email"
+              name="email"
+              placeholder="user@example.com"
+              required
+            />
+          </div>
+          <button type="submit">افزودن ادمین</button>
+        </form>
+      </div>
+
+      <div class="team13-admin-section">
+        <h2
+          style="
+            font-size: 1.1rem;
+            color: #1b4332;
+            margin: 0 0 16px 0;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e5e7eb;
+          "
+        >
+          پیشنهادهای در انتظار تأیید
+        </h2>
+        {% if pending_requests %}
+        <div style="overflow-x: auto">
+          <table class="team13-admin-table">
+            <thead>
+              <tr>
+                <th>نام (فارسی)</th>
+                <th>نوع</th>
+                <th>ثبت‌کننده</th>
+                <th class="team13-admin-cell-image">پیش‌نمایش تصویر</th>
+                <th>عملیات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in pending_requests %}
+              <tr>
+                <td>
+                  {{ item.contribution.name_fa }}
+                  {% if item.contribution.name_en %}
+                  <span style="color: #6b7280">/ {{ item.contribution.name_en }}</span>
+                  {% endif %}
+                </td>
+                <td>{{ item.contribution.get_type_display }}</td>
+                <td>{{ item.submitter_display }}</td>
+                <td class="team13-admin-cell-image">
+                  {% if item.images %}
+                  {% for url in item.images %}
+                  <img src="{{ url }}" alt="پیشنهاد مکان" loading="lazy" decoding="async" class="team13-img-lazy" />
+                  {% endfor %}
+                  {% else %}
+                  <span style="color: #9ca3af">—</span>
+                  {% endif %}
+                </td>
+                <td class="team13-admin-cell-actions">
+                  <form method="post" action="{% url 'team13:team13_admin_reject' item.contribution.contribution_id %}" style="display: inline">
+                    {% csrf_token %}
+                    <button type="submit" class="team13-admin-btn-reject" onclick="return confirm('از رد این پیشنهاد اطمینان دارید؟');">رد</button>
+                  </form>
+                  <form method="post" action="{% url 'team13:team13_admin_approve' item.contribution.contribution_id %}" style="display: inline">
+                    {% csrf_token %}
+                    <button type="submit" class="team13-admin-btn-approve">تأیید</button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="team13-admin-empty">پیشنهاد در انتظار تأییدی وجود ندارد.</p>
+        {% endif %}
+      </div>
+
+      <div class="team13-admin-section">
+        <h2
+          style="
+            font-size: 1.1rem;
+            color: #1b4332;
+            margin: 0 0 16px 0;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e5e7eb;
+          "
+        >
+          پیشنهادهای مسیر در انتظار تأیید
+        </h2>
+        {% if pending_route_contributions %}
+        <div style="overflow-x: auto">
+          <table class="team13-admin-table">
+            <thead>
+              <tr>
+                <th>مبدأ (آدرس)</th>
+                <th>مقصد (آدرس)</th>
+                <th>نوع مسیر</th>
+                <th>تاریخ</th>
+                <th>عملیات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for rc in pending_route_contributions %}
+              <tr>
+                <td title="{{ rc.source_address }}">{{ rc.source_address|truncatewords:12 }}</td>
+                <td title="{{ rc.destination_address }}">{{ rc.destination_address|truncatewords:12 }}</td>
+                <td>{{ rc.get_travel_mode_display }}</td>
+                <td>{{ rc.created_at|date:"Y/m/d H:i" }}</td>
+                <td class="team13-admin-cell-actions">
+                  <form method="post" action="{% url 'team13:team13_admin_reject_route' rc.contribution_id %}" style="display: inline">
+                    {% csrf_token %}
+                    <button type="submit" class="team13-admin-btn-reject" onclick="return confirm('از رد این پیشنهاد مسیر اطمینان دارید؟');">رد</button>
+                  </form>
+                  <form method="post" action="{% url 'team13:team13_admin_approve_route' rc.contribution_id %}" style="display: inline">
+                    {% csrf_token %}
+                    <button type="submit" class="team13-admin-btn-approve">تأیید</button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="team13-admin-empty">پیشنهاد مسیر در انتظار تأییدی وجود ندارد.</p>
+        {% endif %}
+      </div>
+
+      <div class="team13-admin-section">
+        <h2 style="font-size: 1.1rem; color: #1b4332; margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 1px solid #e5e7eb;">
+          نظرات در انتظار تأیید
+        </h2>
+        <p style="color: #6b7280; margin-bottom: 12px; font-size: 0.875rem;">نظرات ارسالی کاربران پس از تأیید در صفحهٔ جزئیات مکان برای همه نمایش داده می‌شوند.</p>
+        {% if pending_comments %}
+        <div style="overflow-x: auto">
+          <table class="team13-admin-table">
+            <thead>
+              <tr>
+                <th>مکان</th>
+                <th>متن نظر</th>
+                <th>امتیاز</th>
+                <th>تاریخ</th>
+                <th>عملیات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in pending_comments %}
+              <tr>
+                <td>{{ item.place_name }}</td>
+                <td>{{ item.comment.body|truncatewords:25|default:"—" }}</td>
+                <td>{% if item.comment.rating %}{{ item.comment.rating }}/5{% else %}—{% endif %}</td>
+                <td>{{ item.comment.created_at|date:"Y/m/d H:i" }}</td>
+                <td class="team13-admin-cell-actions">
+                  <form method="post" action="{% url 'team13:team13_admin_reject_comment' item.comment.comment_id %}" style="display: inline">
+                    {% csrf_token %}
+                    <button type="submit" class="team13-admin-btn-reject" onclick="return confirm('از رد و حذف این نظر اطمینان دارید؟');">رد</button>
+                  </form>
+                  <form method="post" action="{% url 'team13:team13_admin_approve_comment' item.comment.comment_id %}" style="display: inline">
+                    {% csrf_token %}
+                    <button type="submit" class="team13-admin-btn-approve">تأیید (عمومی شود)</button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="team13-admin-empty">نظر در انتظار تأییدی وجود ندارد.</p>
+        {% endif %}
+      </div>
+
+      <div class="team13-admin-section">
+        <h2 style="font-size: 1.1rem; color: #1b4332; margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 1px solid #e5e7eb;">
+          تصاویر در انتظار تأیید
+        </h2>
+        <p style="color: #6b7280; margin-bottom: 12px; font-size: 0.875rem;">تصاویر ارسالی کاربران پس از تأیید در صفحهٔ جزئیات مکان برای همه نمایش داده می‌شوند.</p>
+        {% if pending_images %}
+        <div style="overflow-x: auto">
+          <table class="team13-admin-table">
+            <thead>
+              <tr>
+                <th>مکان</th>
+                <th class="team13-admin-cell-image">پیش‌نمایش</th>
+                <th>عملیات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in pending_images %}
+              <tr>
+                <td>{{ item.place_name }}</td>
+                <td class="team13-admin-cell-image">
+                  <img src="{{ item.image.image_url }}" alt="تصویر در انتظار تأیید" loading="lazy" style="max-width: 80px; max-height: 60px; object-fit: cover; border-radius: 8px;" />
+                </td>
+                <td class="team13-admin-cell-actions">
+                  <form method="post" action="{% url 'team13:team13_admin_reject_image' item.image.image_id %}" style="display: inline">
+                    {% csrf_token %}
+                    <button type="submit" class="team13-admin-btn-reject" onclick="return confirm('از رد و حذف این تصویر اطمینان دارید؟');">رد</button>
+                  </form>
+                  <form method="post" action="{% url 'team13:team13_admin_approve_image' item.image.image_id %}" style="display: inline">
+                    {% csrf_token %}
+                    <button type="submit" class="team13-admin-btn-approve">تأیید (عمومی شود)</button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="team13-admin-empty">تصویر در انتظار تأییدی وجود ندارد.</p>
+        {% endif %}
+      </div>
+
+      <p style="margin-top: 24px">
+        <a href="{% url 'team13:index' %}" class="team13-card-link"
+          >بازگشت به نقشه</a
+        >
+      </p>
+      {% include "team13/_footer.html" %}
+    </div>
+    <script src="{% static 'team13/js/auth_keepalive.js' %}"></script>
+  </body>
+</html>

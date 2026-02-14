@@ -1,0 +1,21 @@
+@startuml AD_US01_SearchArticle
+|Guest|
+start
+:enter search query;
+
+|SearchController|
+:performSemanticSearch(query);
+
+|SearchService|
+:performSemanticSearch(query);
+
+|SemanticSearchEngine|
+:search(query);
+
+|SearchService|
+:sortByRelevance(results, query);
+
+|Guest|
+:view search results;
+stop
+@enduml

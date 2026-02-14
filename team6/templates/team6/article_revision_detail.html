@@ -1,0 +1,52 @@
+{% extends "team6/base.html" %}
+{% block title %}نسخه {{ revision.revision_no }} - {{ article.title_fa }}{% endblock %}
+
+{% block content %}
+<style>
+    /* باکس پیش‌نمایش */
+    #revisionPreview {
+        background-color: #f9f9f9;
+        border: 1px dashed #ccc;
+        border-right: 4px solid #0d6efd;
+        line-height: 1.8;
+    }
+
+    /* لینک‌های داخلی */
+    #revisionPreview a.internal-link {
+        color: #0066cc !important;
+        text-decoration: underline !important;
+        font-weight: bold;
+    }
+</style>
+
+<h2>
+    {{ article.title_fa }}
+    <small class="text-muted">نسخه {{ revision.revision_no }}</small>
+</h2>
+
+<div class="mb-3 text-muted">
+    <i class="fa-solid fa-user"></i>
+    ویرایش توسط کاربر {{ revision.editor_user_id }}
+    |
+    <i class="fa-solid fa-calendar"></i>
+    {{ revision.created_at|date:"Y/m/d H:i" }}
+</div>
+
+{% if revision.change_note %}
+<div class="alert alert-info">
+    <strong>توضیح ویرایش:</strong>
+    {{ revision.change_note }}
+</div>
+{% endif %}
+
+<div id="revisionPreview" class="card p-4">
+    {{ revision.body_fa|safe }}
+</div>
+
+<div class="mt-4">
+    <a href="{% url 'team6:article_revisions' article.slug %}"
+       class="btn btn-secondary">
+        ← بازگشت به تاریخچه نسخه‌ها
+    </a>
+</div>
+{% endblock %}

@@ -1,0 +1,1091 @@
+{% extends "team10/base.html" %}
+{% load static %}
+
+{% block title %}ایجاد برنامه سفر | ایران‌نما{% endblock %}
+
+{% block extra_css %}
+    <!-- تقویم شمسی -->
+    <link rel="stylesheet" href="https://unpkg.com/persian-datepicker@latest/dist/css/persian-datepicker.min.css">
+    <!-- استایل اختصاصی این صفحه -->
+    <link rel="stylesheet" href="{% static 'team10/styles/create-trip.css' %}">
+{% endblock %}
+
+{% block content %}
+    <section class="hero hero-custom">
+        <div class="hero-content">
+            <h2>برنامه‌ریزی سفر هوشمند</h2>
+            <p>سفری شخصی‌سازی‌شده بر اساس علایق و سابقه شما</p>
+        </div>
+    </section>
+
+    <main class="container dashboard">
+        <div class="section-header">
+            <h3>ایجاد سفر جدید</h3>
+            <div class="line"></div>
+        </div>
+
+        <form id="create-trip-form" class="auth-card create-trip-card" method="post">
+            {% csrf_token %}
+            <p class="form-section-label">اطلاعات اصلی سفر</p>
+
+            <!-- مقصد -->
+            <div class="form-group">
+                <label for="destination">مقصد <span class="required">*</span></label>
+                <div class="autocomplete-wrapper" id="destination-autocomplete">
+                    <input type="text" id="destination" name="destination" placeholder="مثال: اصفهان، شیراز، کیش، مشهد..." required autocomplete="off" aria-autocomplete="list" aria-expanded="false" aria-controls="destination-suggestions">
+                    <div id="destination-suggestions" class="autocomplete-panel" role="listbox" aria-label="پیشنهاد مقصد"></div>
+                </div>
+                <small class="field-hint">حداقل ۲ حرف وارد کنید تا پیشنهادها نمایش داده شوند.</small>
+            </div>
+
+            <!-- تاریخ‌ها -->
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="start-date">تاریخ شروع <span class="required">*</span></label>
+                    <div class="t10-input-with-icon">
+                        <input type="text" id="start-date" name="start_date_jalali" class="t10-jalali-input persian-date" placeholder="۱۴۰۴/۱۱/۲۲" required autocomplete="off">
+                        <i class="fas fa-calendar-alt t10-calendar-icon"></i>
+                    </div>
+                    <input type="hidden" name="start_date" id="start-date-gregorian">
+                    <small id="start-date-error" class="t10-inline-error" aria-live="polite"></small>
+                </div>
+
+                <div class="form-group">
+                    <label for="end-date">تاریخ پایان <span class="required">*</span></label>
+                    <div class="t10-input-with-icon">
+                        <input type="text" id="end-date" name="end_date_jalali" class="t10-jalali-input persian-date" placeholder="۱۴۰۴/۱۲/۰۵" required autocomplete="off">
+                        <i class="fas fa-calendar-alt t10-calendar-icon"></i>
+                    </div>
+                    <input type="hidden" name="end_date" id="end-date-gregorian">
+                    <small id="end-date-error" class="t10-inline-error" aria-live="polite"></small>
+                </div>
+            </div>
+
+            <div class="t10-inline-row">
+                <!-- تعداد نفرات (بدون لیست: فقط عدد + دکمه کم/زیاد) -->
+                <div class="form-group t10-inline-col">
+                    <label for="travelers-input">تعداد مسافران</label>
+
+                    <!-- ✅ فیلد واقعی که بک‌اند می‌گیرد (مخفی) -->
+                    <select id="travelers" name="travelers_count" class="ui-hidden-control travelers-hidden-select" aria-hidden="true" tabindex="-1">
+                        <!-- گزینه‌ها توسط JS ساخته می‌شوند (۱..۲۰) -->
+                    </select>
+
+                    <div class="t10-control-surface">
+                        <div class="travelers-stepper travelers-stepper--premium" role="group" aria-label="کنترل تعداد مسافران">
+                            <button type="button" class="stepper-btn stepper-btn--plus" id="travelers-plus" aria-label="افزایش تعداد مسافران" title="افزایش">
+                                <i class="fa-solid fa-plus"></i>
+                            </button>
+
+                            <input
+                                id="travelers-input"
+                                class="stepper-input"
+                                type="text"
+                                inputmode="numeric"
+                                pattern="[0-9۰-۹]*"
+                                value="2"
+                                aria-label="تعداد مسافران"
+                                autocomplete="off"
+                            >
+
+                            <button type="button" class="stepper-btn stepper-btn--minus" id="travelers-minus" aria-label="کاهش تعداد مسافران" title="کاهش">
+                                <i class="fa-solid fa-minus"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <small id="travelers-hint" class="field-hint travelers-inline-hint" aria-live="polite">بین ۱ تا ۲۰ نفر</small>
+                </div>
+
+                <!-- سطح بودجه -->
+                <div class="form-group t10-inline-col">
+                    <label for="budget_level">سطح بودجه</label>
+                    <select id="budget_level" name="budget_level" class="ui-hidden-control" aria-hidden="true" tabindex="-1">
+                        <option value="ECONOMY">اقتصادی</option>
+                        <option value="MODERATE" selected>متوسط</option>
+                        <option value="LUXURY">لوکس</option>
+                    </select>
+                    <div class="t10-control-surface">
+                        <div class="budget-segmented" role="group" aria-label="انتخاب سطح بودجه">
+                            <button type="button" class="budget-pill" data-value="ECONOMY">اقتصادی</button>
+                            <button type="button" class="budget-pill" data-value="MODERATE">متوسط</button>
+                            <button type="button" class="budget-pill" data-value="LUXURY">لوکس</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- سبک و ترجیحات اصلی (چندگزینه‌ای) - از لیست یکپارچه backend -->
+            <div class="form-group">
+                <p class="form-section-label form-section-label--inner">ترجیحات شخصی</p>
+                <label>سبک سفر من (می‌توانید چند مورد انتخاب کنید)</label>
+                <div class="chips-container">
+                    {% for tag, label in styles %}
+                    <label class="chip">
+                        <input type="checkbox" name="preferences" value="{{ tag }}"> {{ label }}
+                    </label>
+                    {% empty %}
+                    <span>سبکی تعریف نشده است.</span>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- دکمه ارسال -->
+            <div class="form-actions">
+                <button type="submit" class="auth-btn btn-submit-signup" id="submit-btn">
+                    <i class="fas fa-magic"></i> ساخت برنامه سفر هوشمند
+                </button>
+                <button type="button" class="t10-btn t10-btn--ghost" id="t10-reset-btn">
+                    <i class="fa-solid fa-rotate-left"></i>
+                    پاک کردن
+                </button>
+                <p class="loading-text" id="loading">
+                    <i class="fas fa-spinner fa-spin"></i> در حال ساخت برنامه شخصی‌سازی‌شده...
+                </p>
+            </div>
+        </form>
+
+        <div id="result-area" class="result-area auth-card" data-initial-success="{% if is_success %}1{% else %}0{% endif %}" data-initial-error="{% if error %}1{% else %}0{% endif %}">
+            <h2 id="result-title">
+                {% if is_success %}
+                    برنامه سفر شما آماده است!
+                {% else %}
+                    خطا در ایجاد سفر
+                {% endif %}
+            </h2>
+            <div id="t10-celebrate-badge" class="t10-celebrate-badge" aria-hidden="true"></div>
+            <div id="result-content">
+                {% if error %}
+                    <p class="error-message">{{ error }}</p>
+                {% endif %}
+            </div>
+            <button class="auth-btn btn-submit-login" onclick="window.location.reload()">سفر جدید</button>
+        </div>
+    </main>
+
+    <!-- اسکریپت‌های مورد نیاز -->
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    <script src="https://unpkg.com/persian-date@latest/dist/persian-date.min.js"></script>
+    <script src="https://unpkg.com/persian-datepicker@latest/dist/js/persian-datepicker.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <script>
+        // Convert Persian/Farsi numerals to English numerals
+        function persianToEnglish(str) {
+            const persianNumbers = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+            const englishNumbers = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+            let result = str;
+            for (let i = 0; i < 10; i++) {
+                result = result.replace(new RegExp(persianNumbers[i], 'g'), englishNumbers[i]);
+            }
+            return result;
+        }
+
+        // Jalali to Gregorian conversion algorithm
+        // Based on Kazimierz M. Borkowski's algorithm
+        function jalaliToGregorian(jy, jm, jd) {
+            jy += 1595;
+            let days = -355668 + (365 * jy) + (Math.floor(jy / 33) * 8) +
+                       Math.floor(((jy % 33) + 3) / 4) + jd;
+
+            if (jm < 7) {
+                days += (jm - 1) * 31;
+            } else {
+                days += (jm - 7) * 30 + 186;
+            }
+
+            let gy = 400 * Math.floor(days / 146097);
+            days %= 146097;
+
+            let leap = true;
+            if (days >= 36525) {
+                days--;
+                gy += 100 * Math.floor(days / 36524);
+                days %= 36524;
+                if (days >= 365) {
+                    days++;
+                }
+                leap = false;
+            }
+
+            gy += 4 * Math.floor(days / 1461);
+            days %= 1461;
+
+            if (days >= 366) {
+                leap = false;
+                days--;
+                gy += Math.floor(days / 365);
+                days = days % 365;
+            }
+
+            let gm, gd;
+            const sal_a = [0, 31, (leap || (gy % 100 !== 0 && gy % 4 === 0) || (gy % 400 === 0)) ? 29 : 28,
+                          31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+            gd = days + 1;
+            for (gm = 0; gm < 13 && gd > sal_a[gm]; gm++) {
+                gd -= sal_a[gm];
+            }
+
+            return { year: gy, month: gm, day: gd };
+        }
+
+        function pad2(value) {
+            return String(value).padStart(2, '0');
+        }
+
+        function parseJalaliInput(raw) {
+            const cleaned = persianToEnglish(String(raw || '')).trim();
+            if (!cleaned) {
+                return null;
+            }
+            const parts = cleaned.split('/');
+            if (parts.length !== 3) {
+                return null;
+            }
+            const jy = parseInt(parts[0], 10);
+            const jm = parseInt(parts[1], 10);
+            const jd = parseInt(parts[2], 10);
+            if (!Number.isFinite(jy) || !Number.isFinite(jm) || !Number.isFinite(jd)) {
+                return null;
+            }
+            if (jm < 1 || jm > 12 || jd < 1 || jd > 31) {
+                return null;
+            }
+            return { jy, jm, jd };
+        }
+
+        function buildGregorianValue(jalaliStr) {
+            const parts = parseJalaliInput(jalaliStr);
+            if (!parts) {
+                return null;
+            }
+            const greg = jalaliToGregorian(parts.jy, parts.jm, parts.jd);
+            const jalaliNormalized = `${parts.jy}/${pad2(parts.jm)}/${pad2(parts.jd)}`;
+            return {
+                jalali: jalaliNormalized,
+                gregorian: greg,
+                ymd: `${greg.year}-${pad2(greg.month)}-${pad2(greg.day)}`,
+                utcMidday: new Date(Date.UTC(greg.year, greg.month - 1, greg.day, 12, 0, 0))
+            };
+        }
+
+        function formatJalaliForPicker(jalaliData) {
+            if (!jalaliData) {
+                return '';
+            }
+            return toPersianDigits(jalaliData.jalali || '');
+        }
+
+        function buildIsoDateTime(gregorian, hour, minute, second) {
+            const safeDate = new Date(Date.UTC(gregorian.year, gregorian.month - 1, gregorian.day, hour, minute, second));
+            const yyyy = safeDate.getUTCFullYear();
+            const mm = pad2(safeDate.getUTCMonth() + 1);
+            const dd = pad2(safeDate.getUTCDate());
+            return `${yyyy}-${mm}-${dd}T${pad2(hour)}:${pad2(minute)}:${pad2(second)}`;
+        }
+
+        function getTehranSafeNow() {
+            const now = new Date();
+            if (typeof Intl === 'undefined' || typeof Intl.DateTimeFormat !== 'function') {
+                return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
+            }
+            const parts = new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'Asia/Tehran',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            }).formatToParts(now);
+            const lookup = {};
+            parts.forEach(function(part) {
+                if (part.type !== 'literal') {
+                    lookup[part.type] = part.value;
+                }
+            });
+            const year = parseInt(lookup.year, 10);
+            const month = parseInt(lookup.month, 10);
+            const day = parseInt(lookup.day, 10);
+            if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+                return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
+            }
+            return new Date(year, month - 1, day, 12, 0, 0);
+        }
+
+        function getTodayJalaliData(baseDate) {
+            if (typeof window.persianDate !== 'function') {
+                return null;
+            }
+            const safeBase = baseDate instanceof Date ? baseDate : new Date();
+            const todayStr = new persianDate(safeBase).format('YYYY/MM/DD');
+            return buildGregorianValue(todayStr);
+        }
+
+        let t10TodayData = null;
+        let t10TodayJalaliPicker = null;
+
+        const LOCAL_IRAN_CITIES = [
+            "تهران", "مشهد", "اصفهان", "شیراز", "تبریز", "کرج", "قم", "اهواز", "رشت", "کرمانشاه",
+            "ارومیه", "زاهدان", "همدان", "یزد", "کرمان", "ساری", "گرگان", "قزوین", "اراک", "سنندج",
+            "بندرعباس", "بوشهر", "کیش", "قشم", "کاشان", "نیشابور", "دزفول", "آبادان", "لاهیجان", "اردبیل",
+            "زنجان", "خرم‌آباد", "یاسوج", "بیرجند", "سبزوار", "ملایر", "مراغه", "نجف‌آباد", "شاهین‌شهر", "اندیمشک"
+        ];
+
+        function toPersianDigits(value) {
+            return String(value).replace(/\d/g, function(digit) {
+                return "۰۱۲۳۴۵۶۷۸۹"[digit];
+            });
+        }
+
+        function setInlineError(el, message) {
+            if (!el) {
+                return;
+            }
+            if (message) {
+                el.textContent = message;
+                el.classList.add('is-visible');
+                return;
+            }
+            el.textContent = '';
+            el.classList.remove('is-visible');
+        }
+
+        function syncJalaliToGregorian(inputEl, hiddenEl) {
+            if (!inputEl || !hiddenEl) {
+                return null;
+            }
+            const data = buildGregorianValue(inputEl.value);
+            if (!data) {
+                hiddenEl.value = '';
+                return null;
+            }
+            hiddenEl.value = data.ymd;
+            return data;
+        }
+
+        function updateEndMinDate(startData) {
+            if (!t10TodayData) {
+                return;
+            }
+            const todayMs = t10TodayData.utcMidday.getTime();
+            const startMs = startData ? startData.utcMidday.getTime() : null;
+            const minData = startData && startMs >= todayMs ? startData : t10TodayData;
+            const minValue = formatJalaliForPicker(minData);
+            if (!minValue) {
+                return;
+            }
+            try {
+                $('#end-date').persianDatepicker('option', 'minDate', minValue);
+            } catch (err) {}
+        }
+
+        function validateDateFields(options) {
+            const opts = options || {};
+            const startInput = document.getElementById('start-date');
+            const endInput = document.getElementById('end-date');
+            const startError = document.getElementById('start-date-error');
+            const endError = document.getElementById('end-date-error');
+            const startData = opts.startData || (startInput ? buildGregorianValue(startInput.value) : null);
+            const endData = opts.endData || (endInput ? buildGregorianValue(endInput.value) : null);
+
+            let startMsg = '';
+            let endMsg = '';
+
+            if (opts.showMissing) {
+                if (startInput && !startInput.value) {
+                    startMsg = 'تاریخ شروع را وارد کنید';
+                }
+                if (endInput && !endInput.value) {
+                    endMsg = 'تاریخ پایان را وارد کنید';
+                }
+            }
+
+            if (!startMsg && startInput && startInput.value && !startData) {
+                startMsg = 'تاریخ شروع نامعتبر است';
+            }
+            if (!endMsg && endInput && endInput.value && !endData) {
+                endMsg = 'تاریخ پایان نامعتبر است';
+            }
+
+            if (!startMsg && startData && t10TodayData &&
+                startData.utcMidday.getTime() < t10TodayData.utcMidday.getTime()) {
+                startMsg = 'تاریخ شروع نمی\u200cتواند قبل از امروز باشد';
+            }
+            if (!endMsg && endData && t10TodayData &&
+                endData.utcMidday.getTime() < t10TodayData.utcMidday.getTime()) {
+                endMsg = 'تاریخ پایان نمی\u200cتواند قبل از امروز باشد';
+            }
+            if (!endMsg && startData && endData &&
+                endData.utcMidday.getTime() < startData.utcMidday.getTime()) {
+                endMsg = 'تاریخ پایان نمی\u200cتواند قبل از تاریخ شروع باشد';
+            }
+
+            setInlineError(startError, startMsg);
+            setInlineError(endError, endMsg);
+
+            return { isValid: !(startMsg || endMsg), startData, endData };
+        }
+
+        function syncAndValidateDates(options) {
+            const startInput = document.getElementById('start-date');
+            const endInput = document.getElementById('end-date');
+            const startHidden = document.getElementById('start-date-gregorian');
+            const endHidden = document.getElementById('end-date-gregorian');
+
+            const startData = syncJalaliToGregorian(startInput, startHidden);
+            const endData = syncJalaliToGregorian(endInput, endHidden);
+
+            updateEndMinDate(startData);
+
+            return validateDateFields(Object.assign({}, options, { startData, endData }));
+        }
+
+        function escapeHtml(raw) {
+            return raw
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#39;");
+        }
+
+        function cityIconSvg(city) {
+            const iconClass = "autocomplete-icon-svg";
+            if (city === "تهران") {
+                return `<svg class="${iconClass}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3L9 10h2l-1.3 11L14 10h2L12 3z" fill="currentColor"/><circle cx="12" cy="2.5" r="1.2" fill="currentColor"/></svg>`;
+            }
+            if (city === "مشهد") {
+                return `<svg class="${iconClass}" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 20v-4h8v4" stroke="currentColor" stroke-width="1.8"/><path d="M7 16h10c0-3-2.2-5.5-5-5.5S7 13 7 16z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="8" r="1.1" fill="currentColor"/></svg>`;
+            }
+            if (city === "اصفهان") {
+                return `<svg class="${iconClass}" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18h18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M6 18c0-3.5 2.7-6.3 6-6.3s6 2.8 6 6.3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9 18v-2.5m6 2.5v-2.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`;
+            }
+            if (city === "شیراز") {
+                return `<svg class="${iconClass}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21v-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 8c1.8-3.2 6-2.8 6 0a3 3 0 0 1-3 3c-1.2 0-2.2-.6-3-1.8C11.2 10.4 10.2 11 9 11a3 3 0 0 1-3-3c0-2.8 4.2-3.2 6 0z" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>`;
+            }
+            if (city === "کیش") {
+                return `<svg class="${iconClass}" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M11 20v-8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M11 12c1.5-2.2 3.8-3.2 6.3-2.8M11 10.5c1.4-1.9 3.4-3 5.8-3.2M11 13.5c1.3-1.4 3-2.1 4.9-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+            }
+            if (city === "تبریز") {
+                return `<svg class="${iconClass}" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M7 20v-6l5-3 5 3v6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 7l3 2.2L12 11 9 9.2 12 7z" fill="currentColor"/></svg>`;
+            }
+            return `<svg class="${iconClass}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s6-5.6 6-10a6 6 0 1 0-12 0c0 4.4 6 10 6 10z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="11" r="2.2" fill="currentColor"/></svg>`;
+        }
+
+        function highlightMatch(city, query) {
+            const start = city.indexOf(query);
+            if (start === -1 || !query) {
+                return escapeHtml(city);
+            }
+            const end = start + query.length;
+            const before = escapeHtml(city.slice(0, start));
+            const match = escapeHtml(city.slice(start, end));
+            const after = escapeHtml(city.slice(end));
+            return `${before}<mark>${match}</mark>${after}`;
+        }
+
+        function initDestinationAutocomplete() {
+            const input = document.getElementById('destination');
+            const wrapper = document.getElementById('destination-autocomplete');
+            const panel = document.getElementById('destination-suggestions');
+            if (!input || !wrapper || !panel) {
+                return;
+            }
+
+            let filteredCities = [];
+            let activeIndex = -1;
+
+            function closePanel() {
+                panel.classList.remove('is-open');
+                input.setAttribute('aria-expanded', 'false');
+                input.removeAttribute('aria-activedescendant');
+                activeIndex = -1;
+            }
+
+            function openPanel() {
+                panel.classList.add('is-open');
+                input.setAttribute('aria-expanded', 'true');
+            }
+
+            function renderSuggestions(query) {
+                if (query.length < 2) {
+                    panel.innerHTML = '';
+                    closePanel();
+                    return;
+                }
+
+                filteredCities = LOCAL_IRAN_CITIES.filter(function(city) {
+                    return city.includes(query);
+                });
+
+                if (filteredCities.length === 0) {
+                    panel.innerHTML = `
+                        <div class="autocomplete-empty">
+                            ${cityIconSvg('')}
+                            <span>نتیجه‌ای پیدا نشد</span>
+                        </div>
+                    `;
+                    openPanel();
+                    return;
+                }
+
+                panel.innerHTML = filteredCities.map(function(city, index) {
+                    return `
+                        <button type="button" class="autocomplete-item" role="option" id="destination-option-${index}" aria-selected="false" data-index="${index}" data-city="${escapeHtml(city)}">
+                            <span class="autocomplete-icon">${cityIconSvg(city)}</span>
+                            <span class="autocomplete-text">${highlightMatch(city, query)}</span>
+                        </button>
+                    `;
+                }).join('');
+                openPanel();
+            }
+
+            function setActive(index) {
+                const items = panel.querySelectorAll('.autocomplete-item');
+                if (!items.length) {
+                    return;
+                }
+                items.forEach(function(item) {
+                    item.classList.remove('is-active');
+                    item.setAttribute('aria-selected', 'false');
+                });
+                const safeIndex = Math.max(0, Math.min(index, items.length - 1));
+                const activeItem = items[safeIndex];
+                activeItem.classList.add('is-active');
+                activeItem.setAttribute('aria-selected', 'true');
+                input.setAttribute('aria-activedescendant', activeItem.id);
+                activeItem.scrollIntoView({ block: 'nearest' });
+                activeIndex = safeIndex;
+            }
+
+            function selectCity(city) {
+                input.value = city;
+                closePanel();
+            }
+
+            input.addEventListener('input', function() {
+                const query = input.value.trim();
+                renderSuggestions(query);
+            });
+
+            input.addEventListener('keydown', function(event) {
+                const items = panel.querySelectorAll('.autocomplete-item');
+                if (!panel.classList.contains('is-open') || !items.length) {
+                    if (event.key === 'ArrowDown' && input.value.trim().length >= 2) {
+                        renderSuggestions(input.value.trim());
+                    }
+                    return;
+                }
+
+                if (event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    setActive(activeIndex + 1);
+                } else if (event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    setActive(activeIndex <= 0 ? items.length - 1 : activeIndex - 1);
+                } else if (event.key === 'Enter') {
+                    if (activeIndex >= 0 && filteredCities[activeIndex]) {
+                        event.preventDefault();
+                        selectCity(filteredCities[activeIndex]);
+                    }
+                } else if (event.key === 'Escape') {
+                    closePanel();
+                }
+            });
+
+            panel.addEventListener('mousedown', function(event) {
+                event.preventDefault();
+            });
+
+            panel.addEventListener('click', function(event) {
+                const row = event.target.closest('.autocomplete-item');
+                if (!row) {
+                    return;
+                }
+                const city = row.getAttribute('data-city');
+                if (city) {
+                    selectCity(city);
+                }
+            });
+
+            document.addEventListener('click', function(event) {
+                if (!wrapper.contains(event.target)) {
+                    closePanel();
+                }
+            });
+        }
+
+        function initTravelersStepper() {
+            const travelersSelect = document.getElementById('travelers');
+            const travelersInput = document.getElementById('travelers-input');
+            const travelersHint = document.getElementById('travelers-hint');
+            const plusBtn = document.getElementById('travelers-plus');
+            const minusBtn = document.getElementById('travelers-minus');
+            if (!travelersSelect || !travelersInput || !travelersHint || !plusBtn || !minusBtn) {
+                return;
+            }
+
+            const minTravelers = 1;
+            const maxTravelers = 20;
+
+            // build real select options (1..20) - backend receives travelers_count
+            travelersSelect.innerHTML = '';
+            for (let i = minTravelers; i <= maxTravelers; i++) {
+                const option = document.createElement('option');
+                option.value = String(i);
+                option.textContent = i === 1 ? `${toPersianDigits(i)} نفر (تنها)` : `${toPersianDigits(i)} نفر`;
+                travelersSelect.appendChild(option);
+            }
+
+            const defaultHint = `بین ${toPersianDigits(minTravelers)} تا ${toPersianDigits(maxTravelers)} نفر`;
+            const minWarning = `حداقل ${toPersianDigits(minTravelers)} نفر`;
+            const maxWarning = "حداکثر ۲۰ نفر";
+
+            function clamp(n) {
+                return Math.max(minTravelers, Math.min(n, maxTravelers));
+            }
+
+            function setHint(message, isWarning) {
+                travelersHint.textContent = message || defaultHint;
+                travelersHint.classList.toggle('is-warning', Boolean(isWarning));
+            }
+
+            // initial value (use 2 by default)
+            let travelersCount = 2;
+
+            function syncTravelers() {
+                travelersSelect.value = String(travelersCount);
+                travelersInput.value = toPersianDigits(travelersCount);
+            }
+
+            function normalizeDigits(raw) {
+                return persianToEnglish(String(raw || '')).replace(/[^\d]/g, '');
+            }
+
+            function parseTypedValue(raw) {
+                const normalized = normalizeDigits(raw);
+                if (!normalized) return null;
+                const parsed = parseInt(normalized, 10);
+                return Number.isFinite(parsed) ? parsed : null;
+            }
+
+            function increaseTravelers() {
+                if (travelersCount >= maxTravelers) {
+                    setHint(maxWarning, true);
+                    syncTravelers();
+                    return;
+                }
+                travelersCount += 1;
+                syncTravelers();
+                setHint();
+            }
+
+            function decreaseTravelers() {
+                if (travelersCount <= minTravelers) {
+                    setHint(minWarning, true);
+                    syncTravelers();
+                    return;
+                }
+                travelersCount -= 1;
+                syncTravelers();
+                setHint();
+            }
+
+            plusBtn.addEventListener('click', increaseTravelers);
+            minusBtn.addEventListener('click', decreaseTravelers);
+
+            travelersInput.addEventListener('input', function() {
+                const normalized = normalizeDigits(travelersInput.value);
+                travelersInput.value = normalized ? toPersianDigits(normalized) : '';
+                const typed = parseTypedValue(normalized);
+                if (typed === null) {
+                    return;
+                }
+
+                const clamped = clamp(typed);
+                travelersCount = clamped;
+                syncTravelers();
+
+                if (typed > maxTravelers) {
+                    setHint(maxWarning, true);
+                } else if (typed < minTravelers) {
+                    setHint(minWarning, true);
+                } else {
+                    setHint();
+                }
+            });
+
+            travelersInput.addEventListener('blur', function() {
+                const typed = parseTypedValue(travelersInput.value);
+                travelersCount = clamp(typed === null ? travelersCount : typed);
+                syncTravelers();
+                if (travelersCount > minTravelers && travelersCount < maxTravelers) {
+                    setHint();
+                }
+            });
+
+            travelersInput.addEventListener('keydown', function(event) {
+                if (event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    increaseTravelers();
+                } else if (event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    decreaseTravelers();
+                } else if (event.key === 'Enter') {
+                    const typed = parseTypedValue(travelersInput.value);
+                    travelersCount = clamp(typed === null ? travelersCount : typed);
+                    syncTravelers();
+                    if (typed !== null && typed > maxTravelers) {
+                        setHint(maxWarning, true);
+                    } else if (typed !== null && typed < minTravelers) {
+                        setHint(minWarning, true);
+                    } else {
+                        setHint();
+                    }
+                }
+            });
+
+            // init
+            syncTravelers();
+            setHint();
+
+            window.t10SetTravelersCount = function(nextValue) {
+                const next = parseInt(nextValue, 10);
+                travelersCount = clamp(Number.isFinite(next) ? next : travelersCount);
+                syncTravelers();
+                setHint();
+            };
+            window.t10ResetTravelersHint = function() {
+                setHint();
+            };
+        }
+
+        function initBudgetSegmentedControl() {
+            const budgetSelect = document.getElementById('budget_level');
+            const pills = document.querySelectorAll('.budget-pill');
+            if (!budgetSelect || !pills.length) {
+                return;
+            }
+
+            function syncBudgetPills() {
+                pills.forEach(function(pill) {
+                    const isActive = pill.getAttribute('data-value') === budgetSelect.value;
+                    pill.classList.toggle('is-active', isActive);
+                    pill.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+                });
+            }
+
+            function setBudget(value) {
+                budgetSelect.value = value;
+                syncBudgetPills();
+            }
+
+            pills.forEach(function(pill) {
+                pill.addEventListener('click', function() {
+                    setBudget(pill.getAttribute('data-value'));
+                });
+            });
+
+            syncBudgetPills();
+            window.t10SetBudgetValue = setBudget;
+        }
+
+        $(document).ready(function() {
+            if (window.persianDate && typeof window.persianDate.toCalendar === 'function') {
+                window.persianDate.toCalendar('persian');
+            }
+            if (window.persianDate && typeof window.persianDate.toLocale === 'function') {
+                window.persianDate.toLocale('fa');
+            }
+            if (window.persianDate && typeof window.persianDate.toLeapYearMode === 'function') {
+                window.persianDate.toLeapYearMode('astronomical');
+            }
+
+            const safeNow = getTehranSafeNow();
+            t10TodayData = getTodayJalaliData(safeNow);
+            t10TodayJalaliPicker = formatJalaliForPicker(t10TodayData);
+
+            const datePickerOptions = {
+                observer: true,
+                format: 'YYYY/MM/DD',
+                autoClose: true,
+                initialValue: false,
+                initialValueType: 'persian',
+                calendarType: 'persian',
+                calendar: {
+                    persian: { locale: 'fa', leapYearMode: 'astronomical' },
+                    gregorian: { locale: 'en' }
+                },
+                toolbox: {
+                    calendarSwitch: { enabled: false }
+                },
+                timePicker: { enabled: false },
+                onSelect: function() {
+                    window.requestAnimationFrame(function() {
+                        syncAndValidateDates({ showMissing: false });
+                    });
+                }
+            };
+
+            if (t10TodayJalaliPicker) {
+                datePickerOptions.minDate = t10TodayJalaliPicker;
+            }
+
+            $('#start-date').persianDatepicker(datePickerOptions);
+            $('#end-date').persianDatepicker(datePickerOptions);
+
+            $('.t10-jalali-input').on('focus', function() {
+                $(this).persianDatepicker('show');
+            });
+
+            $('.t10-calendar-icon').on('click', function() {
+                $(this).siblings('.t10-jalali-input').focus();
+            });
+
+            $('#start-date, #end-date').on('change', function() {
+                syncAndValidateDates({ showMissing: false });
+            });
+
+            $('.t10-jalali-input').on('keydown', function(e) {
+                // allow typing
+            });
+
+            syncAndValidateDates({ showMissing: false });
+
+            initDestinationAutocomplete();
+            initTravelersStepper();
+            initBudgetSegmentedControl();
+        });
+
+        const form = document.getElementById('create-trip-form');
+        const loading = document.getElementById('loading');
+        const resultArea = document.getElementById('result-area');
+        const resultContent = document.getElementById('result-content');
+        const resultTitle = document.getElementById('result-title');
+        const celebrateBadge = document.getElementById('t10-celebrate-badge');
+        const submitBtn = document.getElementById('submit-btn');
+        const resetBtn = document.getElementById('t10-reset-btn');
+
+        function setResultState(isSuccess) {
+            if (resultTitle) {
+                resultTitle.textContent = isSuccess ? 'برنامه سفر شما آماده است!' : 'خطا در ایجاد سفر';
+            }
+            if (!isSuccess && celebrateBadge) {
+                celebrateBadge.classList.remove('is-visible', 'is-animating');
+            }
+        }
+
+        const DEFAULT_TRAVELERS = (function() {
+            const travelersInput = document.getElementById('travelers-input');
+            const raw = travelersInput ? persianToEnglish(travelersInput.value) : '2';
+            const parsed = parseInt(raw, 10);
+            return Number.isFinite(parsed) ? parsed : 2;
+        })();
+
+        const DEFAULT_BUDGET = (function() {
+            const budgetSelect = document.getElementById('budget_level');
+            return budgetSelect ? budgetSelect.value : 'MODERATE';
+        })();
+
+        loading.style.display = 'none';
+        const hasInitialError = resultArea && resultArea.dataset.initialError === '1';
+        if (resultArea) {
+            resultArea.style.display = hasInitialError ? 'block' : 'none';
+        }
+        if (hasInitialError) {
+            setResultState(false);
+        }
+
+        function runConfetti() {
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                return;
+            }
+            if (typeof window.confetti !== 'function') {
+                return;
+            }
+
+            const defaults = {
+                startVelocity: 28,
+                ticks: 120,
+                gravity: 1.1,
+                scalar: 0.95,
+                zIndex: 1200,
+                colors: ['#22c55e', '#26c6da', '#eab308', '#f97316', '#60a5fa']
+            };
+
+            const bursts = [
+                { particleCount: 40, spread: 68, angle: 120, origin: { x: 0.12, y: 0.65 } },
+                { particleCount: 40, spread: 68, angle: 60, origin: { x: 0.88, y: 0.65 } },
+                { particleCount: 52, spread: 86, angle: 90, origin: { x: 0.5, y: 0.5 } },
+                { particleCount: 34, spread: 58, angle: 100, origin: { x: 0.32, y: 0.36 } },
+                { particleCount: 34, spread: 58, angle: 80, origin: { x: 0.68, y: 0.36 } }
+            ];
+
+            bursts.forEach(function(config, index) {
+                window.setTimeout(function() {
+                    window.confetti(Object.assign({}, defaults, config));
+                }, index * 300);
+            });
+        }
+
+        function showCelebrateBadge() {
+            if (!celebrateBadge) {
+                return;
+            }
+            celebrateBadge.textContent = '🧳✨';
+            celebrateBadge.classList.remove('is-visible', 'is-animating');
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                celebrateBadge.classList.add('is-animating');
+            }
+            celebrateBadge.classList.add('is-visible');
+
+            window.setTimeout(function() {
+                celebrateBadge.classList.remove('is-animating');
+            }, 1500);
+        }
+
+        function clearSelectedPrefs() {
+            document.querySelectorAll('input[name="preferences"]').forEach(function(input) {
+                input.checked = false;
+            });
+        }
+
+        function resetCreateTripForm() {
+            const destinationInput = document.getElementById('destination');
+            const destinationPanel = document.getElementById('destination-suggestions');
+            const startDateInput = document.getElementById('start-date');
+            const endDateInput = document.getElementById('end-date');
+            const startDateGreg = document.getElementById('start-date-gregorian');
+            const endDateGreg = document.getElementById('end-date-gregorian');
+
+            if (destinationInput) {
+                destinationInput.value = '';
+                destinationInput.focus();
+            }
+            if (destinationPanel) {
+                destinationPanel.innerHTML = '';
+                destinationPanel.classList.remove('is-open');
+            }
+
+            if (startDateInput) startDateInput.value = '';
+            if (endDateInput) endDateInput.value = '';
+            if (startDateGreg) startDateGreg.value = '';
+            if (endDateGreg) endDateGreg.value = '';
+
+            try { $('#start-date').persianDatepicker('setDate', null); } catch (err) {}
+            try { $('#end-date').persianDatepicker('setDate', null); } catch (err) {}
+            try { $('#start-date').persianDatepicker('option', 'minDate', t10TodayJalaliPicker || null); } catch (err) {}
+            try { $('#end-date').persianDatepicker('option', 'minDate', t10TodayJalaliPicker || null); } catch (err) {}
+
+            setInlineError(document.getElementById('start-date-error'), '');
+            setInlineError(document.getElementById('end-date-error'), '');
+
+            if (typeof window.t10SetTravelersCount === 'function') {
+                window.t10SetTravelersCount(DEFAULT_TRAVELERS);
+            }
+            if (typeof window.t10ResetTravelersHint === 'function') {
+                window.t10ResetTravelersHint();
+            }
+
+            if (typeof window.t10SetBudgetValue === 'function') {
+                window.t10SetBudgetValue(DEFAULT_BUDGET);
+            }
+
+            clearSelectedPrefs();
+
+            if (loading) loading.style.display = 'none';
+            if (resultArea) resultArea.style.display = 'none';
+            if (resultContent) resultContent.innerHTML = '';
+            if (celebrateBadge) {
+                celebrateBadge.textContent = '';
+                celebrateBadge.classList.remove('is-visible', 'is-animating');
+            }
+            setResultState(true);
+
+            if (form) {
+                form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        if (resetBtn) {
+            resetBtn.addEventListener('click', resetCreateTripForm);
+        }
+
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            submitBtn.disabled = true;
+            loading.style.display = 'block';
+            resultArea.style.display = 'none';
+
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData);
+
+            data.preferences = formData.getAll('preferences');
+
+            const dateCheck = syncAndValidateDates({ showMissing: true });
+            if (!dateCheck.isValid || !dateCheck.startData || !dateCheck.endData) {
+                setResultState(false);
+                resultContent.innerHTML = `<p class="error-message">لطفاً تاریخ‌ها را اصلاح کنید</p>`;
+                loading.style.display = 'none';
+                resultArea.style.display = 'block';
+                submitBtn.disabled = false;
+                return;
+            }
+
+            data.start_date = buildIsoDateTime(dateCheck.startData.gregorian, 12, 0, 0);
+            data.end_date = buildIsoDateTime(dateCheck.endData.gregorian, 23, 59, 59);
+            console.log('Final dates:', { start: data.start_date, end: data.end_date });
+
+            try {
+                const response = await fetch('/team10/api/trips/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    setResultState(true);
+                    const hasTripId = Boolean(result.trip_id);
+                    resultContent.innerHTML = `
+                        <p class="success-message">سفر با موفقیت ایجاد شد!</p>
+                        <p>شناسه سفر: <strong>${result.trip_id || '—'}</strong></p>
+                        <p>وضعیت: ${result.status === 'DRAFT' ? 'پیش‌نویس' : result.status === 'IN_PROGRESS' ? 'در حال اجرا' : result.status === 'COMPLETED' ? 'پایان‌یافته' : 'نامشخص'}</p>
+                        <button class="btn btn-login" onclick="goToTripDetails(${result.trip_id || 'null'})" ${hasTripId ? '' : 'disabled'}>مشاهده برنامه سفر</button>
+                        ${hasTripId ? '' : '<p class="error-message">شناسه سفر دریافت نشد</p>'}
+                    `;
+                    runConfetti();
+                    showCelebrateBadge();
+                } else {
+                    setResultState(false);
+                    if (celebrateBadge) {
+                        celebrateBadge.classList.remove('is-visible', 'is-animating');
+                    }
+                    resultContent.innerHTML = `<p class="error-message">خطا: ${result.error || 'مشکلی پیش آمد'}</p>`;
+                }
+            } catch (err) {
+                setResultState(false);
+                if (celebrateBadge) {
+                    celebrateBadge.classList.remove('is-visible', 'is-animating');
+                }
+                resultContent.innerHTML = `<p class="error-message">اتصال به سرور برقرار نشد</p>`;
+            } finally {
+                loading.style.display = 'none';
+                resultArea.style.display = 'block';
+                submitBtn.disabled = false;
+            }
+        });
+
+        function goToTripDetails(tripId) {
+            if (!tripId) return;
+            window.location.assign(`/team10/trips/${tripId}/`);
+        }
+    </script>
+{% endblock %}
+
+{% block extra_js %}
+{% endblock %}
