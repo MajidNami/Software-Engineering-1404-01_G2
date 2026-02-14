@@ -1,0 +1,306 @@
+openapi: 3.0.3
+info:
+  title: Recommendation Service API (Team 12 - Strangers)
+  description: |-
+    Smart recommendation engine for the Comprehensive Tourism System.
+    This service leverages Generative AI (LLM) and enriched data from the Wiki and Comment & Rate services to provide context-aware, highly personalized travel recommendations.
+  version: 1.0.0
+  contact:
+    name: Team 12 (Strangers)
+
+servers:
+  - url: http://localhost:8000/team12/recommend
+    description: Local Development Server
+  - url: http://api.core-domain.com/team12/recommend
+    description: Production Server
+
+tags:
+  - name: Places
+    description: Scoring and recommending specific places and attractions.
+  - name: Regions
+    description: Suggesting top-level destinations (cities or provinces).
+
+paths:
+  /places/score:
+    post:
+      tags:
+        - Places
+      summary: Score Candidate Places
+      description: Evaluates and ranks a provided list of candidate place IDs based on the user's travel context, budget, and season using AI-enriched data.
+      operationId: scoreCandidatePlaces
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScoreCandidatesRequest'
+      responses:
+        '200':
+          description: Successfully scored and ranked the candidate places.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScoreCandidatesResponse'
+        '400':
+          description: Invalid input parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+
+  /regions:
+    get:
+      tags:
+        - Regions
+      summary: Suggest Regions
+      description: Suggests the best cities or provinces for users who have not yet decided on a destination, based on the season and budget level.
+      operationId: suggestRegions
+      parameters:
+        - $ref: '#/components/parameters/SeasonParam'
+        - $ref: '#/components/parameters/BudgetLevelParam'
+        - $ref: '#/components/parameters/LimitParamRegions'
+      responses:
+        '200':
+          description: Successfully retrieved suggested regions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuggestRegionsResponse'
+        '400':
+          description: Invalid query parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+
+  /regions/{region_id}/places:
+    get:
+      tags:
+        - Places
+      summary: Suggest Places in a Region
+      description: Retrieves the top recommended attractions and places within a specific region tailored to the user's travel style, budget, and season.
+      operationId: suggestPlacesInRegion
+      parameters:
+        - in: path
+          name: region_id
+          required: true
+          schema:
+            type: string
+          description: Unique identifier of the region (e.g., isfahan).
+        - $ref: '#/components/parameters/TravelStyleParam'
+        - $ref: '#/components/parameters/BudgetLevelParam'
+        - $ref: '#/components/parameters/SeasonParam'
+        - $ref: '#/components/parameters/TripDurationParam'
+        - $ref: '#/components/parameters/LimitParamPlaces'
+      responses:
+        '200':
+          description: Successfully retrieved recommended places for the specified region.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuggestPlacesInRegionResponse'
+        '400':
+          description: Invalid query parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Region not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+
+components:
+  parameters:
+    TravelStyleParam:
+      in: query
+      name: travel_style
+      required: true
+      schema:
+        type: string
+        enum: [SOLO, COUPLE, FAMILY, FRIENDS, BUSINESS]
+      description: The user's travel style.
+    BudgetLevelParam:
+      in: query
+      name: budget_level
+      required: true
+      schema:
+        type: string
+        enum: [ECONOMY, MODERATE, LUXURY]
+      description: The user's budget level.
+    SeasonParam:
+      in: query
+      name: season
+      required: true
+      schema:
+        type: string
+        enum: [SPRING, SUMMER, AUTUMN, WINTER]
+      description: The season of the trip.
+    TripDurationParam:
+      in: query
+      name: trip_duration_days
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+      description: Duration of the trip in days.
+    LimitParamRegions:
+      in: query
+      name: limit
+      required: false
+      schema:
+        type: integer
+        default: 10
+        minimum: 1
+        maximum: 20
+      description: Maximum number of regions to return (Max 20).
+    LimitParamPlaces:
+      in: query
+      name: limit
+      required: false
+      schema:
+        type: integer
+        default: 10
+        minimum: 1
+        maximum: 50
+      description: Maximum number of places to return (Max 50).
+
+  schemas:
+    ScoreCandidatesRequest:
+      type: object
+      required:
+        - candidate_place_ids
+        - travel_style
+        - budget_level
+        - season
+        - trip_duration_days
+      properties:
+        candidate_place_ids:
+          type: array
+          items:
+            type: string
+          description: List of place IDs to be evaluated.
+          example: ["si-o-se-pol", "naqsh-e-jahan", "vank-cathedral", "chehel-sotoun"]
+        travel_style:
+          type: string
+          enum: [SOLO, COUPLE, FAMILY, FRIENDS, BUSINESS]
+          example: "FAMILY"
+        budget_level:
+          type: string
+          enum: [ECONOMY, MODERATE, LUXURY]
+          example: "MODERATE"
+        season:
+          type: string
+          enum: [SPRING, SUMMER, AUTUMN, WINTER]
+          example: "SPRING"
+        trip_duration_days:
+          type: integer
+          minimum: 1
+          example: 3
+
+    ScoredPlace:
+      type: object
+      required:
+        - place_id
+        - score
+        - ai_reason
+      properties:
+        place_id:
+          type: string
+          description: Unique identifier of the place.
+          example: "naqsh-e-jahan"
+        score:
+          type: number
+          format: float
+          description: Calculated recommendation score (0.0 to 1.0).
+          example: 0.95
+        ai_reason:
+          type: string
+          description: AI-generated reasoning explaining why this place is recommended (Localized in Persian).
+          example: "فضای باز و مناسب برای خانواده‌ها با دسترسی عالی به امکانات در فصل بهار"
+
+    ScoreCandidatesResponse:
+      type: object
+      properties:
+        scored_places:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScoredPlace'
+
+    SuggestedRegion:
+      type: object
+      required:
+        - region_id
+        - region_name
+        - match_score
+        - ai_reason
+      properties:
+        region_id:
+          type: string
+          description: Unique identifier of the region.
+          example: "ardabil"
+        region_name:
+          type: string
+          description: Localized name of the region in Persian.
+          example: "اردبیل"
+        match_score:
+          type: number
+          format: float
+          description: Calculated suitability score for the region (0.0 to 1.0).
+          example: 0.94
+        image_url:
+          type: string
+          format: uri
+          description: Thumbnail or cover image URL for the region.
+          example: "https://example.com/images/ardabil.jpg"
+        ai_reason:
+          type: string
+          description: AI-generated reasoning for recommending this region (Localized in Persian).
+          example: "آب و هوای خنک در تابستان و گزینه‌های اقامتی بسیار اقتصادی. مناسب برای فرار از گرمای تابستان"
+
+    SuggestRegionsResponse:
+      type: object
+      properties:
+        destinations:
+          type: array
+          items:
+            $ref: '#/components/schemas/SuggestedRegion'
+
+    SuggestPlacesInRegionResponse:
+      type: object
+      properties:
+        region_id:
+          type: string
+          description: The ID of the requested region.
+          example: "isfahan"
+        scored_places:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScoredPlace'
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: Standardized error code.
+              example: "INVALID_PARAMETER"
+            message:
+              type: string
+              description: Human-readable error message (Localized in Persian).
+              example: "پارامتر season نامعتبر است"
+            details:
+              type: string
+              description: Additional details or hints for debugging.
+              example: "مقدار مجاز: SPRING, SUMMER, AUTUMN, WINTER"

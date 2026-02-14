@@ -9,23 +9,43 @@ services:
       - CORE_BASE_URL=http://core:8000
     networks:
       - app404
-  #   depends_on:
-  #     - frontend
-  #     - backend
+    depends_on:
+      - backend
 
-  # frontend:
-  #   image: traefik/whoami
-  #   command: ["-port=5173"]
-  #   networks:
-  #     - app404
+  backend:
+    build:
+      context: ../
+      dockerfile: team12/Dockerfile
+    # Added timeout to Gunicorn to prevent worker kill during AI processing
+    command: sh -c "python manage.py collectstatic --noinput && gunicorn app404.wsgi:application --bind 0.0.0.0:8002 --timeout 300"
+    env_file:
+      - .env
+    environment:
+      TEAM12_DATABASE_URL: "${TEAM12_DATABASE_URL}"
+      CORE_BASE_URL: "${CORE_BASE_URL}"
+      AI_SERVICE_URL: "http://ai-service:8001"
+    depends_on:
+      postgres:
+        condition: service_started
+    networks:
+      - app404
 
-  # backend:
-  #   image: traefik/whoami
-  #   command: ["-port=3000"]
-  #   networks:
-  #     - app404
+  postgres:
+    image: postgis/postgis:16-3.4-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${TEAM12_POSTGRES_DB:-team12_db}
+      POSTGRES_USER: ${TEAM12_POSTGRES_USER:-team12_user}
+      POSTGRES_PASSWORD: ${TEAM12_POSTGRES_PASSWORD:-team12_pass}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - app404
 
 networks:
   app404:
     external: true
     name: app404_net
+
+volumes:
+  pgdata:

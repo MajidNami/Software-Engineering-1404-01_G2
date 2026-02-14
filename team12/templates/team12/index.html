@@ -4,21 +4,237 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Group 9 - Map Service</title>
+    <title>موتور پیشنهادگر هوشمند | ایران‌نما</title>
+
+    <link rel="stylesheet" href="{% static 'styles/styles.css' %}">
     <link rel="stylesheet" href="{% static 'team12/styles/style.css' %}">
+
     <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100..900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-    <h1>Map Service</h1>
-    <h3>پیاده‌سازی توسط گروه 9</h3>
-    <hr style="width: 50%; margin: 20px auto; opacity: 0.3;">
-    
-    <div style="border: 2px dashed #ccc; padding: 50px; border-radius: 10px; margin: 20px 0;">
-        <p>محل قرارگیری رابط کاربری میکرو سرویس</p>
-        <p>(Microservice UI Placeholder)</p>
-    </div>
 
-    <a href="/" class="back-btn"> بازگشت به داشبورد اصلی</a>
-    
+    <div class="bg-pattern"></div>
+
+    <header class="main-header">
+        <div class="container header-content">
+            <div class="logo">
+                <i class="fa-solid fa-leaf"></i>
+                <div class="logo-text">
+                    <h1>ایران‌نما</h1>
+                    <span>سرویس پردازش شناختی (گروه ۱۲)</span>
+                </div>
+            </div>
+            <div class="auth-buttons">
+                <a href="/" class="btn btn-login">
+                    <i class="fa-solid fa-home"></i> بازگشت به داشبورد
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="container" style="margin-top: 40px; margin-bottom: 60px;">
+
+        <div class="section-header" style="margin-top: 0; margin-bottom: 40px;">
+            <h3>سرویس‌های تحلیل و هوش مصنوعی</h3>
+        </div>
+
+        <div class="services-grid" style="margin-bottom: 40px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));">
+
+            <div class="t12-card">
+                <div class="t12-card-header">
+                    <i class="fa-solid fa-map-location-dot"></i>
+                    کشف مقاصد برتر
+                </div>
+                <p class="t12-desc">استخراج مناطق و شهرهای پیشنهادی بر اساس تحلیل سیستم.</p>
+                <button class="btn btn-signup" style="width: 100%; margin-top: auto;" onclick="runRegions()">
+                    <i class="fa-solid fa-bolt"></i> پردازش مناطق
+                </button>
+            </div>
+
+            <div class="t12-card">
+                <div class="t12-card-header">
+                    <i class="fa-solid fa-magnifying-glass-location"></i>
+                    تحلیل موجودیت‌های شهری
+                </div>
+                <p class="t12-desc">بررسی و استخراج جاذبه‌های گردشگری در یک منطقه جغرافیایی خاص.</p>
+                <div>
+                    <label class="t12-label">شناسه لاتین منطقه</label>
+                    <input type="text" id="valRegion" class="t12-input t12-ltr" placeholder="e.g., tehran, isfahan">
+                </div>
+                <button class="btn btn-signup" style="width: 100%; margin-top: auto;" onclick="runRegionPlaces()">
+                    <i class="fa-solid fa-filter"></i> جستجو و تحلیل
+                </button>
+            </div>
+
+            <div class="t12-card">
+                <div class="t12-card-header">
+                    <i class="fa-solid fa-brain"></i>
+                    رتبه‌بندی شناختی
+                </div>
+                <p class="t12-desc">امتیازدهی هوشمند بر اساس ویژگی‌های اختصاصی کاربر.</p>
+
+                <div class="t12-grid-2">
+                    <div>
+                        <label class="t12-label">سبک سفر</label>
+                        <select id="valStyle" class="t12-input">
+                            <option value="FAMILY">خانوادگی</option>
+                            <option value="SOLO">انفرادی</option>
+                            <option value="COUPLE">زوج</option>
+                            <option value="BUSINESS">کاری</option>
+                            <option value="FRIENDS">دوستانه</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="t12-label">سطح بودجه</label>
+                        <select id="valBudget" class="t12-input">
+                            <option value="MODERATE">متوسط</option>
+                            <option value="ECONOMY">اقتصادی</option>
+                            <option value="LUXURY">لوکس</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="t12-label">فصل</label>
+                        <select id="valSeason" class="t12-input">
+                            <option value="SPRING">بهار</option>
+                            <option value="SUMMER">تابستان</option>
+                            <option value="FALL">پاییز</option>
+                            <option value="WINTER">زمستان</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="t12-label">مدت (روز)</label>
+                        <input type="number" id="valDuration" class="t12-input t12-ltr" value="3" min="1">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="t12-label">شناسه مقاصد کاندید (با کاما)</label>
+                    <textarea id="valIds" class="t12-input t12-ltr" rows="2">tehran-milad-tower, isfahan-si-o-se-pol, shiraz-hafezieh</textarea>
+                </div>
+
+                <button class="btn btn-signup" style="width: 100%; margin-top: auto;" onclick="runScoring()">
+                    <i class="fa-solid fa-ranking-star"></i> رتبه‌بندی هوشمند
+                </button>
+            </div>
+
+        </div>
+
+        <div class="t12-results-panel">
+            <div class="t12-card-header" style="border-bottom: 1px solid #e5e7eb; padding-bottom: 20px; margin-bottom: 20px;">
+                <i class="fa-solid fa-server"></i>
+                خروجی پردازشگر هوشمند
+            </div>
+            <div id="outputArea">
+                <div class="t12-msg">
+                    <i class="fa-solid fa-inbox"></i>
+                    جهت دریافت داده‌ها، یکی از فرآیندهای بالا را اجرا نمایید.
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="main-footer">
+        <p>&copy; ۱۴۰۴ - پروژه مهندسی نرم‌افزار</p>
+    </footer>
+
+    <script>
+        const routeBase = '/team12';
+        const display = document.getElementById('outputArea');
+
+        function updateState(msg, isProcessing = false) {
+            display.innerHTML = `
+                <div class="t12-msg">
+                    <i class="fa-solid ${isProcessing ? 'fa-circle-notch fa-spin-custom' : 'fa-circle-exclamation'}"></i>
+                    ${msg}
+                </div>
+            `;
+        }
+
+        function buildOutput(items, mode) {
+            if (!items || !items.length) {
+                updateState("داده‌ای منطبق با درخواست شما در سیستم ثبت نشده است.");
+                return;
+            }
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 't12-res-grid';
+
+            items.forEach(obj => {
+                const isReg = mode === 'region';
+                const strName = isReg ? obj.region_name : (obj.place_id || '').replace(/-/g, ' ').toUpperCase();
+                const numScore = isReg ? obj.match_score : obj.score;
+                const urlImg = obj.cover_image && !obj.cover_image.includes('unknown') ? obj.cover_image : `https://source.unsplash.com/500x300/?iran,${strName}`;
+
+                wrapper.innerHTML += `
+                    <div class="t12-res-item">
+                        ${isReg ? `<img src="${urlImg}" class="t12-res-img" onerror="this.style.display='none'">` : ''}
+                        <div class="t12-res-body">
+                            <div class="t12-res-title">
+                                <span>${strName}</span>
+                                <span class="t12-res-score">${Math.round(numScore * 100)}%</span>
+                            </div>
+                            ${!isReg ? `<span class="t12-res-id">${obj.place_id}</span>` : ''}
+                            <div class="t12-res-reason">${obj.ai_reason}</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            display.innerHTML = '';
+            display.appendChild(wrapper);
+        }
+
+        async function runRegions() {
+            updateState("در حال تبادل داده با هسته مرکزی...", true);
+            try {
+                const res = await fetch(`${routeBase}/recommend/regions/`);
+                const json = await res.json();
+                if(json.destinations) buildOutput(json.destinations, 'region');
+                else updateState("فرمت پاسخ دریافتی نامعتبر است.");
+            } catch (e) { updateState("خطا در برقراری ارتباط پایدار با سرویس‌دهنده."); }
+        }
+
+        async function runRegionPlaces() {
+            const rid = document.getElementById('valRegion').value.trim();
+            if (!rid) { alert("وارد کردن شناسه منطقه الزامی است."); return; }
+
+            updateState("در حال استخراج اطلاعات از پایگاه داده...", true);
+            try {
+                const res = await fetch(`${routeBase}/recommend/regions/${rid}/places/`);
+                if (res.status === 404) { updateState("شناسه درخواستی در سامانه موجود نیست."); return; }
+                const json = await res.json();
+                if(json.scored_places) buildOutput(json.scored_places, 'place');
+                else updateState("فرمت پاسخ دریافتی نامعتبر است.");
+            } catch (e) { updateState("خطا در برقراری ارتباط پایدار با سرویس‌دهنده."); }
+        }
+
+        async function runScoring() {
+            const rawIds = document.getElementById('valIds').value;
+            const arrIds = rawIds.split(',').map(x => x.trim()).filter(x => x);
+            if (!arrIds.length) { alert("لیست مقاصد درخواستی خالی است."); return; }
+
+            const dataPacket = {
+                candidate_place_ids: arrIds,
+                travel_style: document.getElementById('valStyle').value,
+                budget_level: document.getElementById('valBudget').value,
+                season: document.getElementById('valSeason').value,
+                trip_duration_days: parseInt(document.getElementById('valDuration').value)
+            };
+
+            updateState("در حال پردازش شناختی توسط هوش مصنوعی...", true);
+            try {
+                const res = await fetch(`${routeBase}/recommend/places/score/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(dataPacket)
+                });
+                const json = await res.json();
+                if (res.ok && json.scored_places) buildOutput(json.scored_places, 'place');
+                else updateState("خطا در پردازش الگوریتم امتیازدهی.");
+            } catch (e) { updateState("طولانی شدن زمان پردازش منجر به قطع ارتباط شد (Timeout)."); }
+        }
+    </script>
 </body>
 </html>
