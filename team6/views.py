@@ -8,7 +8,6 @@ from django.contrib import messages
 from django.utils.text import slugify
 from .models import WikiArticle,WikiTag, WikiCategory, WikiArticleRevision, WikiArticleReports
 from deep_translator import GoogleTranslator
-import requests
 from django.db import IntegrityError
 from django.views.decorators.cache import never_cache
 from django.utils.decorators import method_decorator
@@ -20,15 +19,12 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import logging
 from django.http import Http404
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS
 from .services.semantic_search import SemanticSearchService
 from bs4 import BeautifulSoup
 from .models import WikiArticle, WikiArticleLink
 from django.utils.text import slugify
 from .models import ArticleFollow, ArticleNotification
 import numpy as np
-from django.db import transaction
 from django.db.models import F
 from django.utils.timezone import now
 def sync_internal_links(article):
