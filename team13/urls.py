@@ -5,6 +5,7 @@ app_name = "team13"
 
 urlpatterns = [
     path("", views.base, name="index"),
+    path("api-docs/", views.api_docs, name="api_docs"),
     path("ping/", views.ping, name="ping"),
     path("places/", views.place_list, name="place_list"),
     path("places/<uuid:place_id>/", views.place_detail, name="place_detail"),

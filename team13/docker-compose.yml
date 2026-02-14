@@ -1,31 +1,51 @@
+# اجرا از پوشهٔ team13:  docker compose up -d
+# ساخت از ریشهٔ پروژه لازم است (به‌خاطر context بک‌اند). از ریشه:  docker compose -f team13/docker-compose.yml up -d --build
+
 services:
+  backend:
+    build:
+      context: ..
+      dockerfile: team13/Dockerfile
+    container_name: team13-backend
+    expose:
+      - "8000"
+    environment:
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-dev-secret-change-me}
+      - DEBUG=${DEBUG:-0}
+      - TEAM_APPS=team13
+      - DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,backend,gateway
+      - DATABASE_URL=sqlite:///db.sqlite3
+      - TEAM13_DATABASE_URL=sqlite:///app/data/team13.sqlite3
+      - CORE_BASE_URL=${CORE_BASE_URL:-}
+      # کلیدهای نشان — برای مسیریابی، نقشه، جستجو و Geocoding (از README / env.docker.example)
+      - NESHAN_API_KEY_SERVICE=${NESHAN_API_KEY_SERVICE:-service.4b8184b63cdb408b90a3a31feaabc6a8}
+      - NESHAN_API_KEY_WEB=${NESHAN_API_KEY_WEB:-web.5ee1e82db9314ba5a50806d13018c9a1}
+    volumes:
+      # فقط داده (دیتابیس و آپلودها) ماندگار باشد؛ کد از image می‌آید
+      - team13_data:/app/data
+    networks:
+      - app404
+    restart: unless-stopped
+
   gateway:
     image: nginx:alpine
+    container_name: team13-gateway
     ports:
-      - "${TEAM_PORT}:80"
+      - "${TEAM_PORT:-8080}:80"
     volumes:
       - ./gateway.conf:/etc/nginx/conf.d/default.conf:ro
     environment:
       - CORE_BASE_URL=http://core:8000
+    depends_on:
+      - backend
     networks:
       - app404
-  #   depends_on:
-  #     - frontend
-  #     - backend
-
-  # frontend:
-  #   image: traefik/whoami
-  #   command: ["-port=5173"]
-  #   networks:
-  #     - app404
-
-  # backend:
-  #   image: traefik/whoami
-  #   command: ["-port=3000"]
-  #   networks:
-  #     - app404
+    restart: unless-stopped
 
 networks:
   app404:
     external: true
     name: app404_net
+
+volumes:
+  team13_data:

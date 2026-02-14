@@ -95,6 +95,12 @@ def base(request):
     return render(request, f"{TEAM_NAME}/index.html", _team13_context(request))
 
 
+@require_GET
+def api_docs(request):
+    """صفحهٔ مستندات API برای تیم‌های متقاضی."""
+    return render(request, f"{TEAM_NAME}/api_docs.html", {"request": request})
+
+
 # -----------------------------------------------------------------------------
 # مکان‌ها (POI)
 # -----------------------------------------------------------------------------

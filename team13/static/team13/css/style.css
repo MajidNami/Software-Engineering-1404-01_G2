@@ -826,6 +826,24 @@ body.team13-map {
   filter: brightness(1.1);
   color: #ffffff !important;
 }
+.team13-sidebar .team13-btn-api-docs {
+  width: auto !important;
+  background-color: #1565c0 !important;
+  color: #ffffff !important;
+  display: inline-block !important;
+  padding: 8px 15px !important;
+  border-radius: 10px !important;
+  font-weight: 600 !important;
+  border: none;
+  text-decoration: none !important;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: filter 0.2s ease;
+}
+.team13-sidebar .team13-btn-api-docs:hover {
+  filter: brightness(1.1);
+  color: #ffffff !important;
+}
 .team13-sidebar .team13-sidebar-auth-bottom .team13-btn-logout {
   width: auto !important;
 }

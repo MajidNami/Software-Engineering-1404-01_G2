@@ -55,6 +55,7 @@ py -3.11 manage.py runserver
 - **مسیریابی:** `http://localhost:8000/team13/routes/`
 - **مراکز امدادی نزدیک:** `http://localhost:8000/team13/emergency/`
 - **تست (نیاز به لاگین):** `http://localhost:8000/team13/ping/`
+- **مستندات API (برای تیم‌های متقاضی):** `http://localhost:8000/team13/api-docs/`
 - **پنل مدیریت تیم ۱۳:** `http://localhost:8000/team13/admin/` یا `http://localhost:8000/team13/admin-panel/`
 
 با **ایمیل `admin@gmail.com`** و **رمز عبور `admin`** می‌توان به پنل مدیریت دسترسی داشت (کاربر ادمین در `team13/apps.py` ساخته می‌شود).

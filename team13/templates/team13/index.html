@@ -212,6 +212,7 @@
           </div>
           <div class="team13-sidebar-auth-bottom">
             <button type="button" id="team13-btn-emergency" class="team13-btn-emergency" aria-label="امداد اضطراری">امداد اضطراری</button>
+            <a href="{% url 'team13:api_docs' %}" class="team13-btn-api-docs" aria-label="مستندات API" title="مشاهدهٔ APIها و آدرس‌های مربوط">مستندات API</a>
             {% if team13_user %}
               <a href="{% url 'logout' %}" class="team13-btn-logout">خروج</a>
             {% endif %}

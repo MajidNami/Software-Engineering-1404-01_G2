@@ -1,0 +1,458 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مستندات API — سرویس امکانات و حمل‌ونقل (تیم ۱۳)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --card: #fff;
+      --primary: #1b4332;
+      --accent: #40916c;
+      --border: #e5e7eb;
+      --code: #1e293b;
+      --get: #059669;
+      --post: #2563eb;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Vazirmatn', sans-serif;
+      background: var(--bg);
+      color: #374151;
+      line-height: 1.7;
+      padding: 24px;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: var(--primary);
+      font-size: 1.75rem;
+      margin-bottom: 8px;
+      border-bottom: 2px solid var(--accent);
+      padding-bottom: 8px;
+    }
+    .subtitle { color: #6b7280; font-size: 0.95rem; margin-bottom: 24px; }
+    h2 {
+      color: var(--primary);
+      font-size: 1.25rem;
+      margin-top: 32px;
+      margin-bottom: 12px;
+    }
+    h3 { font-size: 1.05rem; color: #4b5563; margin: 16px 0 8px; }
+    .api-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .api-card h2 { margin-top: 0; }
+    .endpoint {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 12px 0;
+      font-family: ui-monospace, monospace;
+      font-size: 0.9rem;
+    }
+    .method {
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 0.8rem;
+    }
+    .method.get { background: #d1fae5; color: var(--get); }
+    .method.post { background: #dbeafe; color: var(--post); }
+    .path { color: var(--code); word-break: break-all; }
+    .base-url {
+      background: #f1f5f9;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-family: ui-monospace, monospace;
+      font-size: 0.85rem;
+      margin-bottom: 20px;
+      direction: ltr;
+      text-align: left;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      margin: 12px 0;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      text-align: right;
+    }
+    th { background: #f8fafc; color: var(--primary); font-weight: 600; }
+    pre {
+      background: #1e293b;
+      color: #e2e8f0;
+      padding: 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 0.8rem;
+      line-height: 1.5;
+      margin: 12px 0;
+      text-align: left;
+      direction: ltr;
+    }
+    .mapping { background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px; margin: 12px 0; font-size: 0.9rem; }
+    .mapping strong { color: #b45309; }
+    ul { margin: 8px 0 8px 20px; }
+    .toc { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 24px; }
+    .toc a { color: var(--accent); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    .toc ul { list-style: none; margin: 0; }
+    .toc li { margin: 6px 0; }
+    hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; background: #e0e7ff; color: #4338ca; }
+  </style>
+</head>
+<body>
+  <h1>مستندات API — سرویس امکانات و حمل‌ونقل</h1>
+  <p class="subtitle">گروه Axiom (تیم ۱۳) — برای استفادهٔ تیم‌های متقاضی (برنامه‌ریزی سفر، نقشه، و غیره)</p>
+
+  <div class="base-url">
+    <strong>پایهٔ آدرس (برای درخواست از سرویس‌های دیگر):</strong><br>
+    GET/POST → <code>{{ request.scheme }}://{{ request.get_host }}{% url 'team13:index' %}</code><br>
+    برای خروجی JSON حتماً <code>?format=json</code> به انتهای URL اضافه کنید یا هدر <code>Accept: application/json</code> بفرستید.
+  </div>
+
+  <div class="toc">
+    <h2>فهرست APIها</h2>
+    <ul>
+      <li><a href="#search-regions">۱. SearchRegions — جستجوی مناطق (شهر / مکان)</a></li>
+      <li><a href="#get-location-hierarchy">۲. GetLocationHierarchy — سلسله‌مراتب مکانی از روی مختصات</a></li>
+      <li><a href="#get-places-in-region">۳. GetPlacesInRegion — مکان‌های یک منطقه</a></li>
+      <li><a href="#get-nearby-places">۴. GetNearbyPlaces — مکان‌های اطراف یک نقطه</a></li>
+      <li><a href="#get-place-by-ids">۵. GetPlaceByIds — جزئیات مکان با شناسه</a></li>
+      <li><a href="#get-travel-estimates">۶. GetTravelEstimates — زمان و مسافت مسیر</a></li>
+      <li><a href="#other">سایر APIهای مفید</a></li>
+    </ul>
+  </div>
+
+  <!-- ========== 1. SearchRegions ========== -->
+  <div class="api-card" id="search-regions">
+    <h2>۱. SearchRegions</h2>
+    <p><strong>هدف:</strong> جستجوی منطقه‌های جغرافیایی (شهر) و مکان‌ها بر اساس متن ورودی — برای تکمیل خودکار و انتخاب مقصد در فرم‌ها.</p>
+    <div class="mapping"><strong>ارائه‌شده توسط تیم ۱۳:</strong> endpoint زیر هم «شهر» (بر اساس فیلد city مکان‌ها) و هم «مکان» را برمی‌گرداند. نوع منطقه به صورت <code>item_type</code> مشخص است.</div>
+
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/team13/search-places/?format=json</span></div>
+    <h3>ورودی‌ها (Query)</h3>
+    <table>
+      <thead><tr><th>پارامتر</th><th>نوع</th><th>اجباری</th><th>توضیح</th></tr></thead>
+      <tbody>
+        <tr><td>q</td><td>string</td><td>بله</td><td>متن جستجو (یا <code>term</code>)</td></tr>
+        <tr><td>limit</td><td>int</td><td>خیر</td><td>حداکثر تعداد نتیجه (پیش‌فرض ۳۰، حداکثر ۱۰۰)</td></tr>
+      </tbody>
+    </table>
+    <p><small>توجه: فیلتر نوع منطقه (type_filters) در نسخهٔ فعلی به صورت جداگانه پشتیبانی نمی‌شود؛ خروجی شامل شهرها و مکان‌ها با هم است.</small></p>
+    <h3>خروجی (Response)</h3>
+    <pre>{
+  "count": 5,
+  "items": [
+    {
+      "item_type": "city",
+      "title": "تهران",
+      "address": "شهر تهران",
+      "lat": 35.6892,
+      "lng": 51.389
+    },
+    {
+      "item_type": "place",
+      "place_id": "uuid-string",
+      "title": "نام مکان",
+      "address": "آدرس",
+      "lat": 35.68,
+      "lng": 51.39,
+      "city": "تهران"
+    }
+  ]
+}</pre>
+    <p>برای تطابق با درخواست شما: <code>item_type="city"</code> معادل Region با type شهر؛ <code>item_type="place"</code> معادل مکان. برای شهرها <code>id</code> به صورت جدا برگردانده نمی‌شود (می‌توان از <code>title</code> به عنوان شناسهٔ شهر استفاده کرد). <code>center_location</code> معادل <code>lat</code> و <code>lng</code> است.</p>
+  </div>
+
+  <!-- ========== 2. GetLocationHierarchy ========== -->
+  <div class="api-card" id="get-location-hierarchy">
+    <h2>۲. GetLocationHierarchy</h2>
+    <p><strong>هدف:</strong> تبدیل مختصات جغرافیایی به سلسله‌مراتب اداری (نزدیک‌ترین آدرس، محله، شهر، استان و غیره).</p>
+    <div class="mapping"><strong>ارائه‌شده توسط تیم ۱۳:</strong> Reverse Geocoding از API نشان — خروجی شامل آدرس فرمت‌شده، شهر، استان، منطقه و غیره است. ساختار با Region/county/province قابل نگاشت است.</div>
+
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/team13/reverse-geocode/?format=json&lat=35.6892&lng=51.389</span></div>
+    <h3>ورودی‌ها (Query)</h3>
+    <table>
+      <thead><tr><th>پارامتر</th><th>نوع</th><th>اجباری</th><th>توضیح</th></tr></thead>
+      <tbody>
+        <tr><td>lat</td><td>double</td><td>بله</td><td>عرض جغرافیایی</td></tr>
+        <tr><td>lng</td><td>double</td><td>بله</td><td>طول جغرافیایی</td></tr>
+      </tbody>
+    </table>
+    <h3>خروجی (Response)</h3>
+    <pre>{
+  "status": "OK",
+  "formatted_address": "تهران، ...",
+  "address": "تهران، ...",
+  "address_compact": "تهران، ...",
+  "route_name": "...",
+  "neighbourhood": "...",
+  "city": "تهران",
+  "state": "تهران",
+  "municipality_zone": "...",
+  "in_traffic_zone": false,
+  "in_odd_even_zone": false,
+  "village": null,
+  "county": "...",
+  "district": "..."
+}</pre>
+    <p>نگاشت پیشنهادی: <code>city</code> یا <code>village</code> → city_or_village؛ <code>county</code> → county؛ <code>state</code> → province. در صورت خطا یا نبود کلید نشان: <code>{"address": null, "address_compact": null, "status": null}</code>.</p>
+  </div>
+
+  <!-- ========== 3. GetPlacesInRegion ========== -->
+  <div class="api-card" id="get-places-in-region">
+    <h2>۳. GetPlacesInRegion</h2>
+    <p><strong>هدف:</strong> دریافت لیست مکان‌های گردشگری و خدماتی در یک منطقه (مثلاً یک شهر).</p>
+    <div class="mapping"><strong>ارائه‌شده توسط تیم ۱۳:</strong> لیست مکان‌ها با فیلتر <code>type</code> (نوع مکان) و <code>city</code> (نام شهر به‌عنوان منطقه). فیلتر قیمت با <code>price_level</code> و امتیاز با <code>min_rating</code> پشتیبانی می‌شود.</div>
+
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/team13/places/?format=json</span></div>
+    <h3>ورودی‌ها (Query)</h3>
+    <table>
+      <thead><tr><th>پارامتر</th><th>نوع</th><th>اجباری</th><th>توضیح</th></tr></thead>
+      <tbody>
+        <tr><td>city</td><td>string</td><td>خیر</td><td>نام شهر (معادل region / منطقه)</td></tr>
+        <tr><td>type</td><td>string</td><td>خیر</td><td>نوع مکان: hotel, food, museum, hospital, entertainment, fire_station, pharmacy, clinic</td></tr>
+        <tr><td>price_level</td><td>string</td><td>خیر</td><td>۱=اقتصادی، ۲=متوسط، ۳=لوکس</td></tr>
+        <tr><td>min_rating</td><td>float</td><td>خیر</td><td>حداقل امتیاز ۱–۵</td></tr>
+        <tr><td>page</td><td>int</td><td>خیر</td><td>شماره صفحه (برای حالت نقشه/همه)</td></tr>
+        <tr><td>page_size</td><td>int</td><td>خیر</td><td>تعداد در هر صفحه</td></tr>
+      </tbody>
+    </table>
+    <h3>خروجی (Response)</h3>
+    <pre>{
+  "places": [
+    {
+      "place_id": "uuid",
+      "type": "hotel",
+      "type_display": "هتل",
+      "city": "تهران",
+      "address": "...",
+      "latitude": 35.68,
+      "longitude": 51.39,
+      "name_fa": "...",
+      "name_en": "...",
+      "rating": 4.2
+    }
+  ],
+  "total": 100,
+  "page": 1,
+  "page_size": 300,
+  "has_more": true
+}</pre>
+    <p>توجه: <code>region_id</code> به صورت مستقیم پشتیبانی نمی‌شود؛ از <code>city</code> به‌عنوان معادل منطقه استفاده کنید. برای جزئیات کامل هر مکان از API «GetPlaceByIds» استفاده کنید.</p>
+  </div>
+
+  <!-- ========== 4. GetNearbyPlaces ========== -->
+  <div class="api-card" id="get-nearby-places">
+    <h2>۴. GetNearbyPlaces</h2>
+    <p><strong>هدف:</strong> یافتن مکان‌های اطراف یک نقطه در شعاع مشخص.</p>
+    <div class="mapping"><strong>ارائه‌شده توسط تیم ۱۳:</strong> دقیقاً همین سناریو با endpoint زیر — مرکز به صورت lat/lng، شعاع به کیلومتر، فیلتر نوع و محدودیت تعداد.</div>
+
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/team13/places-in-radius/?format=json</span></div>
+    <h3>ورودی‌ها (Query)</h3>
+    <table>
+      <thead><tr><th>پارامتر</th><th>نوع</th><th>اجباری</th><th>توضیح</th></tr></thead>
+      <tbody>
+        <tr><td>lat</td><td>double</td><td>بله</td><td>عرض جغرافیایی مرکز (یا latitude)</td></tr>
+        <tr><td>lng</td><td>double</td><td>بله</td><td>طول جغرافیایی مرکز (یا lon / longitude)</td></tr>
+        <tr><td>radius_km</td><td>double</td><td>خیر</td><td>شعاع به کیلومتر (پیش‌فرض ۱۰، حداکثر ۱۰۰)</td></tr>
+        <tr><td>type</td><td>string</td><td>خیر</td><td>فیلتر نوع مکان؛ چند مقدار با کاما: hotel,food,museum</td></tr>
+        <tr><td>limit</td><td>int</td><td>خیر</td><td>حداکثر تعداد نتیجه (پیش‌فرض ۲۰۰۰)</td></tr>
+      </tbody>
+    </table>
+    <h3>خروجی (Response)</h3>
+    <pre>{
+  "places": [
+    {
+      "place_id": "uuid",
+      "type": "food",
+      "type_display": "غذا",
+      "city": "تهران",
+      "address": "...",
+      "latitude": 35.68,
+      "longitude": 51.39,
+      "name_fa": "...",
+      "name_en": "...",
+      "distance_km": 1.25
+    }
+  ],
+  "total": 15,
+  "radius_km": 10
+}</pre>
+    <p><code>distance_km</code> معادل <code>distance_meters/1000</code> است. برای «فاصله به متر» در سمت خود مقدار را × 1000 کنید. فیلتر <code>open_now</code> در نسخهٔ فعلی پشتیبانی نمی‌شود.</p>
+  </div>
+
+  <!-- ========== 5. GetPlaceByIds ========== -->
+  <div class="api-card" id="get-place-by-ids">
+    <h2>۵. GetPlaceByIds</h2>
+    <p><strong>هدف:</strong> دریافت اطلاعات کامل یک (یا چند) مکان با شناسه.</p>
+    <div class="mapping"><strong>ارائه‌شده توسط تیم ۱۳:</strong> جزئیات یک مکان به ازای هر <code>place_id</code>. برای چند مکان، چند بار درخواست GET به همان endpoint با مسیرهای مختلف بزنید (یا در سمت کلاینت حلقه بزنید).</div>
+
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/team13/places/&lt;place_id&gt;/?format=json</span></div>
+    <h3>ورودی‌ها</h3>
+    <p><code>place_id</code> در مسیر URL — UUID مکان (مثلاً از خروجی search-places یا places-in-radius).</p>
+    <h3>خروجی (Response)</h3>
+    <pre>{
+  "place_id": "uuid",
+  "type": "hotel",
+  "type_display": "هتل",
+  "name_fa": "...",
+  "name_en": "...",
+  "city": "...",
+  "address": "...",
+  "latitude": 35.68,
+  "longitude": 51.39,
+  "translations": {
+    "fa": { "name": "...", "description": "..." },
+    "en": { "name": "...", "description": "..." }
+  },
+  "amenities": ["پارکینگ", "وای‌فای"],
+  "comments": [
+    { "rating": 5, "body": "...", "created_at": "2025-02-14T12:00:00" }
+  ],
+  "images": ["https://..."],
+  "average_rating": 4.2,
+  "rating_count": 10,
+  "hotel": { "stars": 4, "price_range": "..." },
+  "restaurant": null,
+  "museum": null,
+  "is_user_contributed": false
+}</pre>
+    <p>برای لیست <code>place_ids</code>: هر بار <code>GET /team13/places/{place_id}/?format=json</code> فراخوانی کنید و نتایج را در آرایه <code>places</code> جمع کنید. در صورت عدم وجود مکان: <code>404 Not Found</code>.</p>
+  </div>
+
+  <!-- ========== 6. GetTravelEstimates ========== -->
+  <div class="api-card" id="get-travel-estimates">
+    <h2>۶. GetTravelEstimates</h2>
+    <p><strong>هدف:</strong> محاسبه زمان، مسافت و اطلاعات مسیر بین دو نقطه (مبدأ و مقصد).</p>
+    <div class="mapping"><strong>ارائه‌شده توسط تیم ۱۳:</strong> مسیریابی و ETA با پشتیبانی خودرو و پیاده (و در صورت پیکربندی، API نشان برای دقت بالاتر). خروجی شامل فاصله (کیلومتر)، زمان تقریبی (دقیقه) و امکانات مبدأ/مقصد است. لیست شهرهای مسیر (passed_settlements) از این endpoint برنمی‌گردد؛ در صورت نیاز از سرویس مسیریابی نشان به‌صورت جداگانه یا ایزوکرون استفاده کنید.</div>
+
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/team13/routes/?format=json</span></div>
+    <h3>ورودی‌ها (Query) — یکی از دو حالت</h3>
+    <p><strong>حالت ۱ — با شناسه مکان:</strong></p>
+    <table>
+      <thead><tr><th>پارامتر</th><th>نوع</th><th>اجباری</th><th>توضیح</th></tr></thead>
+      <tbody>
+        <tr><td>source_place_id</td><td>UUID</td><td>بله*</td><td>شناسه مکان مبدأ</td></tr>
+        <tr><td>destination_place_id</td><td>UUID</td><td>بله*</td><td>شناسه مکان مقصد</td></tr>
+      </tbody>
+    </table>
+    <p><strong>حالت ۲ — با مختصات:</strong></p>
+    <table>
+      <thead><tr><th>پارامتر</th><th>نوع</th><th>اجباری</th><th>توضیح</th></tr></thead>
+      <tbody>
+        <tr><td>source_lat</td><td>double</td><td>بله*</td><td>عرض مبدأ</td></tr>
+        <tr><td>source_lng</td><td>double</td><td>بله*</td><td>طول مبدأ</td></tr>
+        <tr><td>dest_lat</td><td>double</td><td>بله*</td><td>عرض مقصد</td></tr>
+        <tr><td>dest_lng</td><td>double</td><td>بله*</td><td>طول مقصد</td></tr>
+        <tr><td>source_name</td><td>string</td><td>خیر</td><td>نام مبدأ (برای نمایش)</td></tr>
+        <tr><td>dest_name</td><td>string</td><td>خیر</td><td>نام مقصد (برای نمایش)</td></tr>
+      </tbody>
+    </table>
+    <p>همهٔ حالت‌ها:</p>
+    <table>
+      <tbody>
+        <tr><td>travel_mode</td><td>car | walk | transit | motorcycle (پیش‌فرض car)</td></tr>
+        <tr><td>vehicle_type</td><td>car | motorcycle (اختیاری)</td></tr>
+        <tr><td>no_traffic</td><td>true/false — مسیر بدون ترافیک (خودرو)</td></tr>
+        <tr><td>avoid_traffic_zone</td><td>true/false</td></tr>
+        <tr><td>avoid_odd_even_zone</td><td>true/false</td></tr>
+        <tr><td>alternative</td><td>true/false — مسیر جایگزین</td></tr>
+      </tbody>
+    </table>
+    <h3>خروجی (Response)</h3>
+    <pre>{
+  "source_place_id": "uuid",
+  "destination_place_id": "uuid",
+  "source_name": "...",
+  "destination_name": "...",
+  "travel_mode": "car",
+  "distance_km": 12.5,
+  "eta_minutes": 18,
+  "eta_source": "neshan",
+  "source_amenities": ["پارکینگ"],
+  "destination_amenities": ["وای‌فای"],
+  "source_lat": 35.68,
+  "source_lng": 51.39,
+  "dest_lat": 35.70,
+  "dest_lng": 51.42,
+  "route_geometry": "encoded_polyline..."
+}</pre>
+    <p><code>eta_source</code>: "neshan" | "neshan_no_traffic" | "neshan_pedestrian" | "haversine". فاصله به کیلومتر؛ زمان به دقیقه. برای تطابق با درخواست شما: <code>distance_meters = distance_km * 1000</code>، <code>duration_seconds = eta_minutes * 60</code>، <code>route_found = true</code> در صورت موفقیت.</p>
+  </div>
+
+  <hr>
+
+  <!-- ========== سایر APIها ========== -->
+  <h2 id="other">سایر APIهای مفید برای تیم‌ها</h2>
+
+  <div class="api-card">
+    <h3>جستجوی مکان (نشان) — نتایج گسترده‌تر</h3>
+    <p>برای جستجوی متن در دیتابیس مکان‌مبنا نشان (نه فقط دیتابیس team13).</p>
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/team13/neshan-search/?q=رستوران&lat=35.68&lng=51.39&limit=20</span></div>
+    <p>ورودی: <code>q</code> یا <code>term</code>، <code>lat</code>، <code>lng</code> (اختیاری)، <code>limit</code>. خروجی: <code>{ "count", "items": [ { "title", "address", "neighbourhood", "region", "type", "category", "lat", "lng" } ] }</code>.</p>
+  </div>
+
+  <div class="api-card">
+    <h3>تبدیل آدرس به مختصات (Geocoding)</h3>
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/team13/geocode/?address=تهران میدان آزادی</span></div>
+    <p>ورودی: <code>address</code> (یا <code>q</code>)، اختیاری: <code>province</code>، <code>city</code>، <code>lat</code>، <code>lng</code>. خروجی: <code>{ "items": [ { "location": { "latitude", "longitude" }, "province", "city", "neighbourhood" } ] }</code>.</p>
+  </div>
+
+  <div class="api-card">
+    <h3>نزدیک‌ترین مکان در شعاع کوچک</h3>
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/team13/nearest-place/?lat=35.68&lng=51.39&radius_km=0.05</span></div>
+    <p>خروجی: <code>{ "place": { "place_id", "name_fa", "name_en", "type", "latitude", "longitude", "address", "distance_km" } }</code> یا <code>place: null</code>.</p>
+  </div>
+
+  <div class="api-card">
+    <h3>مراکز امدادی نزدیک (بیمارستان، آتش‌نشانی، داروخانه، کلینیک)</h3>
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/team13/emergency/?lat=35.68&lon=51.39&radius_km=10&limit=50</span></div>
+    <p>خروجی: <code>{ "emergency_places": [ { "place_id", "type", "name_fa", "address", "latitude", "longitude", "distance_km", "eta_minutes" } ], "lat", "lon", "radius_km" }</code>.</p>
+  </div>
+
+  <div class="api-card">
+    <h3>ماتریس فاصله و زمان (چند مبدأ × چند مقصد)</h3>
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/team13/distance-matrix/?origins=35.68,51.39|35.69,51.40&destinations=35.70,51.41&type=car</span></div>
+    <p>ورودی: <code>origins</code>، <code>destinations</code> (فرمت lat,lng با |)، <code>type</code> (car|motorcycle)، <code>no_traffic</code>. خروجی مطابق API نشان.</p>
+  </div>
+
+  <div class="api-card">
+    <h3>محدوده در دسترس (ایزوکرون)</h3>
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/team13/isochrone/?lat=35.68&lng=51.39&distance=5&time=15&polygon=true</span></div>
+    <p>ورودی: <code>location</code> یا <code>lat</code>+<code>lng</code>، حداقل یکی از <code>distance</code> (کیلومتر) یا <code>time</code> (دقیقه)، <code>polygon</code>، <code>denoise</code>. خروجی: GeoJSON.</p>
+  </div>
+
+  <div class="api-card">
+    <h3>بهینه‌سازی ترتیب بازدید (TSP)</h3>
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/team13/tsp/?waypoints=35.68,51.39|35.70,51.42|35.69,51.40</span></div>
+    <p>ورودی: <code>waypoints</code> (lat,lng با |)، <code>round_trip</code>، <code>source_is_any_point</code>، <code>last_is_any_point</code>. خروجی: <code>{ "points": [ { "name", "location": [lng, lat], "index" } ] }</code>.</p>
+  </div>
+
+  <div class="api-card">
+    <h3>رویدادها</h3>
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/team13/events/?format=json</span></div>
+    <p>ورودی اختیاری: <code>city</code>. خروجی: <code>{ "events": [ { "event_id", "city", "latitude", "longitude", "start_at", "end_at", "title_fa", ... } ] }</code>.</p>
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/team13/events/&lt;event_id&gt;/?format=json</span></div>
+    <p>جزئیات یک رویداد.</p>
+  </div>
+
+  <hr>
+  <p class="subtitle" style="margin-top:24px">تمامی درخواست‌ها برای خروجی JSON باید <code>?format=json</code> داشته باشند یا هدر <code>Accept: application/json</code>. در صورت خطا، پاسخ با کد ۴۰۰/۴۰۴ و بدنهٔ <code>{ "error": "متن خطا" }</code> برمی‌گردد.</p>
+</body>
+</html>
