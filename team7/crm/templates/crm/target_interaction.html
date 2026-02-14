@@ -1,0 +1,419 @@
+{% extends "crm/base.html" %}
+{% block title %}Target Interaction{% endblock %}
+{% block content %}
+<div id="toast" class="card" style="display:none; position:sticky; top:12px; z-index:5; border:1px solid #e5e7eb; background:#ecfeff;"></div>
+
+<div class="card">
+  <h2>Tourism Place: {{ target_name|default:"(Unnamed Target)" }}</h2>
+
+  <p class="muted">
+    Target ID: <code>{{ target_id }}</code> •
+    User: <strong>{{ user_name|default:"Guest" }}</strong> •
+    User ID: <code>{{ user_id }}</code>
+  </p>
+
+  <div class="row">
+    <div class="card">
+      <h3>Rating</h3>
+      <div class="muted">Average: <span id="avgRate">—</span> • My rate: <span id="myRate">—</span></div>
+      <div style="margin-top:10px;">
+        <select id="ratingValue">
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5" selected>5</option>
+        </select>
+        <button class="primary" style="margin-top:8px;" onclick="submitRating()">Submit rating</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Upload Media</h3>
+      <form id="mediaForm" onsubmit="event.preventDefault(); uploadMedia();">
+        <input type="file" name="file" required />
+        <select name="media_type" style="margin-top:8px;">
+          <option value="image" selected>image</option>
+          <option value="video">video</option>
+        </select>
+        <button class="primary" style="margin-top:8px;" type="submit">Upload</button>
+      </form>
+      <div id="mediaUploadPreview" class="card" style="display:none; margin-top:10px; background:#f8fafc;"></div>
+      <p class="muted" style="margin-top:8px;">Approved media appears in the gallery.</p>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Approved Media Gallery</h3>
+  <div id="mediaGallery" class="grid"></div>
+</div>
+
+<div class="card">
+  <h3>Comments (All)</h3>
+  <div class="muted">Top-level comments are loaded with status <span class="pill">all</span>.</div>
+  <div id="commentsBox" style="margin-top:12px;"></div>
+
+  <div class="hr"></div>
+  <h4>New Comment</h4>
+  <textarea id="newCommentBody" rows="3" placeholder="Write a comment..."></textarea>
+  <button class="primary" style="margin-top:8px;" onclick="postComment(null)">Post comment</button>
+  <div class="muted" style="margin-top:8px;">If you already commented on this place, posting again will replace your previous comment.</div>
+</div>
+
+<script>
+const TARGET_ID = "{{ target_id }}";
+const USER_ID = "{{ user_id }}";
+const USERNAME = "{{ user_name|default:'Guest'|escapejs }}";
+
+function getCookie(name) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(";").shift();
+  return null;
+}
+
+async function safeJson(res) {
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch { return { ok: false, error: `Non-JSON response (HTTP ${res.status}). Likely CSRF/auth error.` }; }
+}
+
+async function jget(url) {
+  const res = await fetch(url);
+  return safeJson(res);
+}
+
+async function jpost(url, body) {
+  const csrftoken = getCookie("csrftoken");
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": csrftoken || ""
+    },
+    body: JSON.stringify(body)
+  });
+  return safeJson(res);
+}
+
+async function jpatch(url, body) {
+  const csrftoken = getCookie("csrftoken");
+  const res = await fetch(url, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": csrftoken || ""
+    },
+    body: JSON.stringify(body)
+  });
+  return safeJson(res);
+}
+
+async function jdel(url) {
+  const csrftoken = getCookie("csrftoken");
+  const res = await fetch(url, {
+    method: "DELETE",
+    headers: { "X-CSRFToken": csrftoken || "" }
+  });
+  return safeJson(res);
+}
+
+function escapeHtml(str) {
+  return (str || "")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+
+function toast(message, isError=false) {
+  const t = document.getElementById("toast");
+  t.style.display = "block";
+  t.style.background = isError ? "#fee2e2" : "#ecfeff";
+  t.innerHTML = `<div style="display:flex; justify-content:space-between; gap:10px; align-items:center;">
+      <div>${escapeHtml(message)}</div>
+      <button onclick="document.getElementById('toast').style.display='none'">Close</button>
+    </div>`;
+  setTimeout(() => { if (t.style.display !== "none") t.style.display = "none"; }, 3500);
+}
+
+/* ------------------ Rating ------------------ */
+async function loadRates() {
+  const avg = await jget(`/api/ratings/avg/?target_id=${TARGET_ID}`);
+  document.getElementById("avgRate").textContent =
+    avg.ok ? `${avg.data.rating_avg} (${avg.data.rating_count} votes)` : (avg.error || "Error");
+
+  const mine = await jget(`/api/ratings/my/?target_id=${TARGET_ID}&user_id=${USER_ID}`);
+  document.getElementById("myRate").textContent =
+    mine.ok ? (mine.data.rating_value ?? "—") : (mine.error || "Error");
+}
+
+async function submitRating() {
+  const rating_value = parseInt(document.getElementById("ratingValue").value, 10);
+  const res = await jpost(`/api/ratings/`, { user_id: USER_ID, username: USERNAME, target_id: TARGET_ID, rating_value });
+  if (!res.ok) toast(res.error || "Failed to submit rating", true);
+  await loadRates();
+}
+
+/* ------------------ Comments ------------------ */
+function canEdit(c) {
+  return c && c.user_id && String(c.user_id) === String(USER_ID);
+}
+
+function editBoxHtml(id_comment) {
+  return `
+    <div id="editbox-${id_comment}" style="margin-top:10px; display:none;">
+      <textarea rows="2" id="edittext-${id_comment}"></textarea>
+      <div style="margin-top:6px; display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="primary" onclick="saveEdit('${id_comment}')">Save</button>
+        <button onclick="closeEdit('${id_comment}')">Cancel</button>
+      </div>
+    </div>
+  `;
+}
+
+async function loadComments() {
+  const res = await jget(`/api/comments/?target_id=${TARGET_ID}&status=all`);
+  const box = document.getElementById("commentsBox");
+  if (!res.ok) { box.textContent = res.error || "Failed to load comments"; return; }
+  const items = res.data || [];
+  if (!items.length) { box.innerHTML = "<div class='muted'>No comments yet.</div>"; return; }
+
+  box.innerHTML = items.map(c => `
+    <div class="card" style="margin:12px 0;">
+      <div class="muted">
+        <strong>${escapeHtml(c.user_name)}</strong>
+        • ${c.created_at ? new Date(c.created_at).toLocaleString() : "—"}
+        • status: <span class="pill">${escapeHtml(c.status)}</span>
+        • reports: ${c.report_count}
+      </div>
+
+      <div style="margin-top:6px;" id="commentbody-${c.id_comment}">${escapeHtml(c.body)}</div>
+
+      <div style="margin-top:10px;">
+        <button onclick="toggleReplies('${c.id_comment}')">View replies</button>
+        <button onclick="openReply('${c.id_comment}')">Reply</button>
+        ${canEdit(c) ? `<button onclick="openEdit('${c.id_comment}')">Edit</button>` : ``}
+        <button class="danger" onclick="reportComment('${c.id_comment}')">Report</button>
+      </div>
+
+      ${canEdit(c) ? editBoxHtml(c.id_comment) : ``}
+
+      <div id="replies-${c.id_comment}" style="margin-top:10px; display:none;"></div>
+
+      <div id="replybox-${c.id_comment}" style="margin-top:10px; display:none;">
+        <textarea rows="2" id="replytext-${c.id_comment}" placeholder="Write a reply..."></textarea>
+        <button class="primary" style="margin-top:6px;" onclick="postComment('${c.id_comment}')">Post reply</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+async function toggleReplies(parentId) {
+  const box = document.getElementById(`replies-${parentId}`);
+  if (box.style.display === "none") {
+    box.style.display = "block";
+    box.innerHTML = "<div class='muted'>Loading...</div>";
+
+    const res = await jget(`/api/comments/?target_id=${TARGET_ID}&status=all&parent_comment_id=${parentId}`);
+    if (!res.ok) { box.textContent = res.error || "Failed to load replies"; return; }
+    const replies = res.data || [];
+
+    box.innerHTML = replies.length ? replies.map(r => `
+      <div class="card" style="margin:8px 0; background:#fbfbff;">
+        <div class="muted">
+          <strong>${escapeHtml(r.user_name)}</strong>
+          • ${r.created_at ? new Date(r.created_at).toLocaleString() : "—"}
+          • status: <span class="pill">${escapeHtml(r.status)}</span>
+          • reports: ${r.report_count}
+        </div>
+
+        <div style="margin-top:6px;" id="commentbody-${r.id_comment}">${escapeHtml(r.body)}</div>
+
+        <div style="margin-top:10px;">
+          ${canEdit(r) ? `<button onclick="openEdit('${r.id_comment}')">Edit</button>` : ``}
+          <button class="danger" onclick="reportComment('${r.id_comment}')">Report</button>
+        </div>
+
+        ${canEdit(r) ? editBoxHtml(r.id_comment) : ``}
+      </div>
+    `).join("") : "<div class='muted'>No replies.</div>";
+  } else {
+    box.style.display = "none";
+  }
+}
+
+function openReply(parentId) {
+  const box = document.getElementById(`replybox-${parentId}`);
+  box.style.display = box.style.display === "none" ? "block" : "none";
+}
+
+async function postComment(parentId) {
+  const text = parentId
+    ? document.getElementById(`replytext-${parentId}`).value
+    : document.getElementById("newCommentBody").value;
+
+  const body = (text || "").trim();
+  if (!body) { toast("Comment body cannot be empty", true); return; }
+
+  const res = await jpost(`/api/comments/`, { user_id: USER_ID, username: USERNAME, target_id: TARGET_ID, parent_comment_id: parentId, body });
+  if (!res.ok) { toast(res.error || "Failed to post comment", true); return; }
+
+  if (parentId) document.getElementById(`replytext-${parentId}`).value = "";
+  else document.getElementById("newCommentBody").value = "";
+
+  await loadComments();
+  toast(parentId ? "Reply posted ✅" : "Comment saved ✅ (replaced if existed)");
+}
+
+function openEdit(commentId) {
+  const box = document.getElementById(`editbox-${commentId}`);
+  const ta = document.getElementById(`edittext-${commentId}`);
+  const current = document.getElementById(`commentbody-${commentId}`)?.textContent || "";
+  ta.value = current;
+  box.style.display = "block";
+}
+
+function closeEdit(commentId) {
+  const box = document.getElementById(`editbox-${commentId}`);
+  if (box) box.style.display = "none";
+}
+
+async function saveEdit(commentId) {
+  const ta = document.getElementById(`edittext-${commentId}`);
+  const newBody = (ta?.value || "").trim();
+  if (!newBody) { toast("Comment body cannot be empty", true); return; }
+
+  const res = await jpatch(`/api/comments/`, { user_id: USER_ID, username: USERNAME, comment_id: commentId, body: newBody });
+  if (!res.ok) { toast(res.error || "Edit failed", true); return; }
+
+  toast("Comment updated ✅");
+  await loadComments();
+}
+
+async function reportComment(commentId) {
+  const reason = prompt("Reason (e.g., spam, abuse, etc.)", "spam");
+  if (reason === null) return;
+  const details = prompt("Details (optional)", "");
+
+  const res = await jpost(`/api/reports/`, {
+    reporter_user_id: USER_ID,
+    username: USERNAME,
+    reason,
+    details,
+    media_or_comment: 1,
+    id_media_or_comment: commentId
+  });
+
+  if (!res.ok) toast(res.error || "Report failed", true);
+  else toast("Reported. Thank you!");
+}
+
+/* ------------------ Media ------------------ */
+function canDeleteMedia(m) {
+  return m && m.user_id && String(m.user_id) === String(USER_ID);
+}
+
+async function reportMedia(mediaId) {
+  const reason = prompt("Reason (e.g., spam, abuse, etc.)", "spam");
+  if (reason === null) return;
+  const details = prompt("Details (optional)", "");
+
+  const res = await jpost(`/api/reports/`, {
+    reporter_user_id: USER_ID,
+    username: USERNAME,
+    reason,
+    details,
+    media_or_comment: 0,
+    id_media_or_comment: mediaId
+  });
+
+  if (!res.ok) toast(res.error || "Report failed", true);
+  else toast("Reported. Thank you!");
+}
+
+async function deleteMedia(mediaId) {
+  if (!confirm("Delete this media?")) return;
+
+  // ✅ backend expects POST (not DELETE)
+  const res = await jpost(`/api/media/${encodeURIComponent(mediaId)}/delete/`, {
+    user_id: USER_ID,
+    username: USERNAME
+  });
+
+  if (!res.ok) { toast(res.error || "Delete failed", true); return; }
+  toast("Deleted ✅");
+  await loadMedia();
+}
+
+async function loadMedia() {
+  const res = await jget(`/api/media/?target_id=${TARGET_ID}&status=approved`);
+  const box = document.getElementById("mediaGallery");
+  if (!res.ok) { box.textContent = res.error || "Failed to load media"; return; }
+  const items = res.data || [];
+  if (!items.length) { box.innerHTML = "<div class='muted'>No approved media yet.</div>"; return; }
+
+  box.innerHTML = items.map(m => `
+    <div class="thumb">
+      ${m.media_type === "video"
+        ? `<video controls src="${m.public_url}"></video>`
+        : `<img alt="media" src="${m.public_url}"/>`
+      }
+      <div class="muted" style="padding:8px;">
+        by <strong>${escapeHtml(m.user_name || "")}</strong>
+        <div class="muted">reports: ${m.report_count}</div>
+
+        <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="danger" onclick="reportMedia('${m.id_media}')">Report</button>
+          ${canDeleteMedia(m) ? `<button class="secondary" onclick="deleteMedia('${m.id_media}')">Delete</button>` : ``}
+        </div>
+      </div>
+    </div>
+  `).join("");
+}
+
+async function uploadMedia() {
+  const form = document.getElementById("mediaForm");
+  const fd = new FormData(form);
+
+  fd.append("user_id", USER_ID);
+  fd.append("username", USERNAME);
+  fd.append("target_id", TARGET_ID);
+
+  const csrftoken = getCookie("csrftoken");
+  const res = await fetch(`/api/media/`, {
+    method:"POST",
+    headers: { "X-CSRFToken": csrftoken || "" },
+    body: fd
+  });
+
+  const data = await safeJson(res);
+  if (!data.ok) { toast(data.error || "Upload failed", true); return; }
+
+  toast(`Uploaded ✅ (status: ${data.data.status}). If pending, it will appear after moderation.`);
+  form.reset();
+
+  await loadMedia();
+
+  if (data.data.public_url) {
+    const box = document.getElementById("mediaUploadPreview");
+    box.style.display = "block";
+    box.innerHTML = `
+      <div class="muted">Latest upload preview:</div>
+      ${data.data.media_type === "video"
+        ? `<video controls src="${data.data.public_url}" style="width:100%; border-radius:12px; margin-top:8px;"></video>`
+        : `<img src="${data.data.public_url}" style="width:100%; border-radius:12px; margin-top:8px;" />`
+      }
+      <div class="muted">id: <code>${data.data.id_media}</code></div>
+    `;
+  }
+}
+
+/* init */
+loadRates();
+loadComments();
+loadMedia();
+</script>
+{% endblock %}

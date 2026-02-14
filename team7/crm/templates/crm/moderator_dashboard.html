@@ -1,0 +1,219 @@
+{% extends "crm/base.html" %}
+{% block title %}Moderator Dashboard{% endblock %}
+{% block content %}
+<div id="toast" class="card" style="display:none; position:sticky; top:12px; z-index:5; border:1px solid #e5e7eb; background:#ecfeff;"></div>
+
+<div class="card">
+  <h2>Moderator Dashboard</h2>
+  <p class="muted" style="margin:6px 0 0 0;">
+    Moderator: <strong>{{ moderator_username|default:"(unknown)" }}</strong>
+    • id: <code id="modId">{{ moderator_id|default:moderator_user_id|default:"" }}</code>
+  </p>
+
+  <div class="row">
+    <div class="card" style="flex:1; min-width: 280px;">
+      <h3>Pending Media</h3>
+      <div class="muted">Loads <code>/api/media/?status=pending</code></div>
+      <div id="pendingMedia" style="margin-top:10px;"></div>
+    </div>
+
+    <div class="card" style="flex:1; min-width: 280px;">
+      <h3>Pending Reports</h3>
+      <div class="muted">Loads <code>/api/reports/pending/</code></div>
+      <div id="pendingReports" style="margin-top:10px;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const MODERATOR_USER_ID =
+  new URLSearchParams(location.search).get("moderator_user_id") ||
+  document.getElementById("modId").textContent.trim();
+
+function escapeHtml(str) {
+  return (str || "")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+
+function getCookie(name) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(";").shift();
+  return null;
+}
+
+async function safeJson(res) {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    return { ok: false, error: `Non-JSON response (HTTP ${res.status}). Likely CSRF/auth error.` };
+  }
+}
+
+async function jget(url) {
+  const res = await fetch(url, { credentials: "same-origin" });
+  return safeJson(res);
+}
+
+async function jpost(url, body) {
+  const csrftoken = getCookie("csrftoken");
+  const res = await fetch(url, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type":"application/json",
+      "X-CSRFToken": csrftoken || ""
+    },
+    body: JSON.stringify(body)
+  });
+  return safeJson(res);
+}
+
+function toast(msg, isErr=false) {
+  const t = document.getElementById("toast");
+  t.style.display = "block";
+  t.style.background = isErr ? "#fee2e2" : "#ecfeff";
+  t.innerHTML = `<div style="display:flex; justify-content:space-between; gap:10px; align-items:center;">
+    <div>${escapeHtml(msg)}</div>
+    <button onclick="document.getElementById('toast').style.display='none'">Close</button>
+  </div>`;
+  setTimeout(() => { if (t.style.display !== "none") t.style.display = "none"; }, 3500);
+}
+
+/* ---------- Media moderation ---------- */
+async function approveMedia(mediaId) {
+  const res = await jpost(`/api/media/${mediaId}/status/`, {
+    moderator_user_id: MODERATOR_USER_ID,
+    status: "approved"
+  });
+  if (!res.ok) throw new Error(res.error || "Approve media failed");
+}
+
+async function rejectMedia(mediaId) {
+  const res = await jpost(`/api/media/${mediaId}/status/`, {
+    moderator_user_id: MODERATOR_USER_ID,
+    status: "rejected"
+  });
+  if (!res.ok) throw new Error(res.error || "Reject media failed");
+}
+
+async function loadPendingMedia() {
+  const box = document.getElementById("pendingMedia");
+  box.innerHTML = "<div class='muted'>Loading...</div>";
+
+  if (!MODERATOR_USER_ID) {
+    box.innerHTML = "<div class='muted'>Missing moderator_user_id</div>";
+    return;
+  }
+
+  // ✅ FIX: include moderator_user_id in the GET request
+  const res = await jget(`/api/media/?status=pending&moderator_user_id=${encodeURIComponent(MODERATOR_USER_ID)}`);
+  if (!res.ok) { box.innerHTML = `<div class='muted'>${escapeHtml(res.error || "Failed")}</div>`; return; }
+
+  const items = res.data || [];
+  if (!items.length) { box.innerHTML = "<div class='muted'>No pending media 🎉</div>"; return; }
+
+  box.innerHTML = items.map(m => `
+    <div class="card" style="margin:10px 0; background:#fbfbff;">
+      <div class="muted">
+        <strong>${escapeHtml(m.user_name || "")}</strong>
+        • user id: <code>${escapeHtml(String(m.user_id || ""))}</code>
+        • target: <code>${escapeHtml(m.target_id || "")}</code>
+        • type: <span class="pill">${escapeHtml(m.media_type || "")}</span>
+        • status: <span class="pill">${escapeHtml(m.status || "")}</span>
+      </div>
+
+      <div style="margin-top:8px;">
+        ${m.media_type === "video"
+          ? `<video controls src="${m.public_url}" style="width:100%; border-radius:12px;"></video>`
+          : `<img alt="media" src="${m.public_url}" style="width:100%; border-radius:12px;" />`
+        }
+      </div>
+
+      <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="primary" onclick="modAction(async()=>approveMedia('${m.id_media}'))">Approve</button>
+        <button class="danger" onclick="modAction(async()=>rejectMedia('${m.id_media}'))">Reject</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+/* ---------- Reports moderation ---------- */
+async function setReportStatus(reportId, status) {
+  const res = await jpost(`/api/reports/${reportId}/status/`, {
+    moderator_user_id: MODERATOR_USER_ID,
+    status: status
+  });
+  if (!res.ok) throw new Error(res.error || "Update report status failed");
+}
+
+async function loadPendingReports() {
+  const box = document.getElementById("pendingReports");
+  box.innerHTML = "<div class='muted'>Loading...</div>";
+
+  if (!MODERATOR_USER_ID) {
+    box.innerHTML = "<div class='muted'>Missing moderator_user_id</div>";
+    return;
+  }
+
+  const res = await jget(`/api/reports/pending/?moderator_user_id=${encodeURIComponent(MODERATOR_USER_ID)}`);
+  if (!res.ok) { box.innerHTML = `<div class='muted'>${escapeHtml(res.error || "Failed")}</div>`; return; }
+
+  const items = res.data || [];
+  if (!items.length) { box.innerHTML = "<div class='muted'>No pending reports 🎉</div>"; return; }
+
+  box.innerHTML = items.map(r => `
+    <div class="card" style="margin:10px 0; background:#fff7ed;">
+      <div class="muted">
+        Reporter: <strong>${escapeHtml(r.reporter_username || "")}</strong>
+        • reason: <span class="pill">${escapeHtml(r.reason || "")}</span>
+        • ${r.created_at ? new Date(r.created_at).toLocaleString() : "—"}
+      </div>
+
+      <div style="margin-top:6px;">${escapeHtml(r.details || "")}</div>
+
+      <div class="muted" style="margin-top:6px;">
+        Reported user: <strong>${escapeHtml(r.reported_username || "(unknown)")}</strong>
+        • id: <code>${escapeHtml(String(r.reported_user_id || ""))}</code>
+      </div>
+
+      <div class="muted" style="margin-top:6px;">
+        comment: <code>${escapeHtml(r.id_comment || "")}</code>
+        • media: <code>${escapeHtml(r.id_media || "")}</code>
+      </div>
+
+      <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="primary" onclick="modAction(async()=>setReportStatus('${r.id_report}', 'valid'))">
+          Mark valid (reject content)
+        </button>
+        <button class="danger" onclick="modAction(async()=>setReportStatus('${r.id_report}', 'invalid'))">
+          Mark invalid (dismiss)
+        </button>
+      </div>
+    </div>
+  `).join("");
+}
+
+/* ---------- Common action wrapper ---------- */
+async function modAction(fn) {
+  try {
+    if (!MODERATOR_USER_ID) { toast("Missing moderator_user_id in URL", true); return; }
+    await fn();
+    toast("Done ✅");
+    await Promise.all([loadPendingMedia(), loadPendingReports()]);
+  } catch (e) {
+    toast(String(e.message || e), true);
+  }
+}
+
+(async function init(){
+  if (!MODERATOR_USER_ID) toast("Tip: add ?moderator_user_id=... to the URL", true);
+  await Promise.all([loadPendingMedia(), loadPendingReports()]);
+})();
+</script>
+{% endblock %}
